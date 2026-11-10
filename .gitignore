@@ -16,3 +16,6 @@ google-client.json
 # Local environment
 .env
 .env.*
+
+# TypeScript incremental build cache
+*.tsbuildinfo

@@ -24,7 +24,7 @@ There is deliberately **no** action type that runs shell commands, scripts or ar
 ### Behaviour
 
 - **CC:** buttons appear in a row above the prompt box, after the built-in Continue, Regenerate, Notes and Prompts buttons. The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/btn <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
-- **CX:** buttons of type `submit` and `fill` are generated as Codex slash commands by `ccb sync codex` (format confirmed in M0). Other types map to the matching skill.
+- **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<id>` and regenerated automatically after sync. Other types map to the matching built-in skill.
 - **CD:** not available. Buttons of type `submit` are exposed as MCP prompts.
 
 ### Acceptance criteria
@@ -85,7 +85,7 @@ Sends a standard continuation message, by default:
 
 > Continue exactly where you stopped. Do not repeat what you already wrote. If you were in a code block, reopen it with the same language and continue the code.
 
-- **CC:** button + `/continue`. When the last assistant message ended because it hit the output limit, the button is highlighted (if the conversation data exposes the stop reason; checked in M3).
+- **CC:** button + `/continue`. When the last reply stopped because it hit the output limit (`turn.step` reports `stopReason` `max_tokens`), the button is highlighted.
 - **CX:** `continue` skill.
 - **CD:** MCP prompt "Continue".
 - The message is configurable (`continue.message`).
@@ -99,16 +99,20 @@ Sends a standard continuation message, by default:
 
 ## 4. Notes
 
-A scratchpad that stays beside the chat.
+A scratchpad that stays beside the chat. Notes are saved locally and synced through Google Drive, so you can open and edit them from any PC. Edits made offline sync when the connection returns.
 
-- **Storage:** one Markdown file per note in `~/.claude-codex-buttons/notes/`. Plain files, so any editor or tool can read them. Notes are **not** synced to Drive (default decision; see [decisions.md](decisions.md)).
-- **CC:** a side pane with a note picker, a multi-line text box, **New**, **Rename**, **Delete**, **Copy**, **Insert into prompt**. Saves automatically 2 seconds after typing stops and when the pane closes. `/notes [text]` opens the pane, or appends the text to the current note.
-- **CX:** `notes` skill that lists, reads and appends to the same files through `ccb-mcp`.
-- **CD:** not available.
+- **Storage:** each note is a record in the library (see [data-model.md](data-model.md#note)), synced through Drive like the Prompt Bank, and mirrored to a local Markdown file in `~/.claude-codex-buttons/notes/` so any editor or tool can read it. An edit made to that file in another editor is picked up and synced too.
+- **Sync:** a change is uploaded about 2 seconds after typing stops; other PCs pull it within 60 seconds, or immediately when their Notes pane opens. Offline edits wait in the outbox and upload automatically when the connection returns. If the same note was edited on two PCs before either synced, both texts are kept: the newer stays as the note and the other appears as a conflict copy to merge (see [google-drive-sync.md](google-drive-sync.md#conflict-copies)).
+- **CC:** a side pane with a note picker (pinned first), a multi-line text box, **New**, **Rename**, **Pin**, **Delete**, **Copy**, **Insert into prompt**, and a sync indicator per note (synced, pending, conflict). Saves automatically 2 seconds after typing stops and when the pane closes. `/notes [text]` opens the pane, or appends the text to the current note.
+- **CX:** `notes` skill that lists, reads, writes and appends to notes through `ccb-mcp`, so Codex sees the same synced notes.
+- **CD:** not available as a pane; Claude in the Chat tab can read and append notes through the MCP tools.
 
 ### Acceptance criteria
 
-- Text typed in the pane is on disk within 3 seconds.
+- Text typed in the pane is saved locally within 3 seconds.
+- A note edited on one PC appears on another signed-in PC within 60 seconds while both are online.
+- A note edited while offline is uploaded automatically after the connection returns, with no user action.
+- Two PCs editing the same note offline both keep their text after syncing (one as a conflict copy); nothing is lost.
 - Closing and reopening the pane, or restarting the session, shows the same text.
 - A note edited in a text editor while the pane is open is reloaded, unless the pane has unsaved changes, in which case the user is asked which to keep.
 
@@ -124,7 +128,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CC pane
 
-- **Home:** counts (prompts, categories, favourites, variables), sync status, **Sync now**.
+- **Home:** counts (prompts, categories, favourites, variables, notes), sync status (sync is automatic; **Sync now** only forces an immediate pull), and **Connect Google Drive** until sync is set up.
 - **Search box:** matches title, tags and body; favourites and recently used rank first.
 - **Category filter** and **favourites only** toggle.
 - **Each prompt:** **Insert** (fill the prompt box), **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (with confirmation and undo).
@@ -135,7 +139,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CX
 
-`prompt-bank` skill using MCP tools `bank.search`, `bank.get`, `bank.save`, `bank.delete`, `bank.list_categories`. `ccb sync codex` also writes each prompt as a slash command.
+`prompt-bank` skill using MCP tools `bank.search`, `bank.get`, `bank.save`, `bank.delete`, `bank.list_categories`. Prompts can also be generated as `$ccb-<slug>` skills, kept up to date automatically.
 
 ### CD
 

@@ -37,7 +37,7 @@ npx ccb config set google.clientFile /path/to/client_secret.json
 npx ccb login
 ```
 
-`ccb` copies the client ID and secret into its own config (`~/.claude-codex-buttons/google-client.json`, readable only by your user). For a desktop app Google does not treat the client secret as confidential, but the file is still kept out of the repository; `.gitignore` excludes `client_secret*.json`.
+`ccb login` requests offline access (so Google returns a refresh token), receives the sign-in result on a local `http://localhost:<port>` address, and offers to install the background sync service. `ccb` copies the client ID and secret into its own config (`~/.claude-codex-buttons/google-client.json`, readable only by your user). For a desktop app Google does not treat the client secret as confidential, but the file is still kept out of the repository; `.gitignore` excludes `client_secret*.json`.
 
 ## Publishing status
 
@@ -59,6 +59,6 @@ For personal use, either accept the weekly sign-in or publish the app. The 7-day
 | Problem | Likely cause | Fix |
 |---|---|---|
 | "Access blocked: app has not completed verification" | Your account is not a test user | Add it under test users, or publish the app |
-| Sign-in worked, then fails a week later | App is in Testing | Run `ccb login` again, or publish |
+| Sign-in worked, then fails a week later | App is in Testing | Press **Reconnect Google Drive** in a pane (or run `ccb login`), or publish the app. Changes made meanwhile upload automatically after reconnecting |
 | "redirect_uri_mismatch" | Client type is not Desktop app | Create a Desktop app client |
 | `ccb doctor` reports "Drive API not enabled" | Step 2 skipped | Enable the Google Drive API |

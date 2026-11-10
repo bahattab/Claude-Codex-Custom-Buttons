@@ -8,18 +8,20 @@ Thanks for helping. The project is in its design phase; implementation follows t
 - If your change depends on a platform behaviour, check [docs/platform-facts.md](docs/platform-facts.md). Don't build on an **Unconfirmed** fact; confirm it first and update the ledger with the source.
 - Open an issue for anything larger than a small fix so the approach can be agreed first.
 
-## Development setup *(planned, from M0)*
+## Development setup
 
 ```bash
 git clone https://github.com/bahattab/Claude-Codex-Custom-Buttons
 cd Claude-Codex-Custom-Buttons
-npm install
-npm test                 # all packages
-npm run typecheck
+npm install             # Node.js 22.12 or newer
+npm run check           # everything below, in order
 npm run lint
+npm run typecheck
+npm test
+npm run check:links     # documentation links and anchors
 ```
 
-Claude mod checks:
+Claude mod checks *(from M3)*:
 
 ```bash
 claude plugin validate plugins/claude
