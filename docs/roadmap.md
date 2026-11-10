@@ -8,7 +8,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M1 | `core`: schema, validation, variables, search, Regenerate instructions, merge engine | **Done** (2026-11-10) | M0 |
 | M2 | `ccb-mcp` server with local storage (prompts, buttons, variables, notes), plus `ccb` basics | **Done** (2026-11-10) | M1 |
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | **Done** (2026-11-10) | M2 |
-| M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Planned | M3 |
+| M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
 | M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Planned | M2 |
 | M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Planned | M2, M5 |
 | M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Planned | M2, M5 |
@@ -81,11 +81,26 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 
 ## M4: Claude mod, part 2
 
-- Prompt Bank pane: home, search, filter, list actions, edit form, Variables, Buttons, Settings tabs, save draft, unsaved-edit protection.
-- Notes pane: picker, multi-line editor, autosave, external-change reload.
-- `/pb`, `/notes`.
+- Prompt Bank pane: counts, search, filter, list actions, edit form, Variables and Buttons tabs, save draft, unsaved-edit protection. *(Settings tab moved to M8; sync status, **Sync now** and **Connect Google Drive** moved to M5.)*
+- Notes pane: picker, multi-line editor, autosave, external-change reload. *(Per-note sync indicator moved to M5.)*
+- Built-in **Prompts** and **Notes** buttons (moved here from M3).
+- `/pb`, `/pb <search>`, `/pb save <title>`, `/notes`, `/notes <text>`. *(`/pb sync` moved to M5.)*
 
 **Done when:** all M4 acceptance criteria in [features.md](features.md) have passing tests; manual check on terminal and desktop.
+
+**Result (2026-11-10):** done, except the hands-on check on your computer.
+- 35 new plugin tests (59 in all) run on terminal and desktop against an in-memory stand-in for `ccb-mcp`. It answers with the server's shapes and refuses what the server's validation refuses. Breaking six behaviours one at a time made a test fail each time, and so did undoing each review fix.
+- The independent review found 5 major and 5 minor issues, all fixed:
+  - autosave could overwrite a change made elsewhere before you chose Keep mine or Load theirs;
+  - a failed save followed by switching notes lost the text;
+  - `/notes <text>` or reopening Notes could discard a new, unsaved note;
+  - new buttons could silently replace an existing one with the same ID (any non-Latin label gave `btn_untitled`);
+  - Save draft could replace an open edit form.
+  Saves now run one at a time, and a late save reply can't land on another note.
+- The mod is now split into modules: `register.tsx` (button row and commands), `bank.tsx`, `notes.tsx`, `client.ts` (the row's data) and `mcp.ts` (server calls).
+- Engine rules found by validation (D26):
+  - a `$.state` atom must be declared in the file that reads or updates it;
+  - `$` can't be handed to a stored callback, so modules call each other's functions directly.
 
 ## M5: Google Drive sync
 
@@ -94,6 +109,7 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 - Drive-folder fallback mode using the same per-device layout.
 - Sync of prompts, categories, buttons, variables, notes and shared settings, with deterministic conflict copies and 180-day tombstones.
 - `sync_now`, `sync_status`, `ccb sync`, `ccb status`; doctor checks for Drive.
+- In the panes (moved from M4): sync status and **Sync now** in the Prompt Bank, a sync indicator per note, `/pb sync`, and choosing which text to keep for a conflict copy.
 
 **Done when:** fake-Drive integration tests pass (three devices, offline note edits, simultaneous pushes, a device returning after a long absence); a manual two-computer test shows a saved prompt and an edited note on the second computer within 60 seconds with no user action, and an offline note edit arrives after reconnecting.
 
@@ -115,6 +131,7 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 
 - Security review against [security-and-privacy.md](security-and-privacy.md).
 - Documentation pass: remove every **planned** marker for shipped behaviour.
+- Prompt Bank **Settings** tab (moved from M4). Until then, settings are changed with `ccb config`.
 - `marketplace.json`, release workflow, CHANGELOG entry, tagged release with `.mcpb`.
 
 **Done when:** a clean machine can follow the README from scratch on each platform.

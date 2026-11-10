@@ -103,7 +103,8 @@ A scratchpad that stays beside the chat. Notes are saved locally and synced thro
 
 - **Storage:** each note is a record in the library (see [data-model.md](data-model.md#note)), synced through Drive like the Prompt Bank, and mirrored to a local Markdown file in `~/.claude-codex-buttons/notes/` so any editor or tool can read it. An edit made to that file in another editor is picked up and synced too.
 - **Sync:** a change is uploaded about 2 seconds after typing stops; other PCs pull it within 60 seconds, or immediately when their Notes pane opens. Offline edits wait in the outbox and upload automatically when the connection returns. If the same note was edited on two PCs before either synced, both texts are kept: the newer stays as the note and the other appears as a conflict copy to merge (see [google-drive-sync.md](google-drive-sync.md#conflict-copies)).
-- **CC:** a side pane with a note picker (pinned first), a multi-line text box, **New**, **Rename**, **Pin**, **Delete**, **Copy**, **Insert into prompt**, and a sync indicator per note (synced, pending, conflict). Saves automatically 2 seconds after typing stops and when the pane closes. `/notes [text]` opens the pane, or appends the text to the current note.
+- **CC:** a side pane with a note picker (pinned first), a multi-line text box, **New**, **Rename**, **Pin**, **Delete** (asks first), **Copy**, **Insert into prompt**, and *(M5)* a sync indicator per note (synced, pending, conflict). Saves automatically `notes.autosaveMs` (2 seconds) after typing stops, also if the pane was closed meanwhile; Enter or **Save** saves at once, and switching notes saves the one being left. `/notes` opens the pane; `/notes <text>` adds the text to the open note, or starts a new note.
+- **Unsaved text is never replaced.** If the open note changed elsewhere (another PC, or its Markdown file) while it has unsaved text, the pane keeps your text and offers **Keep mine** (save yours over it) or **Load theirs**. Autosave, Save, Rename, Pin and `/notes <text>` wait for that choice. If a save fails, the pane stays on the note instead of switching. If the note was deleted elsewhere, your unsaved text is kept and saves as a new note.
 - **CX:** `notes` skill that lists, reads, writes and appends to notes through `ccb-mcp`, so Codex sees the same synced notes.
 - **CD:** not available as a pane; Claude in the Chat tab can read and append notes through the MCP tools.
 
@@ -128,14 +129,14 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CC pane
 
-- **Home:** counts (prompts, categories, favourites, variables, notes), sync status (sync is automatic; **Sync now** only forces an immediate pull), and **Connect Google Drive** until sync is set up.
-- **Search box:** matches title, tags and body; favourites and recently used rank first.
+- **Header:** counts (prompts, favourites, notes, conflict copies). *(M5)* Sync status (sync is automatic; **Sync now** only forces an immediate pull), and **Connect Google Drive** until sync is set up.
+- **Search box:** matches title, tags and body while you type (after a 150 ms pause); favourites and recently used rank first.
 - **Category filter** and **favourites only** toggle.
 - **Each prompt:** **Insert** (fill the prompt box), **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (with confirmation and undo).
 - **Save draft:** saves the current prompt-box text as a new prompt.
-- **Tabs:** Prompts · Variables · Buttons · Settings.
-- **Unsaved edits** are kept as a draft if the pane closes, and the user is asked before discarding them.
-- `/pb <search>` opens the pane with the search filled in; `/pb sync` syncs now; `/pb save <title>` saves the current draft.
+- **Tabs:** Prompts · Variables (set, add, delete) · Buttons (create any action type, delete) · *(M8)* Settings.
+- **Unsaved edits** are kept if the pane closes and reopen with it. Only **Cancel** discards them; a failed save keeps the form and its text.
+- `/pb` opens the pane; `/pb <search>` opens it with the search filled in; `/pb save <title>` saves the current draft directly; *(M5)* `/pb sync` syncs now.
 
 ### CX
 

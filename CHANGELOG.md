@@ -6,12 +6,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M4, the Claude Code plugin's panes:
+  - **Prompt Bank** pane: search while typing, category and favourites filters, Insert, Send, Copy, Edit, Duplicate, Delete with Undo, New and Save draft; a Variables tab and a Buttons tab for making and deleting custom buttons;
+  - **Notes** pane: pinned-first picker, editor with autosave, Rename, Pin, Copy, Insert into prompt, Delete; Keep mine / Load theirs when a note changed elsewhere while you had unsaved text;
+  - built-in **Prompts** and **Notes** buttons; `/pb [search]`, `/pb save <title>`, `/notes [text]`; `insert-prompt` and `open-pane` buttons now work.
 - Milestone M3, the Claude Code plugin `prompt-buttons`:
   - a button row above the prompt box with Continue (highlighted when a reply was cut off), Regenerate (with Undo and a warning when the rewrite dropped code, paths or numbers) and your custom buttons, with a More list beyond `buttons.maxVisible`;
   - `/cont`, `/regen [instruction|undo]` and `/btn <id>`.
 - `ccb-mcp` `client_state` tool.
 - `ccb-mcp` bundled into the plugin as one file (`npm run build:plugin`, drift check `npm run check:plugin`).
 - Marketplace `ccb` at the repository root.
+
+### Fixed (from the independent M4 review)
+
+- Notes: autosave no longer overwrites a change made elsewhere before you choose Keep mine or Load theirs; a failed save no longer loses the text when you switch notes; `/notes <text>` and reopening the pane no longer discard a new, unsaved note; saves run one at a time; Rename and the delete confirmation survive a completed turn.
+- Prompt Bank: a new button never replaces an existing one with the same ID; Save draft no longer replaces an open edit form; the variable notice shows the saved name; search buttons can open on a category.
 
 ### Fixed (from the independent M3 review)
 

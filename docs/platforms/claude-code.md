@@ -14,11 +14,11 @@ This one-step form needs Claude Code 2.1.275 or later. With an older version, ad
 
 Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-mcp` server.
 
-## What it adds (milestone M3)
+## What it adds (milestones M3 and M4)
 
 | Element | What it does |
 |---|---|
-| **Button row** above the prompt box | **Continue**, **Regenerate**, then your custom buttons in order; buttons beyond `buttons.maxVisible` go into a **More** list. Hidden while Claude Code shows a survey there |
+| **Button row** above the prompt box | **Continue**, **Regenerate**, **Prompts**, **Notes**, then your custom buttons in order; buttons beyond `buttons.maxVisible` go into a **More** list. Hidden while Claude Code shows a survey there |
 | **Continue** | Sends the Continue message (yours if set, else the built-in one). Shows **Continue (cut off)**, highlighted, when the last reply stopped at the output limit |
 | **Regenerate** | Rewrites your selected text, else your draft, else your last message, using your session's model. The result goes in the prompt box for review, or is sent if `regenerate.autoSubmit` is on. **Undo regenerate** appears for 30 seconds. Warns if the rewrite dropped code, file paths, URLs or numbers |
 | **Custom buttons** | `submit`: send a saved prompt or text, with `{{variables}}` filled in. `fill`: put it in the prompt box (replace, append or insert). `refine`/`continue`: as above. Buttons whose prompt was deleted are dimmed and explain why when pressed. If a prompt has an unanswered `{{?ask}}` field, it's placed in the prompt box for you to complete instead of being sent |
@@ -26,8 +26,12 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 | `/regen [instruction]` | Regenerate, with an optional extra instruction such as `/regen make it shorter` |
 | `/regen undo` | Put back the text from before the last Regenerate |
 | `/btn <id>` | Run a custom button by its ID; `/btn` alone lists them |
+| **Prompt Bank** pane (**Prompts** button, `/pb`) | Search while typing, category filter, favourites only. Each prompt: **Insert**, **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (asks first, with **Undo delete**). **New** and **Save draft** open an edit form whose text survives closing the pane. **Variables** tab: set, add and delete `{{variables}}`. **Buttons** tab: make a button of any action type, or delete one; the row updates at once |
+| **Notes** pane (**Notes** button, `/notes`) | Note picker (pinned first), multi-line editor that saves on its own after `notes.autosaveMs`, **New**, **Rename**, **Pin**, **Copy**, **Insert into prompt**, **Delete** (asks first). If the note changed elsewhere while you have unsaved text, choose **Keep mine** or **Load theirs** |
+| `/pb <search>`, `/pb save <title>` | Open the Prompt Bank searching; save the prompt box's text as a prompt |
+| `/notes <text>` | Add the text to the open note, or start a new note |
 
-The **Notes** and **Prompts** buttons and their panes arrive in M4. Until then, `insert-prompt` and `open-pane` buttons explain that they're coming. The sync status line arrives with sync in M5.
+`insert-prompt` buttons open the Prompt Bank on their search or category; `open-pane` buttons open either pane. The sync status line, **Sync now** and per-note sync indicators arrive with sync in M5; the Settings tab in M8.
 
 ### How slash commands send their message
 
@@ -46,6 +50,8 @@ The plugin contains a **mod**: a TypeScript hooks module Claude Code loads, whic
 | Need | Mod API used |
 |---|---|
 | Button row above the prompt box | `ui.render` hook on `AbovePrompt`, drawing `Button` and `Select` |
+| Prompt Bank and Notes panes | `$.ui.open({ id, title, focus })`, then a `ui.render` hook on `Pane` for that `requestId`, drawing `Input` (one-line and multi-line), `Select`, `Button` and `Text` |
+| Copy | `$.ui.copy({ text, surface })` |
 | Slash commands | `$.command.register` in `session.start`, answered by `command.run` hooks (input `args`) |
 | Selected text, draft, last message | `$.ui.selection()`, `$.prompt.read()`, `$.session.messages()` |
 | Put text in the prompt box / send it | `$.prompt.fill({ text, mode })` / `$.prompt.submit({ text })` |
@@ -54,7 +60,7 @@ The plugin contains a **mod**: a TypeScript hooks module Claude Code loads, whic
 | Data: buttons, prompts, variables, settings | `$.mcp.connect("ccb")` (the server's key in `plugin.json`) returns the name `$.mcp.call` takes; then `$.mcp.call(name, tool, args)` |
 | Session state (buttons, highlight, Undo, busy) | `$.state` atoms declared in `types/index.d.ts` |
 | Messages | `$.ui.toast` |
-| Undo expiry, sending after a command | `$.clock.after` |
+| Undo expiry, sending after a command, note autosave, search pause | `$.clock.after` |
 
 ## Plugin files
 
@@ -62,11 +68,16 @@ The plugin contains a **mod**: a TypeScript hooks module Claude Code loads, whic
 plugins/claude/
 ├── .claude-plugin/plugin.json   name, version, description, types, MCP server "ccb"
 ├── hooks/hooks.json             { "modules": ["./register.tsx"] }
-├── hooks/register.tsx           the mod
+├── hooks/register.tsx           the mod's entry: button row, commands, turn hooks
+├── hooks/bank.tsx               Prompt Bank pane
+├── hooks/notes.tsx              Notes pane
+├── hooks/client.ts              the row's buttons, variables and settings
+├── hooks/mcp.ts                 calls to ccb-mcp
 ├── hooks/core/                  GENERATED: copy of packages/core (a mod can import only its own files)
 ├── server/ccb-mcp.mjs           GENERATED: ccb-mcp and its dependencies in one file, run with plain Node
 ├── types/index.d.ts             the $.state contract
-└── test/buttons.test.tsx        run with `claude plugin test plugins/claude`
+├── test/buttons.test.tsx        button row and commands
+└── test/panes.test.tsx          Prompt Bank and Notes panes, against an in-memory ccb-mcp
 ```
 
 The generated files are committed, because an installed plugin gets no `npm install`. `npm run build:plugin` regenerates them, and CI's `npm run check:plugin` fails if they're out of date. The repository root's `.claude-plugin/marketplace.json` (marketplace `ccb`) lists the plugin.
@@ -84,7 +95,7 @@ Claude Code starts it when the plugin is enabled. The mod asks `$.mcp.connect("c
 ```bash
 npm run build && npm run build:plugin     # compile packages, regenerate plugin files
 claude plugin validate plugins/claude     # manifest and hooks as the engine reads them
-claude plugin test plugins/claude         # 24 tests against the engine's test kit
+claude plugin test plugins/claude         # 59 tests against the engine's test kit
 claude plugin validate .                  # the marketplace
 claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 ```
@@ -100,4 +111,5 @@ Claude Code sessions in the cloud (claude.ai/code) have no OS credential store, 
 
 - The plugin only changes what Claude Code itself draws. It doesn't modify the regular Chat tab of Claude Desktop; see [claude-desktop.md](claude-desktop.md).
 - A mod can't import npm packages or files outside its plugin folder, so all shared logic lives in the dependency-free `core`, copied in at build time (decision D13).
-- The plugin's tests run on the engine's test kit, which stands in for Claude Code. A hands-on check in the Claude Desktop Code tab is still needed (roadmap M3).
+- Each `$.state` atom must be declared in the file that uses it, and `$` can't be passed to a stored callback (decision D26).
+- The plugin's tests run on the engine's test kit, which stands in for Claude Code. A hands-on check in the terminal and the Claude Desktop Code tab is still needed (roadmap M3 and M4).

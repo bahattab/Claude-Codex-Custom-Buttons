@@ -14,16 +14,17 @@ import {
   expand,
   missingFragments,
 } from "./core/index.js";
+import { openBank, registerBank, saveDraftAsPrompt } from "./bank.js";
+import { readClient, refreshClient } from "./client.js";
+import { builtIns as contextValues, callTool, lastUserMessage } from "./mcp.js";
+import { appendToNote, openNotes, refreshOpenNote, registerNotes } from "./notes.js";
 
 export const PLUGIN = "prompt-buttons";
-/** The plugin's MCP server, by its key in plugin.json. */
-export const SERVER_KEY = "ccb";
 const UNDO_MS = 30_000;
 /** A "busy" mark older than this is left over from a reload or a lost worker, and ignored. */
 const BUSY_STALE_MS = 120_000;
 const MAX_REWRITE_TOKENS = 4000;
 
-const client = atom({ plugin: "prompt-buttons", key: "client" } as const, null);
 const truncated = atom({ plugin: "prompt-buttons", key: "truncated" } as const, false);
 const undo = atom({ plugin: "prompt-buttons", key: "undo" } as const, null);
 const busy = atom({ plugin: "prompt-buttons", key: "busy" } as const, null);
@@ -71,61 +72,10 @@ const sendAfterCommand =
     $.clock.after(0, () => flushPending($));
   };
 
-/** The name $.mcp.call takes for the plugin's own server, connecting it if needed. */
-let serverName: string | null = null;
-async function server($: $): Promise<string> {
-  if (serverName) return serverName;
-  const connected = (await $.mcp.connect(SERVER_KEY)) as { isConnected?: boolean; server?: string; message?: string };
-  if (!connected.isConnected || !connected.server) throw new Error(connected.message ?? "ccb-mcp is not connected");
-  serverName = connected.server;
-  return serverName;
-}
-
-/** Calls a ccb-mcp tool and parses its JSON answer. Throws with the server's message on error. */
-async function callTool<T>($: $, tool: string, args: Record<string, unknown> = {}): Promise<T> {
-  const result = await $.mcp.call(await server($), tool, args);
-  const text = result.content
-    .map((block) => ("text" in block && typeof block.text === "string" ? block.text : ""))
-    .join("");
-  if (result.isError) throw new Error(text || `${tool} failed`);
-  return JSON.parse(text) as T;
-}
-
-/** Fetches buttons, variables and settings; keeps the last good copy if the server is unavailable. */
-async function refresh($: $): Promise<ClientState | null> {
-  try {
-    const state = await callTool<ClientState>($, "client_state");
-    await update($, client, () => state);
-    return state;
-  } catch {
-    return read($, client);
-  }
-}
-
-async function lastUserMessage($: $): Promise<string> {
-  const messages = await $.session.messages();
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m && m.role === "user" && m.text.trim() !== "") return m.text;
-  }
-  return "";
-}
-
-async function builtIns($: $): Promise<Record<string, string>> {
-  const values: Record<string, string> = { ...dateBuiltIns(new Date()) };
-  const selection = await $.ui.selection();
-  if (selection?.text) values["selection"] = selection.text;
-  const draft = (await $.prompt.read()).text;
-  if (draft) values["draft"] = draft;
-  const last = await lastUserMessage($);
-  if (last) values["last_prompt"] = last;
-  return values;
-}
-
 // --- actions --------------------------------------------------------------------------
 
 export async function continueAction($: $, send: Send = sendNow($)): Promise<void> {
-  const state = (await read($, client)) ?? (await refresh($));
+  const state = (await readClient($)) ?? (await refreshClient($));
   await update($, truncated, () => false);
   await send(state?.continueMessage ?? DEFAULT_CONTINUE_MESSAGE);
 }
@@ -153,7 +103,7 @@ export async function regenerateAction($: $, extra?: string, send: Send = sendNo
   regenerating = true;
   await update($, busy, () => ({ kind: "regenerate", since: Date.now() }));
   try {
-    const state = (await read($, client)) ?? (await refresh($));
+    const state = (await readClient($)) ?? (await refreshClient($));
     const { text: source, draft } = await regenerateSource($, state?.settings.regenerate.source ?? "auto");
     if (source.trim() === "") {
       $.ui.toast("Nothing to regenerate: select text or type a draft.");
@@ -208,7 +158,7 @@ interface Expanded {
 }
 
 export async function runButton($: $, id: string, send: Send = sendNow($)): Promise<string | undefined> {
-  const state = await refresh($);
+  const state = await refreshClient($);
   const button = state?.buttons.find((b) => b.id === id);
   if (!button) return `No button "${id}". Buttons: ${state?.buttons.map((b) => b.id).join(", ") || "none yet"}.`;
   if (button.targetMissing) {
@@ -224,12 +174,14 @@ export async function runButton($: $, id: string, send: Send = sendNow($)): Prom
       await regenerateAction($, undefined, send);
       return undefined;
     case "insert-prompt":
+      await openBank($, { ...(action.search !== null ? { search: action.search } : {}), category: action.category });
+      return undefined;
     case "open-pane":
-      $.ui.toast("The Prompt Bank and Notes panes arrive in the next version.");
+      await (action.pane === "notes" ? openNotes($) : openBank($));
       return undefined;
     case "submit":
     case "fill": {
-      const values = await builtIns($);
+      const values = await contextValues($, dateBuiltIns(new Date()));
       let expanded: Expanded;
       if ("promptId" in action) {
         const got = await callTool<{ expanded: Expanded }>($, "bank_get", {
@@ -267,9 +219,34 @@ export const COMMANDS = [
   { name: "cont", description: "Continue a reply that was cut off." },
   { name: "regen", description: "Rewrite your draft or selected text into a clearer prompt.", argumentHint: "[extra instruction | undo]" },
   { name: "btn", description: "Run one of your custom buttons.", argumentHint: "<button id>" },
+  { name: "pb", description: "Open the Prompt Bank, search it, or save the prompt box as a prompt.", argumentHint: "[search | save <title>]" },
+  { name: "notes", description: "Open Notes, or add text to the open note.", argumentHint: "[text to add]" },
 ] as const;
 
 export const register: Register = (on) => {
+  registerBank(on);
+  registerNotes(on);
+
+  on("command.run", { command: "pb" }, async ($, e) => {
+    const args = e.args.trim();
+    const save = /^save(?:\s+(.*))?$/s.exec(args);
+    if (save) {
+      const message = await saveDraftAsPrompt($, save[1]);
+      return message ? { text: message } : {};
+    }
+    await openBank($, args ? { search: args } : {});
+    return {};
+  });
+
+  on("command.run", { command: "notes" }, async ($, e) => {
+    const text = e.args.trim();
+    if (!text) {
+      await openNotes($);
+      return {};
+    }
+    return { text: await appendToNote($, text) };
+  });
+
   on("session.start", async ($, e, next) => {
     const result = await next(e);
     await update($, busy, () => null); // a fresh session has nothing in progress
@@ -281,7 +258,7 @@ export const register: Register = (on) => {
         // the button row still works without this command
       }
     }
-    await refresh($);
+    await refreshClient($);
     return result;
   });
 
@@ -302,7 +279,7 @@ export const register: Register = (on) => {
   on("command.run", { command: "btn" }, async ($, e) => {
     const id = e.args.trim();
     if (!id) {
-      const state = await refresh($);
+      const state = await refreshClient($);
       return { text: `Usage: /btn <id>. Buttons: ${state?.buttons.map((b) => b.id).join(", ") || "none yet"}.` };
     }
     const message = await runButton($, id, sendAfterCommand($));
@@ -314,7 +291,7 @@ export const register: Register = (on) => {
   on("turn.step", async function* ($, e, next) {
     const result = yield* next(e);
     if (e.agentId === undefined && result.stopReason === "max_tokens") {
-      const state = await read($, client);
+      const state = await readClient($);
       if (state?.settings.continue.highlightOnTruncation ?? true) await update($, truncated, () => true);
     }
     return result;
@@ -330,14 +307,15 @@ export const register: Register = (on) => {
     // Only the main conversation's own turns: not subagents', and not ones the user stopped.
     if (e.agentId === undefined && !e.isAborted) {
       await flushPending($);
-      await refresh($);
+      await refreshClient($);
+      await refreshOpenNote($);
     }
     return result;
   });
 
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e);
-    const state = await read($, client);
+    const state = await readClient($);
     const isTruncated = await read($, truncated);
     const saved = await read($, undo);
     const busyMark = await read($, busy);
@@ -370,6 +348,8 @@ export const register: Register = (on) => {
               onPress={() => regenerateAction($)}
             />
           ) : null}
+          {showBuiltIns ? <Button key="ccb-prompts" label="Prompts" onPress={() => openBank($)} /> : null}
+          {showBuiltIns ? <Button key="ccb-notes" label="Notes" onPress={() => openNotes($)} /> : null}
           {saved !== null ? <Button key="ccb-undo" label="Undo regenerate" onPress={() => undoAction($)} /> : null}
           {visible.map((b) => (
             <Button

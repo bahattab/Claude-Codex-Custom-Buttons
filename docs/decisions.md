@@ -145,3 +145,11 @@ Each decision records the options considered, the choice and why. All were appro
 ## D25. Ship `ccb-mcp` inside the Claude plugin as one bundled file (2026-11-10, M3)
 
 - **Why:** an installed plugin gets no `npm install`, so its MCP server must run with Node alone. `scripts/build-plugin.mjs` bundles the server and its dependencies with esbuild (805 KB, minified) and copies `core` into the mod. The generated files are committed, and `npm run check:plugin` in CI fails if they don't match the sources.
+
+## D26. One owner per piece of mod state; modules call each other directly (2026-11-10, M4)
+
+- **Choice:** each `$.state` atom is declared in the one file that reads and updates it: `client.ts` owns the button row's data, `bank.tsx` the Prompt Bank's view and data, `notes.tsx` the Notes view, `register.tsx` the row's own state. Other modules use exported functions such as `refreshClient($)` and `autosaveMs($)`.
+- **Why:** `claude plugin validate` refuses two patterns:
+  - an atom imported from another module and read or updated there;
+  - `$` handed to a stored callback (`hooks.onLibraryChanged($)`): "$ is always spelled $.noun.event(...) at the call site".
+  A direct call to an imported function that takes `$` is accepted. The first design passed callbacks into each pane module; it was replaced.
