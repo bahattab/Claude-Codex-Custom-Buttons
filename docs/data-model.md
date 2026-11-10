@@ -10,6 +10,7 @@ All persistent data lives in `~/.claude-codex-buttons/` on each computer. The sy
 ├── sync-state.json     Drive folder ID, change-feed token, per-record hashes at last sync
 ├── device.json         this computer's random device ID and display name
 ├── .lock               held while a process writes
+├── notes-mirror.json   what was last written to each note's Markdown file (to recognise edits made elsewhere)
 └── notes/
     └── <slug>--<id>.md Markdown mirror of each note, for other editors and tools
 ```

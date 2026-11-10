@@ -44,9 +44,49 @@ describe("locks", () => {
     expect(await withLock(lock(), async () => "acquired")).toBe("acquired");
   });
 
-  it("breaks a lock older than the stale limit even if its process is alive", async () => {
+  it("keeps a live holder's lock however long it has been held (review finding #4)", async () => {
     await writeFile(lock(), JSON.stringify({ pid: process.pid, at: Date.now() - 60_000, token: "old" }));
+    expect(await lockIsHeld(lock())).toBe(true);
+    await expect(withLock(lock(), async () => "x", { timeoutMs: 80 })).rejects.toBeInstanceOf(LockTimeoutError);
+  });
+
+  it("breaks a lock whose holder stopped refreshing it (hung process or reused PID)", async () => {
+    await writeFile(lock(), JSON.stringify({ pid: process.pid, at: Date.now(), token: "hung" }));
+    const old = new Date(Date.now() - 60_000);
+    await utimes(lock(), old, old);
+    expect(await lockIsHeld(lock())).toBe(false);
     expect(await withLock(lock(), async () => "acquired")).toBe("acquired");
+  });
+
+  it("refreshes the lock while held, so a long task outlasting the stale limit keeps it", async () => {
+    const staleMs = 150;
+    const order: string[] = [];
+    const long = withLock(lock(), async () => {
+      order.push("long-start");
+      await new Promise((r) => setTimeout(r, 600)); // 4x the stale limit
+      order.push("long-end");
+    }, { staleMs });
+    await new Promise((r) => setTimeout(r, 20));
+    const waiter = withLock(lock(), async () => { order.push("waiter"); }, { staleMs, timeoutMs: 5000 });
+    await Promise.all([long, waiter]);
+    expect(order).toEqual(["long-start", "long-end", "waiter"]);
+  });
+
+  it("does not let several breakers remove a fresh lock (review finding #5)", async () => {
+    await writeFile(lock(), JSON.stringify({ pid: 999_999_999, at: Date.now(), token: "dead" }));
+    let inside = 0;
+    let maxInside = 0;
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        withLock(lock(), async () => {
+          inside++;
+          maxInside = Math.max(maxInside, inside);
+          await new Promise((r) => setTimeout(r, 15));
+          inside--;
+        }),
+      ),
+    );
+    expect(maxInside).toBe(1);
   });
 
   it("releases the lock afterwards, also when the work throws", async () => {

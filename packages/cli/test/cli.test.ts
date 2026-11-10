@@ -115,6 +115,31 @@ describe("export and import", () => {
     expect(lib.prompts).toHaveLength(STARTER_PROMPTS.length + 1);
   });
 
+  it("counts only new conflict copies (review finding #8)", async () => {
+    await seed(other);
+    const file = join(other, "export.json");
+    await ccb(["export", file], other);
+    await ccb(["import", file]);
+    // Make the same prompt differ on both sides, edited separately.
+    const exported = JSON.parse(await readFile(file, "utf8"));
+    const target = exported.prompts.find((p: { title: string }) => p.title === "Exported prompt");
+    const mine = new LibraryStore({ home });
+    await mine.update((lib, ctx) => {
+      const r = savePrompt(lib, { id: target.id, title: "Exported prompt", body: "changed here" }, ctx, mine.randomSource());
+      if (!r.ok) throw new Error(r.errors.join());
+      return r.value.library;
+    });
+    const theirs = new LibraryStore({ home: other });
+    await theirs.update((lib, ctx) => {
+      const r = savePrompt(lib, { id: target.id, title: "Exported prompt", body: "changed there" }, ctx, theirs.randomSource());
+      if (!r.ok) throw new Error(r.errors.join());
+      return r.value.library;
+    });
+    await ccb(["export", file], other);
+    expect((await ccb(["import", file])).out).toMatch(/1 conflict copies to review/);
+    expect((await ccb(["import", file])).out).not.toMatch(/conflict copies/);
+  });
+
   it("imports a library.json directly", async () => {
     await seed(other);
     const result = await ccb(["import", join(other, "library.json")]);

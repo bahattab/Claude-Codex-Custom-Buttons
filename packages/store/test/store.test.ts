@@ -103,6 +103,38 @@ describe("recovery", () => {
     expect(result.library?.prompts.length).toBe(STARTER_PROMPTS.length);
   });
 
+  it("restores from the backup when library.json is missing, instead of starting over (review finding #3)", async () => {
+    const store = new LibraryStore({ home });
+    await store.read();
+    await store.update((lib, ctx) => expectOk(setVariable(lib, "keep", "me", ctx)).library);
+    await store.update((lib, ctx) => expectOk(setVariable(lib, "keep2", "me too", ctx)).library);
+    await rm(join(home, "library.json"));
+    const result = await new LibraryStore({ home }).read();
+    expect(result.status).toMatchObject({ kind: "recovered", brokenFile: null });
+    expect(result.library?.variables.some((v) => v.id === "keep")).toBe(true);
+  });
+
+  it("never leaves the folder without library.json while recovering", async () => {
+    const store = new LibraryStore({ home });
+    await store.read();
+    await store.update((lib, ctx) => expectOk(setVariable(lib, "a", "1", ctx)).library);
+    await store.update((lib, ctx) => expectOk(setVariable(lib, "b", "2", ctx)).library);
+    await writeFile(join(home, "library.json"), "{ damaged");
+    await store.read();
+    const files = await readdir(home);
+    expect(files).toContain("library.json");
+    expect(files.filter((f) => f.startsWith("library.broken-"))).toHaveLength(1);
+  });
+
+  it("keeps a damaged library read-only when the backup is from a newer version (review finding #7)", async () => {
+    await writeFile(join(home, "library.json"), "{ damaged");
+    await writeFile(join(home, "library.bak.json"), JSON.stringify({ schemaVersion: 99 }));
+    const store = new LibraryStore({ home });
+    expect((await store.read()).status).toEqual({ kind: "read-only", foundVersion: 99 });
+    await expect(store.update((lib) => lib)).rejects.toBeInstanceOf(ReadOnlyLibraryError);
+    expect(await readFile(join(home, "library.bak.json"), "utf8")).toBe(JSON.stringify({ schemaVersion: 99 }));
+  });
+
   it("opens a newer library read-only and refuses changes", async () => {
     await writeFile(join(home, "library.json"), JSON.stringify({ schemaVersion: 99 }));
     const store = new LibraryStore({ home });
@@ -178,6 +210,36 @@ describe("notes mirror", () => {
     expect(await store.importNoteEdits()).toBe(1);
     const { library } = await store.read();
     expect(library!.notes.find((n) => n.id === id)?.body).toBe("Draft, edited in another editor");
+  });
+
+  it("keeps an edit made in the file when an unrelated change is saved (review finding #1)", async () => {
+    const store = new LibraryStore({ home });
+    const id = await withNote(store, "Original");
+    const file = join(home, "notes", noteFileName({ id, title: "Original" }));
+    await writeFile(file, "Edited in another editor");
+    await store.update((lib, ctx) => expectOk(setVariable(lib, "unrelated", "x", ctx)).library);
+    expect(await readFile(file, "utf8")).toBe("Edited in another editor");
+    const { library } = await store.read();
+    expect(library!.notes.find((n) => n.id === id)?.body).toBe("Edited in another editor");
+  });
+
+  it("imports file edits even when the file system's timestamps are coarse or behind", async () => {
+    const store = new LibraryStore({ home });
+    const id = await withNote(store, "Original");
+    const file = join(home, "notes", noteFileName({ id, title: "Original" }));
+    await writeFile(file, "Edited, old timestamp");
+    const past = new Date(Date.now() - 3_600_000);
+    await utimes(file, past, past);
+    expect(await store.importNoteEdits()).toBe(1);
+    expect((await store.read()).library!.notes.find((n) => n.id === id)?.body).toBe("Edited, old timestamp");
+  });
+
+  it("does not bring back old file text after a newer save through the store (review finding #2)", async () => {
+    const store = new LibraryStore({ home });
+    const id = await withNote(store, "Version 1");
+    await store.update((lib, ctx) => expectOk(saveNote(lib, { id, body: "Version 2" }, ctx, store.randomSource())).library);
+    expect(await store.importNoteEdits()).toBe(0);
+    expect((await store.read()).library!.notes.find((n) => n.id === id)?.body).toBe("Version 2");
   });
 
   it("recreates a deleted mirror file and removes the file of a deleted note", async () => {

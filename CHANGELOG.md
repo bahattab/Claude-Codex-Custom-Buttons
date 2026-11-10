@@ -32,6 +32,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - MCP tool names use underscores (`bank_search`), as Claude's API requires.
 - New buttons and categories are placed after the last existing one.
+
+### Fixed (from the independent M2 review)
+
+- Edits made to a note's Markdown file in another editor could be overwritten by an unrelated change, or missed on file systems with coarse timestamps.
+- Importing note-file edits could race with other changes.
+- A missing `library.json` started a new library and later overwrote a good backup; recovery could also leave no `library.json` if interrupted.
+- A slow but live process could lose its lock after 30 seconds; several processes clearing an abandoned lock at once could release a fresh one; clearing could retry forever.
+- A damaged library with a backup from a newer version was reset.
+- `ccb import` reported old conflict copies as new; older `library.json` files are now upgraded before import.
+- MCP prompt names could change when a similar prompt was added, and could exceed 64 characters.
+- Using a deleted prompt counted as a use; `buttons_list` now flags buttons whose prompt was deleted.
 - Drive sync stores one file per device instead of one shared file, because Drive's update call cannot reject a stale write (decision D12).
 - Codex install uses `codex plugin marketplace add` and `codex plugin add`; Codex custom commands are generated as skills (`$ccb-<id>`), since Codex migrated custom prompts into skills.
 - Minimum Node.js version is 22 (Node 20 is end-of-life).

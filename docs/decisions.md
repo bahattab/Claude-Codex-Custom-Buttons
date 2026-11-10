@@ -110,7 +110,19 @@ Each decision records the options considered, the choice and why. All were appro
 - **Choice:** (b).
 - **Why:** `ccb doctor` and `ccb import` must work when no server is running, for example to repair a damaged library. Both tools use the same lock and the same `update` path, so the "one writer at a time" guarantee holds either way.
 
-## D21. Lock-file design (2026-11-10, M2)
+## D21. Lock-file design (2026-11-10, M2; revised after independent review)
 
-- **Choice:** the lock file is created with its contents in one step (write a temporary file, then hard-link it into place; exclusive create where hard links are unsupported). A lock that can't be read counts as held until it is 30 seconds old. A lock file that disappears is simply retried. An abandoned lock is moved aside atomically and checked before removal.
-- **Why:** the multi-process test lost 1 of 100 changes with a plain exclusive-create lock: waiters read the new lock file before its contents were written and treated it as abandoned. A stress test then exposed a second race, a released lock mistaken for an abandoned one. With both fixed, 2,400 of 2,400 concurrent changes were kept.
+- **Choice:**
+  - The lock file is created with its contents in one step: write a temporary file, then hard-link it into place, or use an exclusive create where hard links are unsupported.
+  - While the lock is held, the holder refreshes the file's modification time (a heartbeat).
+  - A lock counts as abandoned only when its process no longer exists, or when the heartbeat has stopped for 30 seconds. A lock that can't be read is judged by age, and a lock that disappears is simply retried.
+  - Abandoned locks are cleared by one process at a time through a short "breaker" lock, with a re-check before removal. Every retry path has a deadline and a pause.
+- **Why:**
+  - The first design, a plain exclusive create, lost 1 of 100 changes in the multi-process test, because waiters read the new lock file before its contents were written.
+  - A stress test then exposed a second race: a released lock mistaken for an abandoned one.
+  - The independent review found three more problems: a live holder lost its lock after 30 seconds, several processes clearing a lock at once could release a fresh one, and the clearing path could spin with no time limit.
+  - With all of these fixed: 8 concurrent processes × 50 changes kept every change (2,400/2,400 before the review fixes, 1,600/1,600 after). A test runs 8 waiters against an abandoned lock and checks that at most one is ever inside.
+
+## D22. Recognise note-file edits by content, not timestamps (2026-11-10, M2)
+
+- **Why:** the independent review showed timestamp comparison loses edits. Any unrelated save rewrote the files before checking them, and file systems with coarse or skewed timestamps hid edits. The store now records a hash of what it last wrote to each note file (`notes-mirror.json`). Any file whose content differs from that hash was edited elsewhere, and is imported while the lock is held, before every change.

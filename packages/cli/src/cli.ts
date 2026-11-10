@@ -11,6 +11,7 @@ import {
   defaultSettings,
   emptyBase,
   live,
+  loadLibrary,
   merge,
   setSharedSetting,
   sharedSetting,
@@ -42,7 +43,7 @@ Usage:
   ccb config set <key> <value>    Change a setting (use "null" to clear)
   ccb export [file]               Export prompts, buttons, variables and notes as JSON
   ccb import <file>               Merge an export, a device file or a library.json
-  ccb doctor                      Check the local data folder and explain any problems
+  ccb doctor                      Check the local data folder, repair what it safely can, and explain any problems
   ccb --version | --help
 
 Data folder: $CCB_HOME, or ~/.claude-codex-buttons
@@ -168,8 +169,20 @@ async function importCmd(store: LibraryStore, args: string[], io: Io): Promise<n
   } catch {
     throw new Error(`${file} is not valid JSON`);
   }
-  const known = raw["format"] === EXPORT_FORMAT || raw["format"] === DEVICE_FILE_FORMAT || ("settings" in raw && "schemaVersion" in raw);
+  const isLibrary = raw["format"] === undefined && "settings" in raw && "schemaVersion" in raw;
+  const known = raw["format"] === EXPORT_FORMAT || raw["format"] === DEVICE_FILE_FORMAT || isLibrary;
   if (!known) throw new Error(`${file} is not a ccb export, device file or library.json`);
+  if (isLibrary) {
+    // Upgrade an older library.json to the current format first.
+    const loaded = loadLibrary(raw);
+    if (!loaded.ok) {
+      io.err(`${file} has problems and was not imported:`);
+      for (const e of loaded.errors.slice(0, 20)) io.err(`  - ${e}`);
+      return 1;
+    }
+    if (loaded.library === null) throw new Error(`${file} is from a newer version (schema ${loaded.foundVersion}); update ccb`);
+    raw = loaded.library as unknown as Record<string, unknown>;
+  }
 
   const candidate = {
     format: DEVICE_FILE_FORMAT,
@@ -191,7 +204,8 @@ async function importCmd(store: LibraryStore, args: string[], io: Io): Promise<n
   const after = await store.update((lib, ctx) => {
     before = lib;
     const result = merge({ local: syncedPart(lib), remotes: [checked.value], base: emptyBase(), now: ctx.now, deviceId: ctx.deviceId });
-    conflicts = result.conflicts.length;
+    const existing = new Set(lib.prompts.map((p) => p.id).concat(lib.notes.map((n) => n.id)));
+    conflicts = result.conflicts.filter((c) => !existing.has(c.copyId)).length; // only new ones
     return { ...lib, ...result.data };
   });
   const count = (lib: Library | null, c: "prompts" | "buttons" | "variables" | "notes"): number => (lib ? live(lib[c] as SyncMeta[]).length : 0);
@@ -221,7 +235,9 @@ async function doctor(store: LibraryStore, io: Io): Promise<number> {
     const { library, status } = result;
     if (status.kind === "ok") add("ok", `Library ${paths.library} (revision ${library?.revision})`);
     if (status.kind === "created") add("ok", `Library created at ${paths.library} with the starter pack`);
-    if (status.kind === "recovered") add("warn", `library.json was damaged and was restored from the backup; the damaged file is ${status.brokenFile}`);
+    if (status.kind === "recovered") {
+      add("warn", status.brokenFile ? `library.json was damaged and was restored from the backup; the damaged file is ${status.brokenFile}` : "library.json was missing and was restored from the backup");
+    }
     if (status.kind === "reset") add("warn", `library.json was damaged and no usable backup existed; started a new library. The damaged file is ${status.brokenFile}`);
     if (status.kind === "read-only") add("fail", `library.json uses schema version ${status.foundVersion}; update ccb to edit it`);
 
@@ -236,12 +252,14 @@ async function doctor(store: LibraryStore, io: Io): Promise<number> {
       const backup = await readText(paths.backup);
       if (backup === null) add("warn", "No backup yet (library.bak.json); one is written on the next change");
       else {
+        let valid: boolean;
         try {
-          JSON.parse(backup);
-          add("ok", "Backup library.bak.json is readable");
+          const loaded = loadLibrary(JSON.parse(backup));
+          valid = loaded.ok && loaded.library !== null;
         } catch {
-          add("warn", "Backup library.bak.json is damaged; it is replaced on the next change");
+          valid = false;
         }
+        add(valid ? "ok" : "warn", valid ? "Backup library.bak.json is valid" : "Backup library.bak.json is damaged; it is replaced on the next change");
       }
     }
 

@@ -200,6 +200,10 @@ describe("button tools", () => {
     ({ buttons } = (await callOk("buttons_list")) as { buttons: Array<{ id: string; action: unknown; order: number }> });
     expect(buttons.map((b) => b.id)).toEqual(["btn_notes", "btn_plan"]);
     expect(buttons[1]?.action).toEqual({ type: "submit", promptId });
+    await callOk("bank_delete", { id: promptId });
+    const afterDelete = (await callOk("buttons_list")) as { buttons: Array<{ id: string; targetMissing: boolean }> };
+    expect(afterDelete.buttons.find((b) => b.id === "btn_plan")?.targetMissing).toBe(true);
+    expect(afterDelete.buttons.find((b) => b.id === "btn_notes")?.targetMissing).toBe(false);
     await callOk("buttons_delete", { id: "btn_plan" });
     expect(((await callOk("buttons_list")) as { buttons: unknown[] }).buttons).toHaveLength(1);
   });
@@ -283,11 +287,21 @@ describe("prompts", () => {
     expect(result.messages[0]?.content).toEqual({ type: "text", text: "Plan my day for Billing API focusing on reviews" });
   });
 
-  it("keeps names unique when titles collide", async () => {
+  it("keeps names unique when titles collide, and a new prompt never takes over an existing name (review finding #9)", async () => {
     await newPrompt("Same", "one");
+    const before = await client.getPrompt({ name: "ccb-same" });
+    await new Promise((r) => setTimeout(r, 5));
     await newPrompt("Same", "two");
     const names = (await client.listPrompts()).prompts.map((p) => p.name).filter((n) => n.startsWith("ccb-same"));
     expect(new Set(names).size).toBe(2);
+    expect(await client.getPrompt({ name: "ccb-same" })).toEqual(before);
+  });
+
+  it("keeps prompt names within 64 characters", async () => {
+    const long = "A very long prompt title that goes on and on well past any sensible length";
+    await newPrompt(long, "one");
+    await newPrompt(long, "two");
+    for (const p of (await client.listPrompts()).prompts) expect(p.name.length).toBeLessThanOrEqual(64);
   });
 
   it("builds a Regenerate prompt from the given text", async () => {

@@ -162,8 +162,9 @@ Notes are synced as records in the library. Each note is also mirrored to a loca
 
 Several `ccb-mcp` processes can run at once (Claude Code and Codex open together). They share the same files safely:
 
-- writes take `~/.claude-codex-buttons/.lock` (an exclusive lock file with the process ID and a timestamp; a lock older than 30 s from a dead process is broken);
-- before writing, a process re-reads the library; if `revision` changed, it merges first;
+- every change takes `~/.claude-codex-buttons/.lock`, an exclusive lock file holding the process ID. While working, the holder refreshes the file's timestamp every few seconds. A lock counts as abandoned only if its process no longer exists, or if it hasn't been refreshed for 30 s (a hung process). Abandoned locks are cleared by one process at a time (decision D21);
+- with the lock held, a process re-reads the latest library, applies its change to that, validates it and writes it, so no change is applied to an out-of-date copy;
+- note files edited in another editor are imported in the same step, before the change, so they are never overwritten;
 - only the process holding the lock pushes to Drive; the others see the result on their next read.
 
 ## Sign-in and tokens

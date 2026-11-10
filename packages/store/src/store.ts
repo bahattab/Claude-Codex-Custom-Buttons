@@ -2,7 +2,7 @@
 // Every change goes through LibraryStore.update, which holds the lock, re-reads the
 // latest file, applies the change, validates it and writes it crash-safely. Two processes
 // changing the library at the same time therefore never lose each other's changes.
-import { readdir, rename, rm, stat } from "node:fs/promises";
+import { readdir, rm, stat } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import {
@@ -10,6 +10,7 @@ import {
   DEVICE_ID_RE,
   applyEdit,
   canonicalJson,
+  hash,
   emptyLibrary,
   loadLibrary,
   newDeviceId,
@@ -28,6 +29,8 @@ export interface StorePaths {
   device: string;
   lock: string;
   notes: string;
+  /** What was last written to each note's Markdown file, to recognise edits made elsewhere. */
+  mirrorState: string;
 }
 
 /** The data folder: $CCB_HOME if set, else ~/.claude-codex-buttons. */
@@ -44,6 +47,7 @@ export function storePaths(home: string): StorePaths {
     device: join(home, "device.json"),
     lock: join(home, ".lock"),
     notes: join(home, "notes"),
+    mirrorState: join(home, "notes-mirror.json"),
   };
 }
 
@@ -70,7 +74,7 @@ export class InvalidChangeError extends Error {
 export type ReadStatus =
   | { kind: "ok" }
   | { kind: "created" }
-  | { kind: "recovered"; brokenFile: string; errors: string[] }
+  | { kind: "recovered"; brokenFile: string | null; errors: string[] }
   | { kind: "reset"; brokenFile: string; errors: string[] }
   | { kind: "read-only"; foundVersion: number };
 
@@ -179,20 +183,8 @@ export class LibraryStore {
     return withLock(
       this.paths.lock,
       async () => {
-        const current = await this.readLocked();
-        if (current.library === null) throw new ReadOnlyLibraryError((current.status as { foundVersion: number }).foundVersion);
-        const changed = await change(current.library, ctx);
-        const checked = loadLibrary(changed);
-        if (!checked.ok) throw new InvalidChangeError(checked.errors);
-        if (checked.library === null) throw new InvalidChangeError(["schemaVersion must not be newer than this version"]);
-        const next = checked.library;
-        if (canonicalJson({ ...next, revision: 0 }) === canonicalJson({ ...current.library, revision: 0 })) {
-          return current.library;
-        }
-        const saved: Library = { ...next, revision: current.library.revision + 1 };
-        await this.writeLibrary(saved, current.library);
-        await this.mirrorNotes(saved);
-        return saved;
+        const { library } = await this.changeLocked(change, ctx);
+        return library;
       },
       this.lockOptions,
     );
@@ -201,33 +193,12 @@ export class LibraryStore {
   /**
    * Picks up notes edited directly in their Markdown files (in another editor) and
    * recreates mirror files that were deleted. Returns the number of notes imported.
+   * update() does the same before every change, so an edit made in a file is never
+   * overwritten by an unrelated change.
    */
   async importNoteEdits(): Promise<number> {
-    const { library } = await this.read();
-    if (library === null || !library.settings.notes.mirrorFiles) return 0;
-    const files = await this.listNoteFiles();
-    const edits: Array<{ id: string; body: string }> = [];
-    for (const note of library.notes) {
-      if (note.deletedAt !== null) continue;
-      const file = files.get(note.id);
-      if (!file) continue;
-      const info = await stat(file);
-      if (info.mtimeMs <= Date.parse(note.updatedAt)) continue;
-      const body = (await readText(file)) ?? note.body;
-      if (body !== note.body) edits.push({ id: note.id, body });
-    }
-    if (edits.length > 0) {
-      await this.update((lib, ctx) => ({
-        ...lib,
-        notes: lib.notes.map((n) => {
-          const edit = edits.find((e) => e.id === n.id);
-          return edit && n.deletedAt === null ? applyEdit(n, { ...n, body: edit.body }, ctx) : n;
-        }),
-      }));
-    } else {
-      await this.mirrorNotes(library);
-    }
-    return edits.length;
+    const ctx = await this.editContext();
+    return withLock(this.paths.lock, async () => (await this.changeLocked((lib) => lib, ctx)).imported, this.lockOptions);
   }
 
   // --- internals ----------------------------------------------------------------------
@@ -253,20 +224,33 @@ export class LibraryStore {
   /** Read with the lock already held: create, recover or reset as needed. */
   private async readLocked(): Promise<ReadResult> {
     const text = await readText(this.paths.library);
+    const backupText = await readText(this.paths.backup);
+    const backup = backupText === null ? null : this.parse(backupText);
+
     if (text === null) {
+      // No library.json. A valid backup means data exists: restore it rather than
+      // starting over (and later overwriting that backup).
+      if (backup?.kind === "ok") {
+        await writeFileAtomic(this.paths.library, serialise(backup.library));
+        return { library: backup.library, status: { kind: "recovered", brokenFile: null, errors: ["library.json was missing"] } };
+      }
+      if (backup?.kind === "read-only") return { library: null, status: backup };
       const library = seedStarterPack(emptyLibrary());
       await this.writeLibrary(library, null);
       await this.getDeviceUnlocked();
       return { library, status: { kind: "created" } };
     }
+
     const parsed = this.parse(text);
     if (parsed.kind === "ok") return { library: parsed.library, status: { kind: "ok" } };
     if (parsed.kind === "read-only") return { library: null, status: parsed };
 
+    // Damaged. A backup from a newer version: change nothing, and open read-only.
+    if (backup?.kind === "read-only") return { library: null, status: backup };
+    // Keep a copy of the damaged file first; library.json is replaced atomically, so
+    // there is never a moment without one.
     const brokenFile = join(this.paths.home, `library.broken-${timestampForFile(this.now())}.json`);
-    await rename(this.paths.library, brokenFile);
-    const backupText = await readText(this.paths.backup);
-    const backup = backupText === null ? null : this.parse(backupText);
+    await writeFileAtomic(brokenFile, text);
     if (backup?.kind === "ok") {
       await writeFileAtomic(this.paths.library, serialise(backup.library));
       return { library: backup.library, status: { kind: "recovered", brokenFile, errors: parsed.errors } };
@@ -290,6 +274,28 @@ export class LibraryStore {
     await writeFileAtomic(this.paths.library, serialise(library));
   }
 
+  /** The whole change cycle, with the lock held: read, import file edits, change, save, mirror. */
+  private async changeLocked(
+    change: (library: Library, ctx: EditContext) => Library | Promise<Library>,
+    ctx: EditContext,
+  ): Promise<{ library: Library; imported: number }> {
+    const current = await this.readLocked();
+    if (current.library === null) throw new ReadOnlyLibraryError((current.status as { foundVersion: number }).foundVersion);
+    const { library: withImports, imported } = await this.importMirrorLocked(current.library, ctx);
+    const checked = loadLibrary(await change(withImports, ctx));
+    if (!checked.ok) throw new InvalidChangeError(checked.errors);
+    if (checked.library === null) throw new InvalidChangeError(["schemaVersion must not be newer than this version"]);
+    const next = checked.library;
+    if (canonicalJson({ ...next, revision: 0 }) === canonicalJson({ ...current.library, revision: 0 })) {
+      await this.mirrorNotes(current.library);
+      return { library: current.library, imported };
+    }
+    const saved: Library = { ...next, revision: current.library.revision + 1 };
+    await this.writeLibrary(saved, current.library);
+    await this.mirrorNotes(saved);
+    return { library: saved, imported };
+  }
+
   private async listNoteFiles(): Promise<Map<string, string>> {
     const files = new Map<string, string>();
     let names: string[];
@@ -305,7 +311,50 @@ export class LibraryStore {
     return files;
   }
 
-  /** Writes each live note to its Markdown file and removes files of deleted or renamed notes. */
+  private async readMirrorState(): Promise<Record<string, string>> {
+    const text = await readText(this.paths.mirrorState);
+    if (text === null) return {};
+    try {
+      const parsed = JSON.parse(text) as { hashes?: Record<string, string> };
+      return parsed.hashes && typeof parsed.hashes === "object" ? parsed.hashes : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * With the lock held: imports note files whose content differs from what was last
+   * written to them (so they were edited elsewhere). Without a record of the last write
+   * (older data folder), a file counts as edited only if it is newer than the note.
+   */
+  private async importMirrorLocked(library: Library, ctx: EditContext): Promise<{ library: Library; imported: number }> {
+    if (!library.settings.notes.mirrorFiles) return { library, imported: 0 };
+    const files = await this.listNoteFiles();
+    const written = await this.readMirrorState();
+    const edits = new Map<string, string>();
+    for (const note of library.notes) {
+      if (note.deletedAt !== null) continue;
+      const file = files.get(note.id);
+      if (!file) continue;
+      const body = await readText(file);
+      if (body === null || body === note.body) continue;
+      const lastWritten = written[note.id];
+      const editedElsewhere =
+        lastWritten !== undefined ? hash(body) !== lastWritten : (await stat(file)).mtimeMs > Date.parse(note.updatedAt);
+      if (editedElsewhere) edits.set(note.id, body);
+    }
+    if (edits.size === 0) return { library, imported: 0 };
+    const notes = library.notes.map((n) => {
+      const body = edits.get(n.id);
+      return body !== undefined ? applyEdit(n, { ...n, body }, ctx) : n;
+    });
+    return { library: { ...library, notes }, imported: edits.size };
+  }
+
+  /**
+   * With the lock held: writes each live note to its Markdown file, removes files of
+   * deleted or renamed notes, and records what was written.
+   */
   private async mirrorNotes(library: Library): Promise<void> {
     if (!library.settings.notes.mirrorFiles) return;
     let names: string[] = [];
@@ -320,6 +369,8 @@ export class LibraryStore {
       if (!match?.[1]) continue;
       byId.set(match[1], [...(byId.get(match[1]) ?? []), name]);
     }
+    const before = await this.readMirrorState();
+    const hashes: Record<string, string> = {};
     for (const note of library.notes) {
       const existing = byId.get(note.id) ?? [];
       const wanted = note.deletedAt === null ? noteFileName(note) : null;
@@ -329,6 +380,10 @@ export class LibraryStore {
       if (wanted === null) continue;
       const path = join(this.paths.notes, wanted);
       if ((await readText(path)) !== note.body) await writeFileAtomic(path, note.body);
+      hashes[note.id] = hash(note.body);
+    }
+    if (canonicalJson(hashes) !== canonicalJson(before)) {
+      await writeFileAtomic(this.paths.mirrorState, `${JSON.stringify({ hashes }, null, 2)}\n`);
     }
   }
 }

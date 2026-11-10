@@ -120,13 +120,20 @@ function toAction(input: z.infer<typeof actionSchema>): ButtonAction {
   return input as ButtonAction;
 }
 
-/** Prompt names shown to clients: "ccb-<slug>", made unique within the list. */
+/**
+ * Prompt names shown to clients: "ccb-<slug>". The oldest prompt with a given slug keeps
+ * the plain name, so adding a prompt never takes over an existing name; later ones get a
+ * suffix from their ID. Names stay within 64 characters.
+ */
 export function promptNames(library: Library): Map<string, Prompt> {
   const names = new Map<string, Prompt>();
-  const sorted = [...live(library.prompts)].sort((a, b) => a.title.localeCompare(b.title) || (a.id < b.id ? -1 : 1));
-  for (const p of sorted) {
-    let name = `ccb-${slugify(p.title)}`;
-    if (names.has(name) || name === "ccb-continue" || name === "ccb-regenerate") name = `${name}-${p.id.slice(-6).toLowerCase()}`;
+  const reserved = new Set(["ccb-continue", "ccb-regenerate"]);
+  const oldestFirst = [...live(library.prompts)].sort(
+    (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  );
+  for (const p of oldestFirst) {
+    let name = `ccb-${slugify(p.title).slice(0, 48).replace(/-+$/, "")}`;
+    if (names.has(name) || reserved.has(name)) name = `${name}-${p.id.slice(-8).toLowerCase()}`;
     names.set(name, p);
   }
   return names;
@@ -165,6 +172,7 @@ export function createServer(store: LibraryStore): McpServer {
   const readOnly = { readOnlyHint: true, openWorldHint: false } as const;
   const edits = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
   const deletes = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false } as const;
+  const syncsFiles = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 
   // --- library -------------------------------------------------------------------------
 
@@ -244,7 +252,7 @@ export function createServer(store: LibraryStore): McpServer {
         if (args.markUsed) {
           library = await store.update((lib) => ({
             ...lib,
-            prompts: lib.prompts.map((p) => (p.id === args.id ? recordUse(p, new Date().toISOString()) : p)),
+            prompts: lib.prompts.map((p) => (p.id === args.id && p.deletedAt === null ? recordUse(p, new Date().toISOString()) : p)),
           }));
           prompt = library.prompts.find((p) => p.id === args.id) ?? prompt;
         }
@@ -385,7 +393,20 @@ export function createServer(store: LibraryStore): McpServer {
     () =>
       guard(async () => {
         const library = await read();
-        return ok({ buttons: live(library.buttons).sort((a, b) => a.order - b.order).map(({ id, label, icon, action, order }) => ({ id, label, icon, action, order })) });
+        const livePrompts = new Set(live(library.prompts).map((p) => p.id));
+        return ok({
+          buttons: live(library.buttons)
+            .sort((a, b) => a.order - b.order)
+            .map(({ id, label, icon, action, order }) => ({
+              id,
+              label,
+              icon,
+              action,
+              order,
+              // A button whose prompt was deleted is shown disabled (docs/features.md).
+              targetMissing: "promptId" in action && !livePrompts.has(action.promptId),
+            })),
+        });
       }),
   );
 
@@ -434,7 +455,8 @@ export function createServer(store: LibraryStore): McpServer {
 
   mcp.registerTool(
     "notes_list",
-    { title: "List notes", description: "Notes, pinned first, then most recently edited.", annotations: readOnly },
+    // Not read-only: listing first imports edits made to the notes' Markdown files.
+    { title: "List notes", description: "Notes, pinned first, then most recently edited.", annotations: syncsFiles },
     () =>
       guard(async () => {
         await store.importNoteEdits();
@@ -448,7 +470,7 @@ export function createServer(store: LibraryStore): McpServer {
 
   mcp.registerTool(
     "notes_read",
-    { title: "Read a note", description: "The full text of one note.", inputSchema: { id: z.string() }, annotations: readOnly },
+    { title: "Read a note", description: "The full text of one note.", inputSchema: { id: z.string() }, annotations: syncsFiles },
     (args) =>
       guard(async () => {
         await store.importNoteEdits();
