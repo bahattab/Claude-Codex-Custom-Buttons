@@ -1,0 +1,16 @@
+{
+  "name": "@ccb/core",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shared rules for Claude Codex Custom Buttons: schema, variables, search, merge. No dependencies and no input/output, so it can be copied into the Claude mod.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}

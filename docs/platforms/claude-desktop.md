@@ -11,8 +11,8 @@ Claude Desktop has two places this project reaches, in different ways.
 
 - **Prompt Bank entries as MCP prompts.** Each saved prompt appears in the chat's "+" menu (where MCP prompts are listed) and inserts its text. Prompts with `{{?ask}}` variables become prompt arguments.
 - **Continue** and **Regenerate my prompt** as MCP prompts.
-- **MCP tools** so you can ask Claude in chat to "save this as a prompt", "find my prompt about code review", or "add a note".
-- **Google Drive sync**, the same as everywhere else, because the same server runs.
+- **MCP tools** so you can ask Claude in chat to "save this as a prompt", "find my prompt about code review", or "add to my release checklist note".
+- **Automatic Google Drive sync**, the same as everywhere else, because the same server runs. Notes and prompts edited on another PC are available here.
 
 ## Chat tab: what you don't get
 
@@ -25,13 +25,15 @@ This project deliberately does **not** inject scripts into the Electron app to a
 
 ```
 desktop-extension/
-└── manifest.json      name, version, description, server entry (node packages/mcp-server/dist/index.js),
-                       user configuration fields (sync mode, Drive folder path)
+└── manifest.json      manifest_version, name, version, description, server entry (Node, runs ccb-mcp),
+                       prompts_generated: true (Prompt Bank entries become prompts at run time),
+                       user_config (sync mode, Drive folder path), privacy_policies (required because
+                       the extension talks to Google Drive), compatibility (platforms, Node)
 ```
 
 The release workflow builds `claude-codex-buttons.mcpb` and attaches it to each GitHub release. Users install it by opening the file with Claude Desktop.
 
-How Claude Desktop presents MCP prompts in the Chat tab, and the exact `.mcpb` manifest fields, are confirmed in milestone M7; see [platform-facts.md](../platform-facts.md).
+The `.mcpb` format and these manifest fields were confirmed against the official MCPB specification in M0. Node.js ships with Claude Desktop, so no separate install is needed. Whether the Chat tab lists MCP prompts in its "+" menu is checked hands-on in milestone M7; see [platform-facts.md](../platform-facts.md#claude-desktop).
 
 ## Sign-in
 

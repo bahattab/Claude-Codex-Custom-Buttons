@@ -4,8 +4,7 @@
 
 | Data | Where it goes |
 |---|---|
-| Prompts, categories, variables, buttons | Local `library.json` and your own Google Drive |
-| Notes | Local `notes/` only |
+| Prompts, categories, variables, buttons, notes | Local `library.json` (plus a Markdown copy of each note) and your own Google Drive |
 | Google refresh token | OS credential store only |
 | Text being regenerated | The model of the tool you are using (Claude in Claude Code; Codex's model in Codex) |
 | Logs | Local only; never contain prompt or note text |
@@ -23,7 +22,9 @@ There is no project-operated server and no telemetry.
 | **OAuth client file leaked in a repository** | `.gitignore` excludes `client_secret*.json`; `ccb` stores its copy outside the repo with user-only permissions. Google does not treat desktop client secrets as confidential, but they are still kept private |
 | **Corrupted or hostile library file** | Schema validation on load; size limits on every field; fallback to the last valid backup; a library with a newer schema opens read-only |
 | **Two processes writing at once** | Lock file, revision check and merge before write |
-| **Secrets stored in prompts or variables** | The pane warns when a prompt or variable looks like a key or password (common key patterns); docs advise against storing secrets, since they would be copied to Drive |
+| **Secrets stored in prompts, variables or notes** | The panes warn when text looks like a key or password (common key patterns); docs advise against storing secrets, since they would be copied to Drive |
+| **Background sync service misuse** | Runs as the user with no administrator rights, only syncs the plugin's own Drive folder, can be declined or removed (`ccb service uninstall`) |
+| **Malformed device file from another PC** | Every device file is schema-validated before merging; an invalid one is skipped and reported, never applied |
 | **Dependency compromise** | Few dependencies, all pinned with a lockfile; Dependabot or equivalent alerts; `npm audit` in CI |
 
 ## Permissions requested per platform

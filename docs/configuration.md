@@ -4,7 +4,7 @@
 
 | Setting group | Stored in | Synced |
 |---|---|---|
-| Regenerate instructions, Continue message | `library.json` → `settings` | Yes |
+| Regenerate instructions, Continue message | `library.json` → `sharedSettings` | Yes |
 | Everything else below | `library.json` → `settings` | No (per device) |
 | Google OAuth client | `~/.claude-codex-buttons/google-client.json` | No |
 | Google refresh token | OS credential store, service `claude-codex-buttons` | No |
@@ -28,14 +28,16 @@ npx ccb config set regenerate.autoSubmit true
 | `continue.highlightOnTruncation` | boolean | `true` | Highlight Continue when a reply was cut off |
 | `buttons.maxVisible` | integer 1–12 | `6` | Buttons shown in the row before the overflow menu |
 | `buttons.showBuiltIns` | boolean | `true` | Show Continue, Regenerate, Notes, Prompts in the row |
-| `notes.autosaveMs` | integer | `2000` | Delay after typing before a note saves |
+| `notes.autosaveMs` | integer | `2000` | Delay after typing before a note saves (and is queued for upload) |
+| `notes.mirrorFiles` | boolean | `true` | Keep a Markdown copy of each note in `notes/` |
+| `sync.backgroundService` | boolean | `true` | Keep syncing when no Claude Code or Codex session is open (asked at `ccb login`) |
 | `sync.mode` | `"drive-api"`, `"drive-folder"`, `"off"` | `"drive-api"` | See [google-drive-sync.md](google-drive-sync.md#sync-modes) |
 | `sync.folderPath` | string | none | Drive for desktop folder (only for `drive-folder`) |
 | `sync.driveFolderName` | string | `"Claude Codex Buttons"` | Folder created in My Drive (only for `drive-api`) |
-| `sync.intervalSeconds` | integer 15–3600 | `60` | Pull interval while a session is active |
-| `sync.pushDelayMs` | integer 500–60000 | `2000` | Wait after a save before uploading |
+| `sync.intervalSeconds` | integer 15–3600 | `60` | Automatic pull interval |
+| `sync.pushDelayMs` | integer 500–60000 | `2000` | Wait after a change before it uploads automatically |
 | `google.clientFile` | path | none | OAuth client JSON downloaded from Google Cloud |
-| `codex.autoSync` | boolean | `true` | Regenerate Codex slash commands after each successful pull |
+| `codex.autoSync` | boolean | `true` | Regenerate Codex `$ccb-<id>` skills after each sync that changes buttons or prompts |
 
 ## Environment variables
 
@@ -51,4 +53,14 @@ The Claude Code plugin exposes the most-used settings (`regenerate.autoSubmit`, 
 
 ## Codex
 
-`npx ccb sync codex` regenerates Codex slash commands from the Prompt Bank. Run it after large changes, or set `codex.autoSync = true` (default) to have `ccb-mcp` regenerate them after each successful pull. Output location is confirmed in M0; see [platforms/codex.md](platforms/codex.md).
+Buttons and prompts are turned into Codex skills in `$CODEX_HOME/skills/ccb-<id>/` (default `~/.codex/skills`) automatically after each sync (`codex.autoSync`). `npx ccb sync codex` forces it. See [platforms/codex.md](platforms/codex.md#generated-skills).
+
+## Background sync service
+
+```bash
+npx ccb service status
+npx ccb service stop
+npx ccb service uninstall
+```
+
+See [google-drive-sync.md](google-drive-sync.md#background-sync-service).

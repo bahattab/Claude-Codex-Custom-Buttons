@@ -1,62 +1,68 @@
 # Platform facts ledger
 
-Every platform statement the design depends on, with its evidence. Code must not depend on an **Unconfirmed** fact until it is moved to **Confirmed** (or **Changed**, with the docs updated). Milestone M0 works through this list.
+Every platform statement the design depends on, with its evidence. Code must not depend on an **Unconfirmed** fact. **Changed** means the check found something different from the original plan and the docs were updated to match.
 
-Last updated: 2026-11-10.
+Last updated: 2026-11-10 (milestone M0).
+
+## How M0 checked things
+
+- **Claude Code:** the mod API type definitions (`claude-code.d.ts`) and authoring reference shipped with Claude Code **2.1.322**.
+- **Codex:** OpenAI's documentation site (developers.openai.com) cannot be reached from the build environment, and the `openai/codex` repository's `docs/` files now only link there. The evidence is the **official Codex 0.167.0 Linux release from npm** (`@openai/codex@0.167.0-linux-x64`, published 2026-11-10). It was not run. Its text was searched for file names, command usage lines and schema identifiers. This proves an identifier exists in the shipped program, not its full behaviour, so behaviour is still checked hands-on in M6.
+- **Google Drive:** Google's machine-readable **Drive v3 API definition** (discovery document, revision 20261106) and the official `google-auth-library-nodejs` README. Google's policy and help pages were unreachable.
+- **MCPB:** the official `modelcontextprotocol/mcpb` repository's README and MANIFEST spec.
 
 ## Claude Code mod API
 
-Source: the mod API type definitions (`claude-code.d.ts`) and authoring reference shipped with Claude Code build 2.1.322, read on 2026-11-10.
+| # | Fact | Status | Evidence |
+|---|---|---|---|
+| C1 | A plugin can contain a mod: `.claude-plugin/plugin.json`, `hooks/hooks.json` listing a module, `hooks/register.tsx` exporting `register` | Confirmed | Authoring reference |
+| C2 | Surfaces: `terminal`, `desktop`, `vscode`, `mobile`; elements come from `$.ui.resolve(e)` | Confirmed | Types |
+| C3 | A band above the prompt box: `ui.render` on `AbovePrompt`; side panes: `$.ui.open` + `ui.render` on `Pane` | Confirmed | Authoring reference |
+| C4 | Elements include `Box`, `Text`, `Button`, `Input` (`rows`, `placeholder`), `Select`, `Link`, `Code`, `Markdown` | Confirmed | Types |
+| C5 | Slash commands: `$.command.register`, answered by `command.run`; input has `args` | Confirmed | Types |
+| C6 | `$.ui.selection()` returns the last mouse selection (undefined where a surface has none) | Confirmed | Types |
+| C7 | `$.prompt.submit({ text })` submits once the session is idle; `$.prompt.fill` with `replace`, `append`, `insert`; the prompt box can be read | Confirmed | Types |
+| C8 | `$.session.messages()` returns the conversation | Confirmed | Types |
+| C9 | `$.model.complete` makes a model call | Confirmed | Types |
+| C10 | `$.mcp.call` calls a connected MCP server; a plugin can connect MCP servers its own manifest lists | Confirmed | Types |
+| C11 | `$.fs` (absolute paths, 4 MiB read limit), `$.store`, `$.state`, `$.clock`, `$.http.fetch` | Confirmed | Types |
+| C12 | `$.ui.status`, `$.ui.toast`, `$.ui.copy` | Confirmed | Types |
+| C13 | `claude plugin validate`, `claude plugin test`, `--plugin-dir` hot reload; `/plugin install <name> --marketplace <owner>/<repo>` with `.claude-plugin/marketplace.json` | Confirmed | Authoring reference |
+| C14 | The mod has no DOM or Node APIs; everything outside goes through `$` | Confirmed | Authoring reference |
+| C15 | A mod can import **its own plugin's files** with `import` declarations (`.ts`, `.tsx`, `.js`, …, all ES modules). Dynamic `import()` is refused, and there is no way to import npm packages | **Confirmed** | Authoring reference. Consequence: `core` is copied into the Claude plugin at build time (decision D13) |
+| C16 | The `turn.step` event reports `stopReason`, which includes `max_tokens` | **Confirmed** | Types (`TurnStopReason`). Used for the Continue highlight |
 
-| # | Fact | Status |
-|---|---|---|
-| C1 | A plugin can contain a mod: `.claude-plugin/plugin.json`, `hooks/hooks.json` listing a module, `hooks/register.tsx` exporting `register` | Confirmed |
-| C2 | Surfaces: `terminal`, `desktop`, `vscode`, `mobile`; elements come from `$.ui.resolve(e)` | Confirmed |
-| C3 | A band above the prompt box: `ui.render` on `AbovePrompt`; side panes: `$.ui.open` + `ui.render` on `Pane` | Confirmed |
-| C4 | Elements include `Box`, `Text`, `Button`, `Input` (with `rows`, `placeholder`), `Select`, `Link`, `Code`, `Markdown` | Confirmed |
-| C5 | Slash commands: `$.command.register`, answered by `command.run`, input includes `args` | Confirmed |
-| C6 | `$.ui.selection()` returns the last mouse selection (or undefined where a surface has none) | Confirmed |
-| C7 | `$.prompt.submit({ text })` submits a prompt as a turn once the session is idle; `$.prompt.fill` with modes `replace`, `append`, `insert`; the prompt box can be read | Confirmed |
-| C8 | `$.session.messages()` returns the conversation | Confirmed |
-| C9 | `$.model.complete` makes a model call | Confirmed |
-| C10 | `$.mcp.call` calls a connected MCP server, and a plugin can connect MCP servers its own manifest lists | Confirmed |
-| C11 | `$.fs` reads/writes files by absolute path (read limit 4 MiB); `$.store` persists across sessions; `$.state` atoms per session; `$.clock` timers; `$.http.fetch` through the host | Confirmed |
-| C12 | `$.ui.status`, `$.ui.toast`, `$.ui.copy` | Confirmed |
-| C13 | `claude plugin validate`, `claude plugin test`, `--plugin-dir` hot reload; `/plugin install <name> --marketplace <owner>/<repo>` with `.claude-plugin/marketplace.json` | Confirmed |
-| C14 | The mod module has no DOM or Node APIs; everything outside goes through `$` | Confirmed |
-| C15 | Whether a mod can import other local files or must be a single module | **Unconfirmed** (M0) |
-| C16 | Whether the conversation data exposes a reply's stop reason (for the Continue highlight) | **Unconfirmed** (M3) |
+## Codex (0.167.0)
 
-## Codex
-
-Source: third-party articles from 2026 (listed below). OpenAI's documentation site could not be reached from the environment used to write this.
-
-| # | Fact | Status |
-|---|---|---|
-| X1 | Codex supports plugins with a manifest at `.codex-plugin/plugin.json` | **Unconfirmed** |
-| X2 | Plugins can bundle skills, MCP servers, apps and hooks | **Unconfirmed** |
-| X3 | Plugins install from the CLI (`/plugins`, `codex plugins install …`) and from marketplaces | **Unconfirmed** |
-| X4 | Hooks exist but were behind a feature flag (April 2026); bundled hooks reported later | **Unconfirmed** |
-| X5 | Custom slash commands in `~/.codex/prompts/<name>.md`, invoked as `/prompts:<name>`, with `$ARGUMENTS` | **Unconfirmed**, possibly superseded by skills |
-| X6 | No documented API for plugins to add buttons or panes | **Unconfirmed** (absence of evidence) |
-| X7 | Minimum Node.js version | **Unconfirmed** |
-
-Secondary sources: [The New Stack: OpenAI's Codex gets plugins](https://thenewstack.io/openais-codex-gets-plugins/) · [Building a Codex CLI plugin](https://codex.danielvaughan.com/2026/04/10/building-codex-cli-plugin) · [Codex plugin marketplace and bundled hooks](https://codex.danielvaughan.com/2026/05/08/codex-cli-plugin-marketplace-remote-install-workspace-sharing-bundled-hooks/) · [Agent Plugins 1.0](https://codex.danielvaughan.com/2026/08/28/agent-plugins-1-0-open-standard-codex-cli-v0147-multi-vendor-portable-skills-mcp/) · [OpenAI Apps SDK: plugins](https://developers.openai.com/apps-sdk/build/plugins/)
+| # | Fact | Status | Evidence |
+|---|---|---|---|
+| X1 | Codex reads plugin manifests from `.codex-plugin/plugin.json`, and also from `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, or a root `plugin.json` declaring the Agent Plugins `$schema` `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` | **Confirmed** | Manifest paths and schema URL in the release |
+| X2 | Plugins can bundle `skills`, `mcpServers` (also a `.mcp.json` file; stdio or streamable HTTP), `hooks` (`hooks/hooks.json`), apps (`.app.json`), and an `interface` block (`displayName`, `defaultPrompt`, `brandColor`) | **Confirmed** (keys present) | Manifest structure names in the release |
+| X3 | Install flow: `codex plugin marketplace add owner/repo [--ref <ref>] [--sparse <path>]` (or a local path), then `codex plugin add <plugin>@<marketplace>`; also `codex plugin list [--available] [--json]`, `codex plugin remove`, `codex plugin marketplace upgrade` | **Changed** (was `codex plugins install`) | Usage lines in the release |
+| X4 | Marketplace manifests are read from `.agents/plugins/marketplace.json`, `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json` | **Confirmed** | Paths in the release |
+| X5 | The old custom-prompt commands (`~/.codex/prompts/`, `/prompts:<name>`) have been migrated into **skills**. Skills accept `$ARGUMENTS`, `$ARGUMENTS[N]` and `$N`. User skills live in `$CODEX_HOME/skills/<name>/` (default `~/.codex/skills`) and are invoked by mentioning them (`$name`) | **Changed** | No `.codex/prompts` strings; "migrated-command-skills"/command-migration identifiers; skills installer and argument help text in the release |
+| X6 | Hooks exist with events including `SessionStart`, `UserPromptSubmit` and `PreToolUse`; plugins can bundle hooks; admins can restrict to managed hooks | **Confirmed** (behaviour untested) | Hook schemas in the release; `docs/config.md` in `openai/codex` |
+| X7 | No API for plugins to add buttons or panes | Unchanged (nothing found) | No such identifiers found; `interface.defaultPrompt` is plugin metadata, not a button |
+| X8 | Which marketplace file Codex prefers when a repository has both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` | **Unconfirmed** (M6) | — |
+| X9 | Node.js requirement | Confirmed: the npm launcher declares Node ≥ 16; the program itself is native | npm metadata |
 
 ## Google Drive and OAuth
 
-| # | Fact | Status |
-|---|---|---|
-| G1 | `drive.file` gives per-file access to files the app creates or the user opens with it, and is a non-sensitive, recommended scope | Confirmed by Google's Drive auth page in search results ([Drive API: about auth](https://developers.google.com/drive/about-auth)); recheck wording in M0 |
-| G2 | External apps in "Testing" status get refresh tokens that expire after about 7 days; publishing removes this | **Unconfirmed**: multiple community reports agree ([rclone forum](https://forum.rclone.org/t/google-drive-requires-manual-refresh-every-7-days/29023), [n8n community](https://community.n8n.io/t/can-one-use-google-sheets-longer-than-7-days-in-test-mode-without-manual-reconnecting/275424), [Nango](https://nango.dev/docs/integrations/all/google-drive)); confirm on Google's policy page |
-| G3 | Drive file metadata has a version number usable to detect changes before upload; whether conditional updates are supported | **Unconfirmed** (M0) |
-| G4 | Drive change feed (`changes.list` with a start page token) for cheap polling | **Unconfirmed** (M0) |
-| G5 | Installed-app OAuth with a loopback redirect for desktop clients | **Unconfirmed** (M0) |
+| # | Fact | Status | Evidence |
+|---|---|---|---|
+| G1 | `drive.file`: "See, edit, create, and delete only the specific Google Drive files you use with this app" | **Confirmed** | Drive v3 discovery document. Its classification as a non-sensitive, recommended scope comes from Google's Drive auth page via search results ([Drive API: about auth](https://developers.google.com/drive/about-auth)) |
+| G2 | External apps in "Testing" status get refresh tokens that expire after about 7 days; publishing removes this | **Unconfirmed** | Community reports agree ([rclone forum](https://forum.rclone.org/t/google-drive-requires-manual-refresh-every-7-days/29023), [n8n community](https://community.n8n.io/t/can-one-use-google-sheets-longer-than-7-days-in-test-mode-without-manual-reconnecting/275424), [Nango](https://nango.dev/docs/integrations/all/google-drive)); Google's policy page unreachable. The design copes either way: an expired token shows **Reconnect Google Drive** and queued changes upload afterwards |
+| G3 | Files have a `version` that "increases monotonically … reflects every change made to the file on the server", but `files.update` has **no conditional (only-if-unchanged) parameter** | **Changed** | Drive v3 discovery document. Consequence: one file per device (decision D12) |
+| G4 | Change feed: `changes.getStartPageToken`, `changes.list` (also `changes.watch`, which needs a public HTTPS endpoint and is not used) | **Confirmed** | Drive v3 discovery document |
+| G5 | Desktop OAuth with a local loopback redirect (`http://localhost:<port>`), `access_type: 'offline'` to get a refresh token, `prompt: 'consent'` to force a new one | **Confirmed** | `google-auth-library-nodejs` README |
 
-## Claude Desktop Chat tab
+## Claude Desktop
 
-| # | Fact | Status |
-|---|---|---|
-| D1 | Desktop extensions (`.mcpb`) install local MCP servers | **Unconfirmed** (M7) |
-| D2 | MCP prompts appear in the Chat tab's "+" menu | **Unconfirmed** (M7) |
-| D3 | Mods do not run in the Chat tab | Inferred: mods are a Claude Code feature (C2 lists Claude Code surfaces) |
+| # | Fact | Status | Evidence |
+|---|---|---|---|
+| D1 | Claude for macOS and Windows installs MCP Bundles (`.mcpb`): a zip with a local MCP server and `manifest.json` (`manifest_version` 0.3/0.4, `server`, `user_config`, `compatibility`, `privacy_policies`) | **Confirmed** | MCPB README and MANIFEST spec |
+| D2 | A bundle can declare static `prompts` and set `prompts_generated: true` when the server generates prompts at run time | **Confirmed** | MCPB MANIFEST spec |
+| D3 | `privacy_policies` is required when the extension connects to external services that process user data, which includes Google Drive | **Confirmed** | MCPB MANIFEST spec. Consequence: a privacy policy page is needed before M7 |
+| D4 | Node.js ships with Claude Desktop, so a Node MCP server needs no separate install | **Confirmed** | MCPB README |
+| D5 | MCP prompts appear in the Chat tab's "+" menu | **Unconfirmed** (M7, hands-on) | — |
+| D6 | Mods do not run in the Chat tab | Inferred | Mods are a Claude Code feature (C2 lists Claude Code surfaces) |

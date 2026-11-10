@@ -3,7 +3,7 @@
 ## Goals
 
 1. Define a button, prompt or variable **once** and use it in Claude Code, Codex and Claude Desktop.
-2. Keep the Prompt Bank in **Google Drive** so every device sees the same prompts, with new saves uploaded within seconds.
+2. Keep the Prompt Bank, buttons, variables and Notes in **Google Drive** so every PC sees the same data, synced **automatically** with no user action.
 3. Work **offline**; never make the interface wait for the network.
 4. Use only **documented extension points** on each platform. No code injection into desktop apps.
 5. Keep platform-specific code thin; put the logic in one tested core.
@@ -12,7 +12,8 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ packages/core  (TypeScript, no input/output, no dependencies)            │
+│ packages/core  (TypeScript, no input/output, no dependencies; copied into │
+│                 the Claude plugin at build time)                         │
 │  schema + validation · template engine ({{variables}}) · search          │
 │  refine instructions (Regenerate) · merge + sync engine · migrations     │
 └───────────────▲──────────────────────▲──────────────────────▲────────────┘
@@ -33,7 +34,7 @@
    │ plugins/codex      │   │ desktop-extension   │   │ Claude Code (also  │
    │ skills + MCP config│   │ .mcpb for the       │   │ via the mod above) │
    │ + generated        │   │ Claude Desktop Chat │   │                    │
-   │ /prompts:<id>      │   │ tab                 │   │                    │
+   │ $ccb-<id> skills   │   │ tab                 │   │                    │
    └────────────────────┘   └─────────────────────┘   └────────────────────┘
 ```
 
@@ -42,9 +43,10 @@
 | `packages/core` | All rules: data schema, validation, variable expansion, search ranking, merge, the Regenerate instructions. Pure functions, fully unit-tested. | Bundled into every other component |
 | `packages/mcp-server` (`ccb-mcp`) | The **only** component that touches the library files and Google Drive. Exposes MCP tools and MCP prompts. Owns the outbox and the sync timer. | A local process started by Claude Code, Codex or Claude Desktop |
 | `plugins/claude` | The Claude Code plugin: mod (UI hooks), plugin manifest, bundled MCP server entry. Draws buttons and panes and calls `ccb-mcp`. | Inside Claude Code on every surface (terminal, desktop, VS Code, mobile) |
-| `plugins/codex` | The Codex plugin: skills, MCP server entry, generated slash commands. | Inside Codex |
+| `plugins/codex` | The Codex plugin: skills and MCP server entry. `ccb-mcp` generates `$ccb-<id>` skills for buttons and prompts. | Inside Codex |
 | `desktop-extension` | Packages `ccb-mcp` as a Claude Desktop extension (`.mcpb`) for the Chat tab. | Claude Desktop |
-| `packages/cli` (`ccb`) | Google sign-in, manual sync, status, config, import/export, generating Codex commands, diagnostics. | User's terminal |
+| `packages/cli` (`ccb`) | Google sign-in, status, config, import/export, forcing a sync or Codex skill generation, diagnostics, installing the background sync service. | User's terminal |
+| Background sync service (`ccb sync --daemon`) | Keeps automatic sync running when no Claude Code or Codex session is open. Same code as `ccb-mcp`'s sync engine. | A per-user login service (Task Scheduler, launchd, systemd user) |
 
 ### Why the MCP server owns storage and sync
 
@@ -58,11 +60,11 @@ If several tools run at the same time, each starts its own `ccb-mcp` process. Th
 
 ### Saving a prompt
 
-1. The user presses **Save** in the Prompt Bank pane (or a Codex skill calls `bank.save`).
-2. `ccb-mcp` validates the prompt with `core`, stamps `updatedAt`, `deviceId` and a new `rev`, and writes `library.json` atomically.
+1. The user presses **Save** in the Prompt Bank pane, types in a note, or a Codex skill calls `bank.save`.
+2. `ccb-mcp` validates the record with `core`, stamps `updatedAt` and `updatedBy`, increments `revision`, and writes `library.json` atomically.
 3. The change is added to `outbox.json`.
-4. After about 2 seconds without further saves, the sync engine uploads (see [sync](google-drive-sync.md)).
-5. The status line changes from `1 pending` to `✓ synced`.
+4. After about 2 seconds without further changes, the sync engine uploads this device's own file to Drive, automatically (see [sync](google-drive-sync.md)).
+5. The status line changes from `Sync · 1 pending` to `Sync ✓`.
 
 ### Pressing Regenerate (Claude Code)
 
@@ -87,23 +89,28 @@ If several tools run at the same time, each starts its own `ccb-mcp` process. Th
 ├── schema/
 │   └── library.schema.json      JSON Schema for library.json
 ├── packages/
-│   ├── core/                    src/{schema,template,search,refine,sync,migrate}/ + tests
-│   ├── mcp-server/              src/{tools,prompts,store,drive,outbox}/ + tests
-│   └── cli/                     src/commands/ + tests
+│   ├── core/                    src/{schema,template,search,refine,sync,migrate}/ + test/
+│   ├── mcp-server/              src/{tools,prompts,store,notes,drive,outbox}/ + test/
+│   └── cli/                     src/{commands,service}/ + test/
 ├── plugins/
 │   ├── claude/
 │   │   ├── .claude-plugin/plugin.json
 │   │   ├── hooks/hooks.json
 │   │   ├── hooks/register.tsx   the mod
+│   │   ├── hooks/core/          copy of packages/core (generated, decision D13)
 │   │   ├── types/index.d.ts     $.state contract
 │   │   └── tests/*.test.tsx
 │   └── codex/
 │       ├── .codex-plugin/plugin.json
+│       ├── .mcp.json
 │       └── skills/{continue,regenerate-prompt,prompt-bank,notes}/SKILL.md
 ├── desktop-extension/
 │   └── manifest.json
 ├── .claude-plugin/
-│   └── marketplace.json         lets Claude Code install from this repo
+│   └── marketplace.json         Claude Code marketplace (lists the Claude plugin)
+├── .agents/plugins/
+│   └── marketplace.json         Codex marketplace (lists the Codex plugin)
+├── scripts/check-links.mjs      documentation link checker
 ├── docs/
 └── .github/workflows/ci.yml
 ```
@@ -112,9 +119,9 @@ If several tools run at the same time, each starts its own `ccb-mcp` process. Th
 
 | Need | Choice | Reason |
 |---|---|---|
-| Language | TypeScript 5.x | Required by the Claude mod API; shared across all packages |
-| Runtime | Node.js 20 or newer | MCP server and CLI; minimum checked against Codex in M0 |
-| Packaging | npm workspaces; esbuild only if the mod must be one file | Few moving parts |
+| Language | TypeScript 6.0 | Required by the Claude mod API; pinned below 7 until `typescript-eslint` supports 7 (decision D16) |
+| Runtime | Node.js 22 or newer | Node 20 is end-of-life; Vitest 5 needs 22.12+ (decision D15) |
+| Packaging | npm workspaces; a build step copies `core` into the Claude plugin | A mod can import only its own plugin's files (fact C15, decision D13) |
 | Tests | Vitest for packages; `claude plugin test` for the mod | The mod's own test kit exercises real surfaces |
 | MCP | `@modelcontextprotocol/sdk`, `zod` for tool input schemas | Standard SDK |
 | Google Drive | `@googleapis/drive`, `google-auth-library` | Official client libraries, Drive-only package keeps size down |

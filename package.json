@@ -1,0 +1,30 @@
+{
+  "name": "claude-codex-custom-buttons",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank synced through Google Drive.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check:links": "node scripts/check-links.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run check:links"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.6",
+    "eslint": "10.14.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vitest": "5.1.0"
+  }
+}

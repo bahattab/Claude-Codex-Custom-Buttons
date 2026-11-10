@@ -1,17 +1,17 @@
 # Data model
 
-All persistent data lives in `~/.claude-codex-buttons/` on each computer, and the synced part also lives in Google Drive.
+All persistent data lives in `~/.claude-codex-buttons/` on each computer. The synced part (prompts, categories, variables, buttons, notes and two shared settings) also lives in Google Drive.
 
 ```
 ~/.claude-codex-buttons/
-├── library.json        the library (prompts, categories, variables, buttons, settings)
+├── library.json        the local library (everything below the "settings" line syncs)
 ├── library.bak.json    last copy that passed validation
 ├── outbox.json         local changes not yet uploaded to Drive
-├── sync-state.json     Drive file ID, last seen Drive version, change-feed token
-├── device.json         this computer's random device ID
+├── sync-state.json     Drive folder ID, change-feed token, per-record hashes at last sync
+├── device.json         this computer's random device ID and display name
 ├── .lock               held while a process writes
 └── notes/
-    └── <note-id>.md    one file per note (local only)
+    └── <slug>--<id>.md Markdown mirror of each note, for other editors and tools
 ```
 
 The authoritative machine-readable definition will be `schema/library.schema.json` (JSON Schema draft 2020-12), generated from the `core` schema in M1.
@@ -40,10 +40,10 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
     }
   ],
   "categories": [
-    { "id": "review", "name": "Code review", "order": 1, "updatedAt": "2026-10-01T09:00:00.000Z", "deletedAt": null }
+    { "id": "review", "name": "Code review", "order": 1, "updatedAt": "2026-10-01T09:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null }
   ],
   "variables": {
-    "project": { "value": "Billing API", "updatedAt": "2026-10-05T10:00:00.000Z", "deletedAt": null }
+    "project": { "value": "Billing API", "updatedAt": "2026-10-05T10:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null }
   },
   "buttons": [
     {
@@ -53,12 +53,29 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
       "action": { "type": "submit", "promptId": "01JC8Z5K2V9Q4W7E3R6T1Y0U8I" },
       "order": 1,
       "updatedAt": "2026-10-01T09:00:00.000Z",
+      "updatedBy": "dev_7f3a91",
       "deletedAt": null
     }
   ],
+  "notes": [
+    {
+      "id": "01JCA1M3QK7T2B9W4X6Z8C0D1E",
+      "title": "Release checklist",
+      "body": "# Release checklist\n\n- bump version\n- update CHANGELOG\n",
+      "pinned": false,
+      "createdAt": "2026-11-01T08:00:00.000Z",
+      "updatedAt": "2026-11-09T21:14:02.118Z",
+      "updatedBy": "dev_c02e5d",
+      "deletedAt": null,
+      "conflictOf": null
+    }
+  ],
+  "sharedSettings": {
+    "regenerate": { "instructions": null, "updatedAt": null },
+    "continue": { "message": null, "updatedAt": null }
+  },
   "settings": {
-    "regenerate": { "autoSubmit": false, "instructions": null },
-    "continue": { "message": null },
+    "regenerate": { "autoSubmit": false },
     "buttons": { "maxVisible": 6 },
     "sync": { "mode": "drive-api", "intervalSeconds": 60, "pushDelayMs": 2000 }
   }
@@ -66,6 +83,8 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
 ```
 
 ## Field rules
+
+Every synced record carries `updatedAt` (ISO 8601 UTC), `updatedBy` (device ID) and `deletedAt` (timestamp or null). Merging uses these; see [google-drive-sync.md](google-drive-sync.md#merge-rules).
 
 ### Prompt
 
@@ -77,11 +96,11 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
 | `category` | string or null | ID of a category; unknown IDs fall back to null |
 | `tags` | string[] | Up to 20, each 1–32 characters, lowercased, unique |
 | `favorite` | boolean | |
-| `useCount`, `lastUsedAt` | number, timestamp | Local statistics; synced but never cause conflicts (largest value wins) |
-| `createdAt`, `updatedAt` | ISO 8601 UTC timestamp | `updatedAt` changes on every content edit |
+| `useCount`, `lastUsedAt` | number, timestamp | Statistics; largest value wins on merge, never a conflict |
+| `createdAt`, `updatedAt` | timestamp | `updatedAt` changes on every content edit |
 | `updatedBy` | string | Device ID of the last editor |
-| `deletedAt` | timestamp or null | Set on delete (a "tombstone"); the record is removed for good 30 days later |
-| `conflictOf` | string or null | Set on a conflict copy; the ID of the prompt it conflicts with |
+| `deletedAt` | timestamp or null | Set on delete (a tombstone); removed for good 180 days later |
+| `conflictOf` | string or null | Set on a conflict copy; the ID of the record it conflicts with |
 
 ### Variable
 
@@ -97,25 +116,58 @@ Key: the variable name (`^[a-z][a-z0-9_]{0,63}$`). Value: up to 5,000 characters
 | `action` | One of the [action types](features.md#action-types). `submit`/`fill` take `promptId` **or** `text`; `fill` also takes `mode`: `replace` (default), `append`, `insert` |
 | `order` | Position in the button row |
 
-### Note (local only)
+### Note
 
-Markdown file `notes/<id>.md`. The first line starting with `# ` is the title. Metadata (created/updated) comes from the file system.
+| Field | Rules |
+|---|---|
+| `id` | ULID |
+| `title` | 1–120 characters; defaults to the first `# ` heading or first line of the body |
+| `body` | Markdown, up to 200,000 characters |
+| `pinned` | Pinned notes are listed first |
+| `createdAt`, `updatedAt`, `updatedBy`, `deletedAt`, `conflictOf` | As for prompts |
+
+Each note is mirrored to `notes/<slug>--<id>.md`, where `<slug>` is the title in lowercase with hyphens. The file holds only the body; an edit made to the file in another editor is picked up and synced (see [google-drive-sync.md](google-drive-sync.md#notes-and-their-markdown-files)).
+
+## Device file in Drive
+
+Each device uploads `devices/<deviceId>.json` to the Drive folder. It holds that device's merged view of the synced data:
+
+```json
+{
+  "format": "ccb-device/1",
+  "schemaVersion": 1,
+  "deviceId": "dev_7f3a91",
+  "deviceName": "Laptop",
+  "syncedAt": "2026-11-10T07:48:16.000Z",
+  "prompts": [],
+  "categories": [],
+  "variables": {},
+  "buttons": [],
+  "notes": [],
+  "sharedSettings": {}
+}
+```
+
+Only the device named in `deviceId` writes this file. Records include tombstones, so deletions travel too.
 
 ## Validation and recovery
 
-- Every read and every write is validated against the schema.
-- Text fields are trimmed and stripped of invisible control characters; Markdown and code are kept as-is (they are prompt content, never rendered as HTML).
+- Every read and every write is validated against the schema, including device files downloaded from Drive.
+- Text fields are trimmed and stripped of invisible control characters; Markdown and code are kept as-is (they are prompt or note content, never rendered as HTML).
 - If `library.json` fails validation on load, the last valid `library.bak.json` is used, the broken file is kept as `library.broken-<time>.json`, and the user is told.
+- An invalid device file from Drive is skipped and reported by `ccb doctor`; it never overwrites good local data.
 - Writes are atomic: write to a temporary file in the same folder, then rename over the original.
 
 ## Schema versions and migration
 
-`schemaVersion` starts at 1. Each future version adds a migration function in `core/migrate/` that upgrades the previous version. A client that finds a **newer** version than it understands opens the library read-only and asks the user to update.
+`schemaVersion` starts at 1. Each future version adds a migration function in `core/migrate/` that upgrades the previous version. A client that finds a **newer** version than it understands, locally or in a device file, opens the library read-only and asks the user to update.
 
 ## What is synced
 
 | Data | Synced to Drive |
 |---|---|
 | Prompts, categories, variables, buttons | Yes |
-| Settings | Only `regenerate.instructions` and `continue.message`; the rest is per device |
-| Notes, outbox, sync state, device ID | No |
+| Notes | Yes |
+| `sharedSettings` (Regenerate instructions, Continue message) | Yes |
+| `settings` (everything else) | No, per device |
+| Outbox, sync state, device ID | No |

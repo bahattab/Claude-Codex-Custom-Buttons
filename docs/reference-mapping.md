@@ -12,7 +12,7 @@ Users create reusable widgets (phone, WhatsApp and email buttons, call-to-action
 |---|---|---|
 | Custom post type `qt_widget` | Records in `library.json` | Stored locally and in Drive instead of the WordPress database |
 | 10 widget types, one renderer that switches on type | [Action types](features.md#action-types), one dispatcher per platform | Same "registry + dispatcher" pattern |
-| Shortcode `[qt_widget id]`: edit once, every placement updates | Buttons, slash commands and Codex commands reference prompt **IDs** | Same "single source of truth" idea |
+| Shortcode `[qt_widget id]`: edit once, every placement updates | Buttons, slash commands and generated Codex skills reference prompt **IDs** | Same "single source of truth" idea |
 | Text Tokens `{{key}}` and `[qt_token key]` | [Prompt variables](features.md#prompt-variables) `{{key}}` | Extended with built-ins and ask-when-run |
 | `sanitize_key()` on token keys | Variable names normalised to `^[a-z][a-z0-9_]{0,63}$` on save and lookup | Same rule, slightly stricter |
 | Canonical hidden-fields pattern: one set of named inputs is the only thing saved; panels write into it | One validated library file is the only source; panes edit a draft that is committed on save | Same goal: no field silently overwrites another |
