@@ -29,6 +29,7 @@ export type ClientState = {
     regenerate: { autoSubmit: boolean; source: "auto" | "selection" | "draft" | "last" };
     continue: { highlightOnTruncation: boolean };
     buttons: { maxVisible: number; showBuiltIns: boolean };
+    notes?: { autosaveMs: number };
   };
   continueMessage: string;
   regenerateInstructions: string | null;
@@ -40,6 +41,76 @@ export type UndoState = { text: string; id: string };
 /** What is in progress, and since when (ms). */
 export type BusyState = { kind: string; since: number };
 
+export type PromptSummary = {
+  id: string;
+  title: string;
+  category: string | null;
+  tags: string[];
+  favorite: boolean;
+  conflictOf: string | null;
+  preview: string;
+};
+
+/** A prompt being written or edited in the Prompt Bank pane (kept if the pane closes). */
+export type PromptDraft = {
+  id: string | null;
+  title: string;
+  body: string;
+  tags: string;
+  category: string | null;
+  favorite: boolean;
+};
+
+export type ButtonDraft = {
+  id: string;
+  label: string;
+  icon: string;
+  type: "submit" | "fill" | "continue" | "refine" | "open-notes" | "open-prompt-bank" | "insert-prompt";
+  promptId: string;
+  text: string;
+  mode: FillMode;
+};
+
+export type BankView = {
+  tab: "prompts" | "variables" | "buttons";
+  query: string;
+  category: string | null;
+  favoritesOnly: boolean;
+  editing: PromptDraft | null;
+  confirmDelete: string | null;
+  lastDeleted: { id: string; title: string; body: string; category: string | null; tags: string[]; favorite: boolean } | null;
+  variableDraft: { name: string; value: string };
+  buttonDraft: ButtonDraft | null;
+  notice: string | null;
+};
+
+export type BankData = {
+  results: PromptSummary[];
+  categories: Array<{ id: string; name: string; prompts: number }>;
+  variables: Record<string, string>;
+  buttons: ButtonView[];
+  counts: { prompts: number; favorites: number; notes: number; conflicts: number } | null;
+};
+
+export type NoteSummary = { id: string; title: string; pinned: boolean; updatedAt: string; conflictOf: string | null; length: number };
+
+export type NotesView = {
+  list: NoteSummary[];
+  selectedId: string | null;
+  title: string;
+  /** What the editor shows. */
+  draft: string;
+  /** The note's text as last loaded or saved: what `draft` was edited from. */
+  base: string;
+  dirty: boolean;
+  /** Text saved elsewhere while this note had unsaved edits here. */
+  theirs: string | null;
+  renaming: string | null;
+  confirmDelete: boolean;
+  saveToken: number;
+  notice: string | null;
+};
+
 declare module "claude-code" {
   interface PluginState {
     "prompt-buttons": {
@@ -47,6 +118,9 @@ declare module "claude-code" {
       truncated: boolean;
       undo: UndoState | null;
       busy: BusyState | null;
+      bankView: BankView;
+      bankData: BankData;
+      notesView: NotesView;
     };
   }
 }

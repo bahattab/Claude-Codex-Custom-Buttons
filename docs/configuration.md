@@ -9,7 +9,7 @@
 | Google OAuth client | `~/.claude-codex-buttons/google-client.json` | No |
 | Google refresh token | OS credential store, service `claude-codex-buttons` | No |
 
-Change settings from the Prompt Bank pane's **Settings** tab, the Claude Code plugin options menu, or the `ccb` command (available since M2):
+Change settings with the `ccb` command (available since M2). The Prompt Bank pane's **Settings** tab is planned for M8:
 
 ```bash
 npx ccb config list

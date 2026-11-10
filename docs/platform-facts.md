@@ -37,6 +37,8 @@ Last updated: 2026-11-10 (milestone M0).
 | C20 | `$.prompt.submit` is refused inside a `command.run` hook. A submit from a `$.clock.after` timer after the hook returns is accepted by the test kit | **Confirmed** (refusal) / **Unconfirmed** (timer path in a real session, hands-on) | Engine message in `claude plugin test`; plugin tests |
 | C21 | Plugins declare MCP servers inline in `plugin.json` (`mcpServers`) or in `.mcp.json`, with `${CLAUDE_PLUGIN_ROOT}`; Claude Code starts them when the plugin is enabled | **Confirmed** | code.claude.com plugins reference and MCP docs |
 | C22 | One-step install `/plugin install <plugin> --marketplace <owner/repo>` needs Claude Code 2.1.275+; otherwise `/plugin marketplace add` then `/plugin install <plugin>@<marketplace>` | **Confirmed** | code.claude.com install docs; `claude plugin validate .` |
+| C23 | A `$.state` atom must be declared in the module that reads or updates it; `$` may not be passed to a stored callback, only to functions called directly | **Confirmed** | `claude plugin validate` errors (M4) |
+| C24 | A plugin opens its own side pane with `$.ui.open({ id, title, focus })` and draws it in a `ui.render` hook on `Pane` for that `requestId`; `Input` with `rows` is a multi-line editor raising `onInput` per edit and `onSubmit` on Enter | **Confirmed** | Types 2.1.322; plugin tests on terminal and desktop |
 
 ## Codex (0.167.0)
 
