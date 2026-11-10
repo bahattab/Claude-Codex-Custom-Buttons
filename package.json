@@ -13,12 +13,14 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit && tsc -p packages/core/test",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "vitest run",
     "check:links": "node scripts/check-links.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run check:links",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "ccb": "node packages/cli/dist/bin.js",
+    "ccb-mcp": "node packages/mcp-server/dist/bin.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

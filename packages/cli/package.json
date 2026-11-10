@@ -1,0 +1,23 @@
+{
+  "name": "@ccb/cli",
+  "private": true,
+  "version": "0.0.0",
+  "description": "ccb: command-line tool for Claude Codex Custom Buttons (config, import/export, doctor).",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "ccb": "dist/bin.js"
+  },
+  "dependencies": {
+    "@ccb/core": "0.0.0",
+    "@ccb/store": "0.0.0"
+  }
+}

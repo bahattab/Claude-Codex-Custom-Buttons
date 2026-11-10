@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@ccb/core": ["./packages/core/src/index.ts"],
+      "@ccb/store": ["./packages/store/src/index.ts"],
+      "@ccb/mcp-server": ["./packages/mcp-server/src/index.ts"],
+      "@ccb/cli": ["./packages/cli/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

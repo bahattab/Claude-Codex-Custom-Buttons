@@ -1,0 +1,25 @@
+{
+  "name": "@ccb/mcp-server",
+  "private": true,
+  "version": "0.0.0",
+  "description": "ccb-mcp: the MCP server Claude Code, Codex and Claude Desktop use to reach the Prompt Bank, buttons, variables and notes.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "ccb-mcp": "dist/bin.js"
+  },
+  "dependencies": {
+    "@ccb/core": "0.0.0",
+    "@ccb/store": "0.0.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  }
+}

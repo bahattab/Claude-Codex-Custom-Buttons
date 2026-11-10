@@ -19,3 +19,6 @@ google-client.json
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# AMA planning files (local working state)
+.planning/
