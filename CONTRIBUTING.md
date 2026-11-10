@@ -19,6 +19,7 @@ npm run lint
 npm run typecheck
 npm test
 npm run check:links     # documentation links and anchors
+npm run coverage        # tests with a coverage report and minimum thresholds
 ```
 
 Claude mod checks *(from M3)*:
@@ -33,7 +34,8 @@ Use `CCB_HOME=$(mktemp -d)` to run against a throwaway library instead of your r
 
 ## Rules
 
-- **Logic goes in `packages/core`.** Platform code (mod, MCP server, CLI, Codex skills) stays thin.
+- **Logic goes in `packages/core`.** Platform code (mod, MCP server, CLI, Codex skills) stays thin. Core has no dependencies and no file, network or clock access: pass time, randomness and data in.
+- **Write `\uXXXX` escapes for invisible characters** in source; a test fails on literal ones.
 - **Only `ccb-mcp` touches the library files and Google Drive.**
 - **Tests with every change:** a failing test first for bug fixes; UI tests on both `terminal` and `desktop` surfaces for mod changes.
 - **No code-running button actions** (decision D11).

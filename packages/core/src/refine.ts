@@ -1,0 +1,72 @@
+// Regenerate Prompt: the rewrite instructions, the request built from them, and a check
+// that the rewrite kept the exact things a user would not want changed.
+// See docs/features.md#2-regenerate-prompt.
+
+export const REFINE_INSTRUCTIONS = `You rewrite a user's rough prompt into a clearer prompt for an AI assistant.
+
+Rules:
+- Keep the user's intent and keep the same language they wrote in.
+- Copy every code block, inline code, file path, URL, number, name and quoted text exactly as given.
+- Make the goal, the relevant context, the constraints and the expected output explicit.
+- Remove filler and ambiguity. Do not add requirements the user did not ask for.
+- If something essential is missing, keep the prompt usable and add a short "Assumptions:" line instead of asking questions.
+- Return only the rewritten prompt, with no preamble, explanation or surrounding quotes.`;
+
+export const DEFAULT_CONTINUE_MESSAGE =
+  "Continue exactly where you stopped. Do not repeat what you already wrote. If you were in a code block, reopen it with the same language and continue the code.";
+
+export interface RefineRequest {
+  system: string;
+  user: string;
+}
+
+/**
+ * The model request for a rewrite. `instructions` overrides the built-in ones
+ * (setting regenerate.instructions); `extra` is the optional text after /regen.
+ */
+export function buildRefineRequest(source: string, opts: { instructions?: string | null; extra?: string } = {}): RefineRequest {
+  const extra = opts.extra?.trim();
+  const user = [
+    "Rewrite this prompt:",
+    "<prompt>",
+    source,
+    "</prompt>",
+    ...(extra ? ["", `Additional instruction from the user: ${extra}`] : []),
+  ].join("\n");
+  return { system: opts.instructions?.trim() || REFINE_INSTRUCTIONS, user };
+}
+
+/** Removes a wrapping code fence or quotes a model sometimes adds around its answer. */
+export function cleanRefineOutput(output: string): string {
+  let text = output.trim();
+  const fence = /^```[\w-]*\n([\s\S]*?)\n```$/.exec(text);
+  if (fence?.[1] !== undefined && !fence[1].includes("```")) text = fence[1].trim();
+  if (/^"[\s\S]*"$/.test(text) && !text.slice(1, -1).includes('"')) text = text.slice(1, -1).trim();
+  return text;
+}
+
+const FENCE_RE = /```[\s\S]*?```/g;
+const INLINE_CODE_RE = /`[^`\n]+`/g;
+const URL_RE = /\bhttps?:\/\/[^\s<>()"'`]+[^\s<>()"'`.,;:!?]/g;
+const PATH_RE = /(?:^|[\s(])((?:~|\.{1,2})?(?:\/[\w.@-]+){2,}\/?|[A-Za-z]:\\(?:[\w.@ -]+\\)*[\w.@-]+|[\w.-]+\/[\w./-]*\.[A-Za-z0-9]{1,8})/g;
+const NUMBER_RE = /(?<![\w.])\d+(?:[.,]\d+)*(?![\w])/g;
+
+/** Exact strings a rewrite must keep: code, URLs, paths and numbers. */
+export function protectedFragments(text: string): string[] {
+  const found = new Set<string>();
+  let rest = text;
+  for (const m of text.matchAll(FENCE_RE)) {
+    found.add(m[0].replace(/^```[\w-]*\n?|\n?```$/g, "").trim());
+    rest = rest.replace(m[0], " ");
+  }
+  for (const m of rest.matchAll(INLINE_CODE_RE)) found.add(m[0].slice(1, -1));
+  for (const m of rest.matchAll(URL_RE)) found.add(m[0]);
+  for (const m of rest.matchAll(PATH_RE)) if (m[1]) found.add(m[1]);
+  for (const m of rest.matchAll(NUMBER_RE)) found.add(m[0]);
+  return [...found].filter((f) => f.length > 0);
+}
+
+/** Which protected fragments of `original` are missing from `rewritten`. Empty means all kept. */
+export function missingFragments(original: string, rewritten: string): string[] {
+  return protectedFragments(original).filter((fragment) => !rewritten.includes(fragment));
+}

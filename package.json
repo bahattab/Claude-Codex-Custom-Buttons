@@ -13,15 +13,18 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit && tsc -p packages/core/test",
     "lint": "eslint .",
     "test": "vitest run",
     "check:links": "node scripts/check-links.mjs",
-    "check": "npm run lint && npm run typecheck && npm test && npm run check:links"
+    "check": "npm run lint && npm run typecheck && npm test && npm run check:links",
+    "coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.6",
+    "@vitest/coverage-v8": "5.1.0",
+    "ajv": "8.20.0",
     "eslint": "10.14.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",

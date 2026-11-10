@@ -1,0 +1,138 @@
+/** An ISO 8601 UTC timestamp, e.g. "2026-11-10T07:48:16.000Z". */
+export type Iso = string;
+
+/**
+ * Fields every synced record carries. See docs/data-model.md#field-rules.
+ *
+ * `ancestors` lists content hashes of versions written by *other* devices that
+ * this version descends from. The merge uses it to tell "newer version" from
+ * "concurrent edit"; a device's own earlier versions are recognised by
+ * `updatedBy` and `updatedAt` instead, so typing in a note does not grow it.
+ */
+export interface SyncMeta {
+  id: string;
+  updatedAt: Iso;
+  updatedBy: string;
+  deletedAt: Iso | null;
+  ancestors: string[];
+}
+
+export interface Prompt extends SyncMeta {
+  title: string;
+  body: string;
+  category: string | null;
+  tags: string[];
+  favorite: boolean;
+  useCount: number;
+  lastUsedAt: Iso | null;
+  createdAt: Iso;
+  conflictOf: string | null;
+}
+
+export interface Category extends SyncMeta {
+  name: string;
+  order: number;
+}
+
+/** A prompt variable. `id` is the variable name, e.g. "project". */
+export interface Variable extends SyncMeta {
+  value: string;
+}
+
+export type FillMode = "replace" | "append" | "insert";
+
+export type ButtonAction =
+  | { type: "submit"; promptId: string }
+  | { type: "submit"; text: string }
+  | { type: "fill"; promptId: string; mode: FillMode }
+  | { type: "fill"; text: string; mode: FillMode }
+  | { type: "refine" }
+  | { type: "continue" }
+  | { type: "insert-prompt"; category: string | null; search: string | null }
+  | { type: "open-pane"; pane: "notes" | "prompt-bank" };
+
+export interface Button extends SyncMeta {
+  label: string;
+  icon: string | null;
+  action: ButtonAction;
+  order: number;
+}
+
+export interface Note extends SyncMeta {
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: Iso;
+  conflictOf: string | null;
+}
+
+/** IDs of the settings that sync between devices. */
+export type SharedSettingId = "regenerate.instructions" | "continue.message";
+
+export interface SharedSetting extends SyncMeta {
+  id: SharedSettingId;
+  value: string | null;
+}
+
+/** Settings that stay on one device. */
+export interface LocalSettings {
+  regenerate: { autoSubmit: boolean; source: "auto" | "selection" | "draft" | "last" };
+  continue: { highlightOnTruncation: boolean };
+  buttons: { maxVisible: number; showBuiltIns: boolean };
+  notes: { autosaveMs: number; mirrorFiles: boolean };
+  sync: {
+    mode: "drive-api" | "drive-folder" | "off";
+    folderPath: string | null;
+    driveFolderName: string;
+    intervalSeconds: number;
+    pushDelayMs: number;
+    backgroundService: boolean;
+  };
+  codex: { autoSync: boolean };
+  google: { clientFile: string | null };
+}
+
+/** The synced collections, each an array of records with unique IDs. */
+export interface SyncedData {
+  prompts: Prompt[];
+  categories: Category[];
+  variables: Variable[];
+  buttons: Button[];
+  notes: Note[];
+  sharedSettings: SharedSetting[];
+}
+
+export type CollectionName = keyof SyncedData;
+
+export const COLLECTIONS: readonly CollectionName[] = [
+  "prompts",
+  "categories",
+  "variables",
+  "buttons",
+  "notes",
+  "sharedSettings",
+];
+
+/** The local library file, ~/.claude-codex-buttons/library.json. */
+export interface Library extends SyncedData {
+  schemaVersion: number;
+  revision: number;
+  settings: LocalSettings;
+}
+
+/** A device's file in Drive, devices/<deviceId>.json. */
+export interface DeviceFile extends SyncedData {
+  format: "ccb-device/1";
+  schemaVersion: number;
+  deviceId: string;
+  deviceName: string;
+  syncedAt: Iso;
+}
+
+/** Who is making a change, and when. */
+export interface EditContext {
+  now: Iso;
+  deviceId: string;
+}
+
+export type Result<T> = { ok: true; value: T } | { ok: false; errors: string[] };

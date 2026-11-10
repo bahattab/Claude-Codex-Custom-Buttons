@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- `@ccb/core` (milestone M1), dependency-free and free of file/network access:
+  - validation and cleanup for the library, device files and every record type, with default settings;
+  - `{{variables}}` with built-ins, ask-when-run fields, escapes and single-pass expansion;
+  - Prompt Bank search with ranking;
+  - Regenerate instructions plus a check that code, URLs, paths and numbers survive a rewrite;
+  - the sync merge (newer-vs-concurrent detection, deterministic conflict copies, tombstones, stale and returning devices);
+  - schema migrations and the starter pack.
+- `schema/library.schema.json`, kept in agreement with the core validators by tests.
+- 101 tests with coverage thresholds enforced in CI; the merge was mutation-checked.
 - Workspace scaffold (milestone M0): npm workspaces, TypeScript 6 base config, ESLint, Vitest, `packages/core` skeleton with tests, a documentation link checker (`npm run check:links`), and CI on Node 22 and 24.
 - Notes now sync through Google Drive alongside the Prompt Bank, custom buttons and variables; offline edits upload when the connection returns.
 - Automatic sync design: no manual step after the one-time sign-in, **Connect/Reconnect Google Drive** from the panes, and a per-user background sync service so sync continues when Claude Code and Codex are closed.

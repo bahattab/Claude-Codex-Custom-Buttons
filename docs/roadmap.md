@@ -5,7 +5,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | # | Milestone | Status | Depends on |
 |---|---|---|---|
 | M0 | Confirm platform facts, scaffold the repository, CI | **Done** (2026-11-10) | — |
-| M1 | `core`: schema, validation, variables, search, Regenerate instructions, merge engine | Planned | M0 |
+| M1 | `core`: schema, validation, variables, search, Regenerate instructions, merge engine | **Done** (2026-11-10) | M0 |
 | M2 | `ccb-mcp` server with local storage (prompts, buttons, variables, notes), plus `ccb` basics | Planned | M1 |
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | Planned | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Planned | M3 |
@@ -38,6 +38,8 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 - Migration framework (`schemaVersion` 1).
 
 **Done when:** unit tests cover each rule; merge tests include two-device, offline and conflict scenarios; search over 1,000 prompts runs under 50 ms.
+
+**Result (2026-11-10):** done. `packages/core` has 101 tests in 9 files (93% line, 86% branch, 100% function coverage; CI enforces minimums). The merge was mutation-checked: each of 9 deliberately broken rules makes at least one test fail. Search over 1,000 prompts averaged 0.5 ms on the development machine (target: under 50 ms). `schema/library.schema.json` is checked against the validators by tests. Design changes recorded as D17 (conflict detection by `ancestors`) and D18 (hand-written JSON Schema with agreement tests).
 
 ## M2: MCP server and CLI basics
 

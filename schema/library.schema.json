@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bahattab/Claude-Codex-Custom-Buttons/schema/library.schema.json",
+  "title": "Claude Codex Custom Buttons library",
+  "description": "The stored form of ~/.claude-codex-buttons/library.json (schema version 1). The validators in packages/core are the reference; tests check this file agrees with them. See docs/data-model.md.",
+  "type": "object",
+  "required": ["schemaVersion", "revision", "prompts", "categories", "variables", "buttons", "notes", "sharedSettings", "settings"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "prompts": { "type": "array", "items": { "$ref": "#/$defs/prompt" } },
+    "categories": { "type": "array", "items": { "$ref": "#/$defs/category" } },
+    "variables": { "type": "array", "items": { "$ref": "#/$defs/variable" } },
+    "buttons": { "type": "array", "items": { "$ref": "#/$defs/button" } },
+    "notes": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+    "sharedSettings": { "type": "array", "items": { "$ref": "#/$defs/sharedSetting" } },
+    "settings": { "$ref": "#/$defs/settings" }
+  },
+  "$defs": {
+    "iso": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$"
+    },
+    "isoOrNull": { "oneOf": [{ "$ref": "#/$defs/iso" }, { "type": "null" }] },
+    "ulid": { "type": "string", "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" },
+    "ulidOrNull": { "oneOf": [{ "$ref": "#/$defs/ulid" }, { "type": "null" }] },
+    "categoryId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+    "deviceId": { "type": "string", "pattern": "^dev_[a-z0-9]{6,32}$" },
+    "syncMeta": {
+      "type": "object",
+      "required": ["id", "updatedAt", "updatedBy", "deletedAt", "ancestors"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "updatedAt": { "$ref": "#/$defs/iso" },
+        "updatedBy": { "type": "string", "pattern": "^(dev_[a-z0-9]{6,32}|starter)$" },
+        "deletedAt": { "$ref": "#/$defs/isoOrNull" },
+        "ancestors": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[0-9a-f]{28}$" }
+        }
+      }
+    },
+    "prompt": {
+      "allOf": [{ "$ref": "#/$defs/syncMeta" }],
+      "type": "object",
+      "required": ["title", "body", "category", "tags", "favorite", "useCount", "lastUsedAt", "createdAt", "conflictOf"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ulid" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "category": { "oneOf": [{ "$ref": "#/$defs/categoryId" }, { "type": "null" }] },
+        "tags": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 32 }
+        },
+        "favorite": { "type": "boolean" },
+        "useCount": { "type": "integer", "minimum": 0 },
+        "lastUsedAt": { "$ref": "#/$defs/isoOrNull" },
+        "createdAt": { "$ref": "#/$defs/iso" },
+        "conflictOf": { "$ref": "#/$defs/ulidOrNull" }
+      }
+    },
+    "category": {
+      "allOf": [{ "$ref": "#/$defs/syncMeta" }],
+      "type": "object",
+      "required": ["name", "order"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/categoryId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "order": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+      }
+    },
+    "variable": {
+      "allOf": [{ "$ref": "#/$defs/syncMeta" }],
+      "type": "object",
+      "required": ["value"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "value": { "type": "string", "maxLength": 5000 }
+      }
+    },
+    "fillMode": { "enum": ["replace", "append", "insert"] },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "promptId"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "submit" }, "promptId": { "$ref": "#/$defs/ulid" } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "text"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "submit" }, "text": { "type": "string", "minLength": 1, "maxLength": 20000 } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "promptId", "mode"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "fill" },
+            "promptId": { "$ref": "#/$defs/ulid" },
+            "mode": { "$ref": "#/$defs/fillMode" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "text", "mode"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "fill" },
+            "text": { "type": "string", "minLength": 1, "maxLength": 20000 },
+            "mode": { "$ref": "#/$defs/fillMode" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": { "type": { "enum": ["refine", "continue"] } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "category", "search"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "insert-prompt" },
+            "category": { "oneOf": [{ "$ref": "#/$defs/categoryId" }, { "type": "null" }] },
+            "search": { "type": ["string", "null"], "maxLength": 200 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "pane"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "open-pane" }, "pane": { "enum": ["notes", "prompt-bank"] } }
+        }
+      ]
+    },
+    "button": {
+      "allOf": [{ "$ref": "#/$defs/syncMeta" }],
+      "type": "object",
+      "required": ["label", "icon", "action", "order"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^btn_[a-z0-9_]{1,60}$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "icon": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 16, "pattern": "^\\S+$" }, { "type": "null" }] },
+        "action": { "$ref": "#/$defs/action" },
+        "order": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+      }
+    },
+    "note": {
+      "allOf": [{ "$ref": "#/$defs/syncMeta" }],
+      "type": "object",
+      "required": ["title", "body", "pinned", "createdAt", "conflictOf"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ulid" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "body": { "type": "string", "maxLength": 200000 },
+        "pinned": { "type": "boolean" },
+        "createdAt": { "$ref": "#/$defs/iso" },
+        "conflictOf": { "$ref": "#/$defs/ulidOrNull" }
+      }
+    },
+    "sharedSetting": {
+      "allOf": [{ "$ref": "#/$defs/syncMeta" }],
+      "type": "object",
+      "required": ["value"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "enum": ["regenerate.instructions", "continue.message"] },
+        "value": { "type": ["string", "null"], "maxLength": 10000 }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["regenerate", "continue", "buttons", "notes", "sync", "codex", "google"],
+      "properties": {
+        "regenerate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["autoSubmit", "source"],
+          "properties": {
+            "autoSubmit": { "type": "boolean" },
+            "source": { "enum": ["auto", "selection", "draft", "last"] }
+          }
+        },
+        "continue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["highlightOnTruncation"],
+          "properties": { "highlightOnTruncation": { "type": "boolean" } }
+        },
+        "buttons": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxVisible", "showBuiltIns"],
+          "properties": {
+            "maxVisible": { "type": "integer", "minimum": 1, "maximum": 12 },
+            "showBuiltIns": { "type": "boolean" }
+          }
+        },
+        "notes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["autosaveMs", "mirrorFiles"],
+          "properties": {
+            "autosaveMs": { "type": "integer", "minimum": 250, "maximum": 60000 },
+            "mirrorFiles": { "type": "boolean" }
+          }
+        },
+        "sync": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "folderPath", "driveFolderName", "intervalSeconds", "pushDelayMs", "backgroundService"],
+          "properties": {
+            "mode": { "enum": ["drive-api", "drive-folder", "off"] },
+            "folderPath": { "type": ["string", "null"], "maxLength": 4096 },
+            "driveFolderName": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "intervalSeconds": { "type": "integer", "minimum": 15, "maximum": 3600 },
+            "pushDelayMs": { "type": "integer", "minimum": 500, "maximum": 60000 },
+            "backgroundService": { "type": "boolean" }
+          }
+        },
+        "codex": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["autoSync"],
+          "properties": { "autoSync": { "type": "boolean" } }
+        },
+        "google": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["clientFile"],
+          "properties": { "clientFile": { "type": ["string", "null"], "maxLength": 4096 } }
+        }
+      }
+    },
+    "deviceFile": {
+      "type": "object",
+      "required": ["format", "schemaVersion", "deviceId", "deviceName", "syncedAt", "prompts", "categories", "variables", "buttons", "notes", "sharedSettings"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "const": "ccb-device/1" },
+        "schemaVersion": { "const": 1 },
+        "deviceId": { "$ref": "#/$defs/deviceId" },
+        "deviceName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "syncedAt": { "$ref": "#/$defs/iso" },
+        "prompts": { "type": "array", "items": { "$ref": "#/$defs/prompt" } },
+        "categories": { "type": "array", "items": { "$ref": "#/$defs/category" } },
+        "variables": { "type": "array", "items": { "$ref": "#/$defs/variable" } },
+        "buttons": { "type": "array", "items": { "$ref": "#/$defs/button" } },
+        "notes": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+        "sharedSettings": { "type": "array", "items": { "$ref": "#/$defs/sharedSetting" } }
+      }
+    }
+  }
+}
