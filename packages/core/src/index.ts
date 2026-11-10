@@ -62,3 +62,22 @@ export {
   type MergeResult,
   type SyncBase,
 } from "./sync/merge.js";
+export {
+  appendNote,
+  deleteButton,
+  deleteCategory,
+  deleteNote,
+  deletePrompt,
+  deleteVariable,
+  saveButton,
+  saveCategory,
+  saveNote,
+  savePrompt,
+  setSharedSetting,
+  setVariable,
+  sharedSetting,
+  type ButtonInput,
+  type NoteInput,
+  type OpResult,
+  type PromptInput,
+} from "./ops.js";

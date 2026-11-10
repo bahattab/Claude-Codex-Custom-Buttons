@@ -43,20 +43,28 @@ Both marketplaces are named `claude-codex-buttons`. Which file Codex prefers whe
 
 ## MCP tools exposed by `ccb-mcp`
 
+Built in M2 (`packages/mcp-server/src/server.ts`). Tool names use only letters, digits and `_`, because Claude's API rejects other characters in tool names.
+
 | Tool | Purpose |
 |---|---|
-| `bank.search` | Search prompts by text, category, tag, favourite |
-| `bank.get` | Get one prompt, optionally with variables expanded |
-| `bank.save` | Create or update a prompt |
-| `bank.delete` | Delete (tombstone) a prompt |
-| `bank.list_categories` | List categories with counts |
-| `variables.list` / `variables.set` | Read and change prompt variables |
-| `buttons.list` | List buttons and their actions |
-| `notes.list` / `notes.read` / `notes.write` / `notes.append` / `notes.delete` | Synced notes |
-| `sync.now` / `sync.status` | Force a pull, inspect sync status |
-| `refine.instructions` | Return the Regenerate instructions, so the client model can rewrite text itself |
+| `library_status` | Counts of prompts, categories, variables, buttons, notes and conflicts; this device's ID |
+| `bank_search` | Search prompts by text, category, tag, favourite |
+| `bank_get` | One prompt, optionally with `{{variables}}`, `{{?ask}}` answers and built-ins filled in; `markUsed` records use |
+| `bank_save` | Create (no `id`) or update a prompt |
+| `bank_delete` | Delete (tombstone) a prompt |
+| `bank_list_categories` | Categories with prompt counts |
+| `categories_save` / `categories_delete` | Create, rename or delete a category |
+| `variables_list` / `variables_set` / `variables_delete` | Prompt variables |
+| `buttons_list` / `buttons_save` / `buttons_delete` | Custom buttons (no action type can run commands) |
+| `notes_list` / `notes_read` / `notes_write` / `notes_append` / `notes_delete` | Synced notes; reads pick up edits made to the Markdown files |
+| `settings_set_shared` | Regenerate instructions and Continue message for every device |
+| `refine_instructions` | The Regenerate instructions, or a full request for the client's own model; `ccb-mcp` never calls a model |
 
-The same tools serve Claude Code and the Claude Desktop Chat tab.
+Planned for M5: `sync_now` and `sync_status`.
+
+The server also offers **MCP prompts**: `ccb-continue`, `ccb-regenerate` (arguments `text`, `extra`) and one `ccb-<title>` prompt per Prompt Bank entry, whose `{{?ask}}` fields become prompt arguments. The list updates as prompts are saved.
+
+The same tools and prompts serve Claude Code and the Claude Desktop Chat tab.
 
 ## Generated skills
 

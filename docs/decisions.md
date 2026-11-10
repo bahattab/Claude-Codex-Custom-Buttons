@@ -59,6 +59,7 @@ Each decision records the options considered, the choice and why. All were appro
 
 - **Choice:** the MCP server (`ccb-mcp`) is the only component that reads/writes the library and talks to Drive; the Claude mod reaches it through `$.mcp`.
 - **Why:** one implementation shared by all three platforms; credentials in one place. Recorded during documentation; follows from D3 and D9.
+- **Refined in M2 (D20):** file access lives in the `@ccb/store` package, used by both `ccb-mcp` and the `ccb` command, so they share one lock and one set of rules. Google Drive access stays in `ccb-mcp`.
 
 ## D11. No code-running actions
 
@@ -98,3 +99,30 @@ Each decision records the options considered, the choice and why. All were appro
 ## D18. Hand-written JSON Schema, checked by tests (2026-11-10, M1)
 
 - **Why:** core stays dependency-free (D13), so it can't generate a JSON Schema from a schema library. `schema/library.schema.json` is written by hand and a test runs both it (through `ajv`, a development-only dependency) and the core validators over the same valid and invalid documents.
+
+## D19. MCP tool names use underscores (2026-11-10, M2)
+
+- **Why:** Claude's API accepts tool names matching `^[a-zA-Z0-9_-]{1,64}$`, so the documented `bank.search` style would be rejected. Tools are named `bank_search`, `notes_append` and so on; a test checks every name.
+
+## D20. A shared `@ccb/store` package (2026-11-10, M2)
+
+- **Options:** (a) only `ccb-mcp` touches files, and `ccb` asks the server; (b) a small storage package used by both.
+- **Choice:** (b).
+- **Why:** `ccb doctor` and `ccb import` must work when no server is running, for example to repair a damaged library. Both tools use the same lock and the same `update` path, so the "one writer at a time" guarantee holds either way.
+
+## D21. Lock-file design (2026-11-10, M2; revised after independent review)
+
+- **Choice:**
+  - The lock file is created with its contents in one step: write a temporary file, then hard-link it into place, or use an exclusive create where hard links are unsupported.
+  - While the lock is held, the holder refreshes the file's modification time (a heartbeat).
+  - A lock counts as abandoned only when its process no longer exists, or when the heartbeat has stopped for 30 seconds. A lock that can't be read is judged by age, and a lock that disappears is simply retried.
+  - Abandoned locks are cleared by one process at a time through a short "breaker" lock, with a re-check before removal. Every retry path has a deadline and a pause.
+- **Why:**
+  - The first design, a plain exclusive create, lost 1 of 100 changes in the multi-process test, because waiters read the new lock file before its contents were written.
+  - A stress test then exposed a second race: a released lock mistaken for an abandoned one.
+  - The independent review found three more problems: a live holder lost its lock after 30 seconds, several processes clearing a lock at once could release a fresh one, and the clearing path could spin with no time limit.
+  - With all of these fixed: 8 concurrent processes × 50 changes kept every change (2,400/2,400 before the review fixes, 1,600/1,600 after). A test runs 8 waiters against an abandoned lock and checks that at most one is ever inside.
+
+## D22. Recognise note-file edits by content, not timestamps (2026-11-10, M2)
+
+- **Why:** the independent review showed timestamp comparison loses edits. Any unrelated save rewrote the files before checking them, and file systems with coarse or skewed timestamps hid edits. The store now records a hash of what it last wrote to each note file (`notes-mirror.json`). Any file whose content differs from that hash was edited elsewhere, and is imported while the lock is held, before every change.

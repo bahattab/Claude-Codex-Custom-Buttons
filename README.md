@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.0).** The design is complete and the workspace is set up (milestone M0). No installable build exists yet. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: early development (v0.0).** Done: design, workspace (M0), shared core (M1), and the local storage server `ccb-mcp` with the `ccb` command (M2). Not yet built: buttons and panes, Google Drive sync, and the Codex and Desktop packages. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
 
 ---
 
@@ -176,6 +176,21 @@ More: [docs/security-and-privacy.md](docs/security-and-privacy.md) · [SECURITY.
 ```bash
 npm install
 npm run check      # lint, type-check, tests, documentation links
+npm run coverage   # tests with a coverage report
+```
+
+Try the storage server and command line locally (milestone M2):
+
+```bash
+npm run build
+```
+
+```bash
+CCB_HOME=/tmp/ccb-demo npm run ccb -- doctor
+```
+
+```bash
+claude mcp add ccb -- node packages/mcp-server/dist/bin.js
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Changes are tracked in [CHANGELOG.md](CHANGELOG.md).

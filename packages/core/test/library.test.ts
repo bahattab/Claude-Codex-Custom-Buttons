@@ -67,14 +67,18 @@ describe("seedStarterPack", () => {
 });
 
 describe("source hygiene", () => {
-  it("contains no invisible or bidirectional-control characters in source files", () => {
-    const dir = join(import.meta.dirname, "..", "src");
-    const files = readdirSync(dir, { recursive: true }).filter((f) => String(f).endsWith(".ts"));
+  it("contains no invisible or bidirectional-control characters in any package's source files", () => {
+    const packages = join(import.meta.dirname, "..", "..");
+    const files = readdirSync(packages, { recursive: true })
+      .map(String)
+      .filter((f) => /^[^/\\]+[/\\]src[/\\].*\.ts$/.test(f));
+    expect(files.length).toBeGreaterThan(15);
+    const dir = packages;
     // eslint-disable-next-line no-control-regex -- this test exists to find control characters
     const hidden = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B\u2060-\u2064\uFEFF\u202A-\u202E\u2066-\u2069]/;
     for (const file of files) {
       const text = readFileSync(join(dir, String(file)), "utf8");
-      expect(hidden.test(text), `hidden character in src/${String(file)}`).toBe(false);
+      expect(hidden.test(text), `hidden character in packages/${String(file)}`).toBe(false);
     }
   });
 });

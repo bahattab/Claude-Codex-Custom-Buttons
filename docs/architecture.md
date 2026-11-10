@@ -41,14 +41,15 @@
 | Component | Responsibility | Runs where |
 |---|---|---|
 | `packages/core` | All rules: data schema, validation, variable expansion, search ranking, merge, the Regenerate instructions. Pure functions, fully unit-tested. | Bundled into every other component |
-| `packages/mcp-server` (`ccb-mcp`) | The **only** component that touches the library files and Google Drive. Exposes MCP tools and MCP prompts. Owns the outbox and the sync timer. | A local process started by Claude Code, Codex or Claude Desktop |
+| `packages/store` (`@ccb/store`) | All file access: the lock, crash-safe writes, backups and recovery, device identity, the notes Markdown mirror. Every change goes through `LibraryStore.update`, which re-reads the latest file under the lock. | Inside `ccb-mcp`, `ccb` and the background sync service |
+| `packages/mcp-server` (`ccb-mcp`) | Exposes MCP tools and MCP prompts over stdio, using `@ccb/store`. From M5 also owns the outbox and the sync timer (the only component that talks to Google Drive). | A local process started by Claude Code, Codex or Claude Desktop |
 | `plugins/claude` | The Claude Code plugin: mod (UI hooks), plugin manifest, bundled MCP server entry. Draws buttons and panes and calls `ccb-mcp`. | Inside Claude Code on every surface (terminal, desktop, VS Code, mobile) |
 | `plugins/codex` | The Codex plugin: skills and MCP server entry. `ccb-mcp` generates `$ccb-<id>` skills for buttons and prompts. | Inside Codex |
 | `desktop-extension` | Packages `ccb-mcp` as a Claude Desktop extension (`.mcpb`) for the Chat tab. | Claude Desktop |
 | `packages/cli` (`ccb`) | Google sign-in, status, config, import/export, forcing a sync or Codex skill generation, diagnostics, installing the background sync service. | User's terminal |
 | Background sync service (`ccb sync --daemon`) | Keeps automatic sync running when no Claude Code or Codex session is open. Same code as `ccb-mcp`'s sync engine. | A per-user login service (Task Scheduler, launchd, systemd user) |
 
-### Why the MCP server owns storage and sync
+### Why storage and sync sit behind the MCP server
 
 - **One implementation of the Drive logic.** The Claude mod API can call MCP servers, including one bundled with the plugin (`$.mcp`), and Codex and Claude Desktop use MCP natively. Putting storage behind MCP means one tested code path for all three.
 - **One writer per machine.** All tools write through the same server code, which serialises writes and keeps the outbox consistent.
@@ -60,7 +61,7 @@ If several tools run at the same time, each starts its own `ccb-mcp` process. Th
 
 ### Saving a prompt
 
-1. The user presses **Save** in the Prompt Bank pane, types in a note, or a Codex skill calls `bank.save`.
+1. The user presses **Save** in the Prompt Bank pane, types in a note, or a Codex skill calls `bank_save`.
 2. `ccb-mcp` validates the record with `core`, stamps `updatedAt` and `updatedBy`, increments `revision`, and writes `library.json` atomically.
 3. The change is added to `outbox.json`.
 4. After about 2 seconds without further changes, the sync engine uploads this device's own file to Drive, automatically (see [sync](google-drive-sync.md)).

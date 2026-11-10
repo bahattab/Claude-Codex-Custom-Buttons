@@ -9,13 +9,26 @@
 | Google OAuth client | `~/.claude-codex-buttons/google-client.json` | No |
 | Google refresh token | OS credential store, service `claude-codex-buttons` | No |
 
-Change settings from the Prompt Bank pane's **Settings** tab, the Claude Code plugin options menu, or the command line:
+Change settings from the Prompt Bank pane's **Settings** tab, the Claude Code plugin options menu, or the `ccb` command (available since M2):
 
 ```bash
 npx ccb config list
 npx ccb config get sync.intervalSeconds
 npx ccb config set regenerate.autoSubmit true
+npx ccb config set continue.message "Keep going from where you stopped."
 ```
+
+`config set` checks the value against the same rules as everything else and refuses invalid ones. `null` clears a setting, or restores the default for the shared Regenerate instructions and Continue message.
+
+Until packages are published, run `ccb` from a clone of the repository: `npm install`, `npm run build`, then `npm run ccb -- config list`.
+
+## Other `ccb` commands
+
+| Command | What it does |
+|---|---|
+| `ccb export [file]` | Writes prompts, categories, variables, buttons, notes and shared settings as JSON (`ccb-export/1`), to the file or the screen |
+| `ccb import <file>` | Merges an export, a device file or another `library.json` into this library, using the sync merge rules, so importing twice changes nothing |
+| `ccb doctor` | Checks Node.js, the data folder, the library, backup, device identity, lock and note files, and says how to fix each problem; exits 1 if something is broken |
 
 ## Settings reference
 

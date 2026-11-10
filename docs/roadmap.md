@@ -6,7 +6,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 |---|---|---|---|
 | M0 | Confirm platform facts, scaffold the repository, CI | **Done** (2026-11-10) | — |
 | M1 | `core`: schema, validation, variables, search, Regenerate instructions, merge engine | **Done** (2026-11-10) | M0 |
-| M2 | `ccb-mcp` server with local storage (prompts, buttons, variables, notes), plus `ccb` basics | Planned | M1 |
+| M2 | `ccb-mcp` server with local storage (prompts, buttons, variables, notes), plus `ccb` basics | **Done** (2026-11-10) | M1 |
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | Planned | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Planned | M3 |
 | M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Planned | M2 |
@@ -50,6 +50,14 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 
 **Done when:** contract tests pass for each tool; two server processes writing at once never lose a change.
 
+**Result (2026-11-10):** done.
+- `@ccb/store` holds the lock, crash-safe writes, backups and recovery, the device identity and the notes Markdown mirror. Edit operations live in `@ccb/core` (`ops.ts`), so the server, the CLI and later the mod share them.
+- `ccb-mcp` has 21 tools, each with a contract test through a real MCP client, plus dynamic MCP prompts and a real-process start test.
+- `ccb` has `config`, `export`, `import` and `doctor`.
+- The multi-process test (6 processes × 40 changes) passes. The test exposed two lock races, both now fixed: 2,400 of 2,400 changes kept under an 8-process stress run (decision D21).
+- Tool names changed from `bank.search` to `bank_search` style (D19).
+- `doctor`'s Drive checks move to M5.
+
 ## M3: Claude mod, part 1
 
 - Button row with built-ins (Continue, Regenerate, Notes, Prompts) and user buttons.
@@ -74,7 +82,7 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 - Background sync service for Windows (Task Scheduler), macOS (launchd) and Linux (systemd user service): `ccb service status|stop|uninstall`.
 - Drive-folder fallback mode using the same per-device layout.
 - Sync of prompts, categories, buttons, variables, notes and shared settings, with deterministic conflict copies and 180-day tombstones.
-- `sync.now`, `sync.status`, `ccb sync`, `ccb status`; doctor checks for Drive.
+- `sync_now`, `sync_status`, `ccb sync`, `ccb status`; doctor checks for Drive.
 
 **Done when:** fake-Drive integration tests pass (three devices, offline note edits, simultaneous pushes, a device returning after a long absence); a manual two-computer test shows a saved prompt and an edited note on the second computer within 60 seconds with no user action, and an offline note edit arrives after reconnecting.
 

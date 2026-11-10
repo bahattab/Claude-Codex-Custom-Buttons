@@ -139,7 +139,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CX
 
-`prompt-bank` skill using MCP tools `bank.search`, `bank.get`, `bank.save`, `bank.delete`, `bank.list_categories`. Prompts can also be generated as `$ccb-<slug>` skills, kept up to date automatically.
+`prompt-bank` skill using MCP tools `bank_search`, `bank_get`, `bank_save`, `bank_delete`, `bank_list_categories`. Prompts can also be generated as `$ccb-<slug>` skills, kept up to date automatically.
 
 ### CD
 

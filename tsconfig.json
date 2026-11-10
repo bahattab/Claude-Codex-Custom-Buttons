@@ -1,4 +1,17 @@
 {
   "files": [],
-  "references": [{ "path": "packages/core" }]
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/store"
+    },
+    {
+      "path": "packages/mcp-server"
+    },
+    {
+      "path": "packages/cli"
+    }
+  ]
 }

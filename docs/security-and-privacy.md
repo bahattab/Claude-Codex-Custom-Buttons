@@ -20,8 +20,9 @@ There is no project-operated server and no telemetry.
 | **Broad Drive access** | Only `drive.file`; the app cannot list or read your other Drive files |
 | **Token theft from disk** | Token kept in the OS credential store, not in files; `ccb logout` revokes it |
 | **OAuth client file leaked in a repository** | `.gitignore` excludes `client_secret*.json`; `ccb` stores its copy outside the repo with user-only permissions. Google does not treat desktop client secrets as confidential, but they are still kept private |
-| **Corrupted or hostile library file** | Schema validation on load; size limits on every field; fallback to the last valid backup; a library with a newer schema opens read-only |
-| **Two processes writing at once** | Lock file, revision check and merge before write |
+| **Corrupted or hostile library file** | Schema validation on load; size limits on every field; fallback to the last valid backup (also when `library.json` is missing); the damaged file is kept; a library or backup with a newer schema opens read-only |
+| **Other local users reading note titles** | The data folder and `notes/` are created readable only by your user (0700), and files 0600 |
+| **Two processes writing at once** | One writer at a time through a lock file with a heartbeat; each change is applied to a fresh read of the library while the lock is held (tested with 8 concurrent processes) |
 | **Secrets stored in prompts, variables or notes** | The panes warn when text looks like a key or password (common key patterns); docs advise against storing secrets, since they would be copied to Drive |
 | **Background sync service misuse** | Runs as the user with no administrator rights, only syncs the plugin's own Drive folder, can be declined or removed (`ccb service uninstall`) |
 | **Malformed device file from another PC** | Every device file is schema-validated before merging; an invalid one is skipped and reported, never applied |

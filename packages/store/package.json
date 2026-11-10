@@ -1,0 +1,19 @@
+{
+  "name": "@ccb/store",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Safe local storage for Claude Codex Custom Buttons: library file, lock, atomic writes, backups, device identity and the notes Markdown mirror.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@ccb/core": "0.0.0"
+  }
+}
