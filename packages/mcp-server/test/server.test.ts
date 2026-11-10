@@ -55,6 +55,7 @@ async function newPrompt(title = "Daily plan", body = "Plan my day for {{project
 
 const ALL_TOOLS = [
   "library_status",
+  "client_state",
   "bank_search",
   "bank_get",
   "bank_save",
@@ -100,6 +101,31 @@ describe("library_status", () => {
     const data = await callOk("library_status");
     expect(data["counts"]).toMatchObject({ prompts: STARTER_PROMPTS.length, notes: 0, buttons: 0 });
     expect((data["device"] as { deviceId: string }).deviceId).toMatch(/^dev_/);
+  });
+});
+
+describe("client_state", () => {
+  it("returns buttons in order, variables, display settings and messages", async () => {
+    const promptId = await newPrompt();
+    await callOk("variables_set", { name: "project", value: "Billing API" });
+    await callOk("buttons_save", { id: "btn_b", label: "B", action: { type: "submit", promptId }, order: 2 });
+    await callOk("buttons_save", { id: "btn_a", label: "A", action: { type: "continue" }, order: 1 });
+    await callOk("bank_delete", { id: promptId });
+    const state = (await callOk("client_state")) as {
+      buttons: Array<{ id: string; targetMissing: boolean }>;
+      variables: Record<string, string>;
+      settings: { regenerate: { autoSubmit: boolean }; buttons: { maxVisible: number; showBuiltIns: boolean } };
+      continueMessage: string;
+      regenerateInstructions: string | null;
+    };
+    expect(state.buttons.map((b) => [b.id, b.targetMissing])).toEqual([["btn_a", false], ["btn_b", true]]);
+    expect(state.variables["project"]).toBe("Billing API");
+    expect(state.settings.regenerate.autoSubmit).toBe(false);
+    expect(state.settings.buttons).toEqual({ maxVisible: 6, showBuiltIns: true });
+    expect(state.continueMessage).toMatch(/^Continue exactly where you stopped/);
+    expect(state.regenerateInstructions).toBeNull();
+    await callOk("settings_set_shared", { id: "continue.message", value: "Go on." });
+    expect(((await callOk("client_state")) as { continueMessage: string }).continueMessage).toBe("Go on.");
   });
 });
 

@@ -30,7 +30,13 @@ Last updated: 2026-11-10 (milestone M0).
 | C13 | `claude plugin validate`, `claude plugin test`, `--plugin-dir` hot reload; `/plugin install <name> --marketplace <owner>/<repo>` with `.claude-plugin/marketplace.json` | Confirmed | Authoring reference |
 | C14 | The mod has no DOM or Node APIs; everything outside goes through `$` | Confirmed | Authoring reference |
 | C15 | A mod can import **its own plugin's files** with `import` declarations (`.ts`, `.tsx`, `.js`, …, all ES modules). Dynamic `import()` is refused, and there is no way to import npm packages | **Confirmed** | Authoring reference. Consequence: `core` is copied into the Claude plugin at build time (decision D13) |
-| C16 | The `turn.step` event reports `stopReason`, which includes `max_tokens` | **Confirmed** | Types (`TurnStopReason`). Used for the Continue highlight |
+| C16 | The `turn.step` event reports `stopReason`, which includes `max_tokens` | **Confirmed** | Types; exercised by the plugin test for the Continue highlight. The hook must be an async generator because the event streams |
+| C17 | Plugin names starting with `claude-`, `anthropic-` (and similar) are reserved | **Confirmed** | `claude plugin validate` error |
+| C18 | `/continue` is a built-in command; `$.command.register` refuses built-in names | **Confirmed** | `claude plugin validate` warning |
+| C19 | A plugin finds its own MCP server's name with `$.mcp.connect("<key in plugin.json>")`, which returns `{ isConnected, server }`; `server` is the name `$.mcp.call` takes | **Confirmed** | Types 2.1.322 (`McpConnectResult`); the plugin uses it instead of assuming `plugin:<plugin>:<server>` |
+| C20 | `$.prompt.submit` is refused inside a `command.run` hook. A submit from a `$.clock.after` timer after the hook returns is accepted by the test kit | **Confirmed** (refusal) / **Unconfirmed** (timer path in a real session, hands-on) | Engine message in `claude plugin test`; plugin tests |
+| C21 | Plugins declare MCP servers inline in `plugin.json` (`mcpServers`) or in `.mcp.json`, with `${CLAUDE_PLUGIN_ROOT}`; Claude Code starts them when the plugin is enabled | **Confirmed** | code.claude.com plugins reference and MCP docs |
+| C22 | One-step install `/plugin install <plugin> --marketplace <owner/repo>` needs Claude Code 2.1.275+; otherwise `/plugin marketplace add` then `/plugin install <plugin>@<marketplace>` | **Confirmed** | code.claude.com install docs; `claude plugin validate .` |
 
 ## Codex (0.167.0)
 

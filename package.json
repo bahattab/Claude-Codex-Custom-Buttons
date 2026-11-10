@@ -20,13 +20,16 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run check:links",
     "coverage": "vitest run --coverage",
     "ccb": "node packages/cli/dist/bin.js",
-    "ccb-mcp": "node packages/mcp-server/dist/bin.js"
+    "ccb-mcp": "node packages/mcp-server/dist/bin.js",
+    "build:plugin": "node scripts/build-plugin.mjs",
+    "check:plugin": "node scripts/build-plugin.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.0",
     "ajv": "8.20.0",
+    "esbuild": "0.28.2",
     "eslint": "10.14.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",

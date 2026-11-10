@@ -23,7 +23,7 @@ There is deliberately **no** action type that runs shell commands, scripts or ar
 
 ### Behaviour
 
-- **CC:** buttons appear in a row above the prompt box, after the built-in Continue, Regenerate, Notes and Prompts buttons. The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/btn <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
+- **CC:** buttons appear in a row above the prompt box, after the built-in Continue and Regenerate buttons (Notes and Prompts join them in M4). The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/btn <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
 - **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<id>` and regenerated automatically after sync. Other types map to the matching built-in skill.
 - **CD:** not available. Buttons of type `submit` are exposed as MCP prompts.
 
@@ -67,7 +67,7 @@ Users can replace these instructions with their own in settings (`regenerate.ins
 
 ### Per platform
 
-- **CC:** button + `/regen [extra instruction]`. The model call uses the engine's model API (`$.model.complete`).
+- **CC:** button + `/regen [extra instruction]`; `/regen undo`. The model call uses the engine's model API (`$.model.complete`).
 - **CX:** `regenerate-prompt` skill. Codex's own model performs the rewrite following the same instructions, then shows the result for the user to copy or approve.
 - **CD:** an MCP prompt "Regenerate my prompt" that inserts the instructions; the user pastes their text after it.
 
@@ -85,7 +85,7 @@ Sends a standard continuation message, by default:
 
 > Continue exactly where you stopped. Do not repeat what you already wrote. If you were in a code block, reopen it with the same language and continue the code.
 
-- **CC:** button + `/continue`. When the last reply stopped because it hit the output limit (`turn.step` reports `stopReason` `max_tokens`), the button is highlighted.
+- **CC:** button + `/cont` (`/continue` is a built-in Claude Code command). When the last reply stopped because it hit the output limit (`turn.step` reports `stopReason` `max_tokens`), the button is highlighted.
 - **CX:** `continue` skill.
 - **CD:** MCP prompt "Continue".
 - The message is configurable (`continue.message`).

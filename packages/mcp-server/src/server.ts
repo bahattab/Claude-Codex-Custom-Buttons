@@ -200,6 +200,43 @@ export function createServer(store: LibraryStore): McpServer {
       }),
   );
 
+  mcp.registerTool(
+    "client_state",
+    {
+      title: "Client state",
+      description:
+        "Everything a button row needs in one call: custom buttons in order (with targetMissing when a button's prompt was deleted), prompt variables, display settings, the Continue message and the Regenerate instructions.",
+      annotations: readOnly,
+    },
+    () =>
+      guard(async () => {
+        const library = await read();
+        const livePrompts = new Set(live(library.prompts).map((p) => p.id));
+        const { regenerate, buttons, notes } = library.settings;
+        return ok({
+          buttons: live(library.buttons)
+            .sort((a, b) => a.order - b.order)
+            .map(({ id, label, icon, action, order }) => ({
+              id,
+              label,
+              icon,
+              action,
+              order,
+              targetMissing: "promptId" in action && !livePrompts.has(action.promptId),
+            })),
+          variables: variableMap(library),
+          settings: {
+            regenerate,
+            continue: library.settings.continue,
+            buttons,
+            notes: { autosaveMs: notes.autosaveMs },
+          },
+          continueMessage: sharedSetting(library, "continue.message") ?? DEFAULT_CONTINUE_MESSAGE,
+          regenerateInstructions: sharedSetting(library, "regenerate.instructions"),
+        });
+      }),
+  );
+
   // --- Prompt Bank ---------------------------------------------------------------------
 
   mcp.registerTool(
