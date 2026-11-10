@@ -17,6 +17,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - `ccb-mcp` bundled into the plugin as one file (`npm run build:plugin`, drift check `npm run check:plugin`).
 - Marketplace `ccb` at the repository root.
 
+### Fixed (from the independent M4 review)
+
+- Notes: autosave no longer overwrites a change made elsewhere before you choose Keep mine or Load theirs; a failed save no longer loses the text when you switch notes; `/notes <text>` and reopening the pane no longer discard a new, unsaved note; saves run one at a time; Rename and the delete confirmation survive a completed turn.
+- Prompt Bank: a new button never replaces an existing one with the same ID; Save draft no longer replaces an open edit form; the variable notice shows the saved name; search buttons can open on a category.
+
 ### Fixed (from the independent M3 review)
 
 - Slash-command messages are sent from a timer just after the command returns. They were waiting for a turn end that may never come, and could be triggered by a subagent's or a stopped turn. Several queued messages now go out in order.

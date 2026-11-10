@@ -69,6 +69,8 @@ export type ButtonDraft = {
   promptId: string;
   text: string;
   mode: FillMode;
+  /** insert-prompt: the category to open on, or "" for all. */
+  category: string;
 };
 
 export type BankView = {
@@ -108,6 +110,8 @@ export type NotesView = {
   renaming: string | null;
   confirmDelete: boolean;
   saveToken: number;
+  /** Changes whenever the editor moves to another note or a new one, so a late save reply isn't applied to the wrong note. */
+  editor: number;
   notice: string | null;
 };
 

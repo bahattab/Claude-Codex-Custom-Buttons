@@ -95,7 +95,7 @@ Claude Code starts it when the plugin is enabled. The mod asks `$.mcp.connect("c
 ```bash
 npm run build && npm run build:plugin     # compile packages, regenerate plugin files
 claude plugin validate plugins/claude     # manifest and hooks as the engine reads them
-claude plugin test plugins/claude         # 49 tests against the engine's test kit
+claude plugin test plugins/claude         # 59 tests against the engine's test kit
 claude plugin validate .                  # the marketplace
 claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 ```

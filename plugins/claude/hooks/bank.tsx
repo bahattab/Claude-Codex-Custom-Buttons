@@ -77,12 +77,14 @@ export async function refreshBank($: $): Promise<void> {
 
 /** Opens the Prompt Bank pane, optionally searching or filtering. */
 export async function openBank($: $, opts: { search?: string; category?: string | null } = {}): Promise<void> {
+  const searching = opts.search !== undefined || opts.category !== undefined;
   await setView($, (v) => ({
     ...v,
     tab: "prompts",
     ...(opts.search !== undefined ? { query: opts.search } : {}),
     ...(opts.category !== undefined ? { category: opts.category } : {}),
-    notice: null,
+    // The edit form hides the results; say so rather than dropping the edit.
+    notice: searching && v.editing ? "Save or cancel the prompt you're editing to see the search results." : null,
   }));
   await $.ui.open({ id: BANK_PANE, title: "Prompt Bank", focus: true });
   await refreshBank($);
@@ -202,6 +204,10 @@ async function undoDelete($: $): Promise<void> {
 export async function saveDraftAsPrompt($: $, title?: string): Promise<string> {
   const draft = (await $.prompt.read()).text;
   if (draft.trim() === "") return "The prompt box is empty: type the prompt first.";
+  if (!(title && title.trim()) && (await read($, bankView)).editing) {
+    await openBank($);
+    return "Save or cancel the prompt you're editing first.";
+  }
   if (title && title.trim()) {
     try {
       await callTool($, "bank_save", { title: title.trim(), body: draft });
@@ -220,8 +226,8 @@ export async function saveDraftAsPrompt($: $, title?: string): Promise<string> {
 
 async function setVariable($: $, name: string, value: string): Promise<void> {
   try {
-    await callTool($, "variables_set", { name, value });
-    await setView($, (v) => ({ ...v, variableDraft: { name: "", value: "" }, notice: `Saved {{${name}}}.` }));
+    const { saved } = await callTool<{ saved: { name: string } }>($, "variables_set", { name, value });
+    await setView($, (v) => ({ ...v, variableDraft: { name: "", value: "" }, notice: `Saved {{${saved.name}}}.` }));
     await refreshBank($);
     await refreshClient($); // the button row shows buttons and variables
   } catch (error) {
@@ -239,7 +245,7 @@ async function deleteVariable($: $, name: string): Promise<void> {
   }
 }
 
-const NEW_BUTTON: ButtonDraft = { id: "", label: "", icon: "", type: "submit", promptId: "", text: "", mode: "replace" };
+const NEW_BUTTON: ButtonDraft = { id: "", label: "", icon: "", type: "submit", promptId: "", text: "", mode: "replace", category: "" };
 
 /** The ccb-mcp action for a button draft. */
 export function draftAction(d: ButtonDraft): Record<string, unknown> {
@@ -253,25 +259,33 @@ export function draftAction(d: ButtonDraft): Record<string, unknown> {
     case "open-prompt-bank":
       return { type: "open-pane", pane: "prompt-bank" };
     case "insert-prompt":
-      return { type: "insert-prompt", category: null, search: d.text.trim() || null };
+      return { type: "insert-prompt", category: d.category || null, search: d.text.trim() || null };
     default:
       return { type: d.type };
   }
 }
 
-/** A button ID from the typed ID or, failing that, the label. */
-export function buttonId(d: ButtonDraft): string {
+/**
+ * A new button's ID, from the typed ID or else the label, made unique among `taken`
+ * (saving under an existing ID would replace that button). Labels with no Latin
+ * letters or digits, such as Arabic or an emoji, become btn_button, btn_button_2, ...
+ */
+export function buttonId(d: ButtonDraft, taken: readonly string[]): string {
   const raw = (d.id.trim() || d.label).toLowerCase();
-  const slug = slugify(raw.replace(/^btn_/, "")).replace(/-/g, "_");
-  return `btn_${slug}`;
+  const slugged = slugify(raw.replace(/^btn_/, ""));
+  const slug = (slugged === "untitled" ? "button" : slugged).replace(/-/g, "_").slice(0, 56);
+  let id = `btn_${slug}`;
+  for (let n = 2; taken.includes(id); n++) id = `btn_${slug}_${n}`;
+  return id;
 }
 
 async function saveButton($: $): Promise<void> {
   const { buttonDraft } = await read($, bankView);
   if (!buttonDraft) return;
   try {
+    const { buttons } = await callTool<{ buttons: ButtonView[] }>($, "buttons_list");
     await callTool($, "buttons_save", {
-      id: buttonId(buttonDraft),
+      id: buttonId(buttonDraft, buttons.map((b) => b.id)),
       label: buttonDraft.label,
       icon: buttonDraft.icon.trim() || null,
       action: draftAction(buttonDraft),
@@ -484,7 +498,16 @@ export function registerBank(on: On): void {
                 <Input key="ccb-b-text" label="Text" rows={3} value={d.text} onInput={(t: string) => editB({ text: t })} onSubmit={() => saveButton($)} />
               ) : null}
               {d.type === "insert-prompt" ? (
-                <Input key="ccb-b-text" label="Search for" value={d.text} onInput={(t: string) => editB({ text: t })} onSubmit={() => saveButton($)} />
+                <Box flexDirection="column" gap={1}>
+                  <Input key="ccb-b-text" label="Search for" value={d.text} onInput={(t: string) => editB({ text: t })} onSubmit={() => saveButton($)} />
+                  <Select
+                    key="ccb-b-category"
+                    label="Category"
+                    value={d.category}
+                    options={[{ label: "All categories", value: "" }, ...data.categories.map((c) => ({ label: c.name, value: c.id }))]}
+                    onSelect={(value: string) => void editB({ category: value })}
+                  />
+                </Box>
               ) : null}
               {d.type === "fill" ? (
                 <Select

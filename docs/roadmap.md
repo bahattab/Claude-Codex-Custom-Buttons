@@ -89,7 +89,14 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 **Done when:** all M4 acceptance criteria in [features.md](features.md) have passing tests; manual check on terminal and desktop.
 
 **Result (2026-11-10):** done, except the hands-on check on your computer.
-- 25 new plugin tests (49 in all) run against an in-memory stand-in for `ccb-mcp` that answers with the server's own shapes, on terminal and desktop. Breaking six behaviours one at a time made a test fail each time.
+- 35 new plugin tests (59 in all) run on terminal and desktop against an in-memory stand-in for `ccb-mcp`. It answers with the server's shapes and refuses what the server's validation refuses. Breaking six behaviours one at a time made a test fail each time, and so did undoing each review fix.
+- The independent review found 5 major and 5 minor issues, all fixed:
+  - autosave could overwrite a change made elsewhere before you chose Keep mine or Load theirs;
+  - a failed save followed by switching notes lost the text;
+  - `/notes <text>` or reopening Notes could discard a new, unsaved note;
+  - new buttons could silently replace an existing one with the same ID (any non-Latin label gave `btn_untitled`);
+  - Save draft could replace an open edit form.
+  Saves now run one at a time, and a late save reply can't land on another note.
 - The mod is now split into modules: `register.tsx` (button row and commands), `bank.tsx`, `notes.tsx`, `client.ts` (the row's data) and `mcp.ts` (server calls).
 - Engine rules found by validation (D26):
   - a `$.state` atom must be declared in the file that reads or updates it;

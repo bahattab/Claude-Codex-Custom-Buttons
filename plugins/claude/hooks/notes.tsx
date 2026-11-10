@@ -23,6 +23,7 @@ const EMPTY: NotesView = {
   renaming: null,
   confirmDelete: false,
   saveToken: 0,
+  editor: 0,
   notice: null,
 };
 
@@ -35,6 +36,7 @@ interface FullNote {
   pinned: boolean;
 }
 
+const CHOOSE_FIRST = "Choose Keep mine or Load theirs first.";
 
 async function setView($: $, change: (v: NotesView) => NotesView): Promise<void> {
   await update($, notesView, (v) => change(v ?? EMPTY));
@@ -45,18 +47,35 @@ async function loadList($: $): Promise<void> {
   await setView($, (v) => ({ ...v, list: notes }));
 }
 
+/** Text in the editor that isn't saved anywhere yet. */
+function hasUnsaved(v: NotesView): boolean {
+  return v.dirty || (v.selectedId === null && v.draft.trim() !== "");
+}
+
 /**
- * Loads the selected note from ccb-mcp (which first picks up edits made to its Markdown
- * file). Unsaved text here is kept: if the note changed elsewhere meanwhile, the newer
- * text is offered as "theirs" instead of replacing it.
+ * Loads a note from ccb-mcp (which first picks up edits made to its Markdown file) into
+ * the editor. Unsaved text is never replaced: if the open note changed elsewhere
+ * meanwhile, the newer text is offered as "theirs"; unsaved text of another note or of a
+ * new note is left alone.
  */
 async function loadNote($: $, id: string): Promise<void> {
   const { note } = await callTool<{ note: FullNote }>($, "notes_read", { id });
   await setView($, (v) => {
-    if (v.selectedId === id && v.dirty) {
+    if (hasUnsaved(v)) {
+      if (v.selectedId !== id) return v;
       return note.body === v.base || note.body === v.draft ? v : { ...v, theirs: note.body };
     }
-    return { ...v, selectedId: id, title: note.title, draft: note.body, base: note.body, dirty: false, theirs: null, confirmDelete: false, renaming: null };
+    const same = v.selectedId === id;
+    return {
+      ...v,
+      selectedId: id,
+      title: note.title,
+      draft: note.body,
+      base: note.body,
+      dirty: false,
+      theirs: null,
+      ...(same ? {} : { confirmDelete: false, renaming: null, editor: v.editor + 1 }),
+    };
   });
 }
 
@@ -64,12 +83,24 @@ async function loadNote($: $, id: string): Promise<void> {
 export async function refreshNotes($: $): Promise<void> {
   try {
     await loadList($);
-    const { selectedId, list } = await read($, notesView);
-    const id = selectedId ?? list[0]?.id ?? null;
-    if (id !== null && list.some((n) => n.id === id)) await loadNote($, id);
+    const v = await read($, notesView);
+    if (v.selectedId === null && hasUnsaved(v)) return; // a new note is being written
+    const id = v.selectedId ?? v.list[0]?.id ?? null;
+    if (id === null) return;
+    if (v.list.some((n) => n.id === id)) await loadNote($, id);
+    else await lostNote($);
   } catch (error) {
     await setView($, (v) => ({ ...v, notice: `Couldn't load notes: ${errorText(error)}` }));
   }
+}
+
+/** The open note was deleted elsewhere: keep unsaved text as a new note, else clear. */
+async function lostNote($: $): Promise<void> {
+  await setView($, (v) =>
+    hasUnsaved(v)
+      ? { ...v, selectedId: null, title: "", base: "", dirty: true, theirs: null, renaming: null, confirmDelete: false, editor: v.editor + 1, notice: "This note was deleted elsewhere. Your text is kept; saving makes it a new note." }
+      : { ...EMPTY, list: v.list, editor: v.editor + 1, notice: "This note was deleted elsewhere." },
+  );
 }
 
 /** After a turn: re-check the open note, so a change made elsewhere is noticed. */
@@ -77,7 +108,10 @@ export async function refreshOpenNote($: $): Promise<void> {
   const { selectedId } = await read($, notesView);
   if (selectedId === null) return;
   try {
-    await loadNote($, selectedId);
+    await loadList($);
+    const { list } = await read($, notesView);
+    if (list.some((n) => n.id === selectedId)) await loadNote($, selectedId);
+    else await lostNote($);
   } catch {
     // the pane shows what it has; the next open reloads
   }
@@ -88,30 +122,51 @@ export async function openNotes($: $): Promise<void> {
   await refreshNotes($);
 }
 
-/** Saves the editor's text now. Creates the note if none is selected. */
-export async function saveNote($: $): Promise<void> {
+// One save at a time: a second save waits for the first, so a new note is never created twice.
+let saving: Promise<boolean> = Promise.resolve(true);
+
+/**
+ * Saves the editor's text now, creating the note if it is new. Returns false if the
+ * text is still unsaved afterwards (the save failed, or a change made elsewhere must
+ * be resolved first).
+ */
+export function saveNote($: $): Promise<boolean> {
+  const run = saving.then(() => saveNow($));
+  saving = run.catch(() => false);
+  return run;
+}
+
+async function saveNow($: $): Promise<boolean> {
   const v = await read($, notesView);
-  if (!v.dirty && v.selectedId !== null) return;
-  if (v.selectedId === null && v.draft.trim() === "") return;
+  if (!hasUnsaved(v)) return true;
+  if (v.theirs !== null) {
+    await setView($, (cur) => ({ ...cur, notice: CHOOSE_FIRST }));
+    return false;
+  }
   const draft = v.draft;
   try {
     const { saved } = await callTool<{ saved: { id: string; title: string } }>($, "notes_write", {
       ...(v.selectedId !== null ? { id: v.selectedId } : {}),
       body: draft,
     });
-    await setView($, (cur) => ({
-      ...cur,
-      selectedId: saved.id,
-      title: saved.title,
-      base: draft,
-      // Typing that happened while saving stays unsaved.
-      dirty: cur.draft !== draft,
-      theirs: null,
-      notice: null,
-    }));
+    await setView($, (cur) =>
+      cur.editor !== v.editor
+        ? cur // the editor moved on; the list reload below shows the save
+        : {
+            ...cur,
+            selectedId: saved.id,
+            title: saved.title,
+            base: draft,
+            // Typing that happened while saving stays unsaved.
+            dirty: cur.draft !== draft,
+            notice: null,
+          },
+    );
     await loadList($);
+    return true;
   } catch (error) {
     await setView($, (cur) => ({ ...cur, notice: `Not saved: ${errorText(error)}` }));
+    return false;
   }
 }
 
@@ -124,13 +179,14 @@ async function edit($: $, text: string): Promise<void> {
   const wait = await autosaveMs($);
   $.clock.after(wait, async () => {
     const v = await read($, notesView);
-    if (v.saveToken === token && v.dirty) await saveNote($);
+    // A change made elsewhere waits for the person's choice; autosave never decides it.
+    if (v.saveToken === token && v.theirs === null && hasUnsaved(v)) await saveNote($);
   });
 }
 
 async function select($: $, id: string): Promise<void> {
-  await saveNote($); // never lose the text of the note being left
-  await setView($, (v) => ({ ...v, selectedId: id, dirty: false }));
+  if (!(await saveNote($))) return; // never lose the text of the note being left
+  await setView($, (v) => ({ ...v, selectedId: id, dirty: false, draft: "", base: "", theirs: null, renaming: null, confirmDelete: false, editor: v.editor + 1 }));
   try {
     await loadNote($, id);
   } catch (error) {
@@ -139,24 +195,26 @@ async function select($: $, id: string): Promise<void> {
 }
 
 async function newNote($: $): Promise<void> {
-  await saveNote($);
-  await setView($, (v) => ({ ...v, selectedId: null, title: "", draft: "", base: "", dirty: false, theirs: null, renaming: null, confirmDelete: false }));
+  if (!(await saveNote($))) return;
+  await setView($, (v) => ({ ...v, selectedId: null, title: "", draft: "", base: "", dirty: false, theirs: null, renaming: null, confirmDelete: false, editor: v.editor + 1, notice: null }));
 }
 
 /** Appends text to the open note, or starts a new note with it. Returns a message. */
 export async function appendToNote($: $, text: string): Promise<string> {
   const v = await read($, notesView);
+  if (v.theirs !== null) return `Not added: ${CHOOSE_FIRST}`;
   try {
-    if (v.selectedId !== null && !v.dirty) {
+    if (hasUnsaved(v)) {
+      // Keep the unsaved text (of this note, or of a new one) and add to it.
+      await edit($, v.draft.endsWith("\n") || v.draft === "" ? v.draft + text : `${v.draft}\n${text}`);
+      if (!(await saveNote($))) return "Added to the open note, but not saved yet.";
+      const after = await read($, notesView);
+      return `Added to "${after.title}".`;
+    }
+    if (v.selectedId !== null) {
       await callTool($, "notes_append", { id: v.selectedId, text });
       await loadNote($, v.selectedId);
       await loadList($);
-      return `Added to "${v.title}".`;
-    }
-    if (v.selectedId !== null && v.dirty) {
-      // Keep the unsaved text and add to it.
-      await edit($, v.draft.endsWith("\n") || v.draft === "" ? v.draft + text : `${v.draft}\n${text}`);
-      await saveNote($);
       return `Added to "${v.title}".`;
     }
     const { saved } = await callTool<{ saved: { id: string; title: string } }>($, "notes_write", { body: text });
@@ -171,9 +229,10 @@ export async function appendToNote($: $, text: string): Promise<string> {
 async function rename($: $, title: string): Promise<void> {
   const v = await read($, notesView);
   if (v.selectedId === null || title.trim() === "") return;
+  if (v.theirs !== null) return void (await setView($, (cur) => ({ ...cur, notice: CHOOSE_FIRST })));
   try {
     await callTool($, "notes_write", { id: v.selectedId, title: title.trim(), body: v.draft });
-    await setView($, (cur) => ({ ...cur, title: title.trim(), base: v.draft, dirty: cur.draft !== v.draft, renaming: null }));
+    await setView($, (cur) => (cur.editor !== v.editor ? cur : { ...cur, title: title.trim(), base: v.draft, dirty: cur.draft !== v.draft, renaming: null }));
     await loadList($);
   } catch (error) {
     await setView($, (cur) => ({ ...cur, notice: `Not renamed: ${errorText(error)}` }));
@@ -184,9 +243,10 @@ async function togglePin($: $): Promise<void> {
   const v = await read($, notesView);
   const current = v.list.find((n) => n.id === v.selectedId);
   if (!current) return;
+  if (v.theirs !== null) return void (await setView($, (cur) => ({ ...cur, notice: CHOOSE_FIRST })));
   try {
     await callTool($, "notes_write", { id: current.id, body: v.draft, pinned: !current.pinned });
-    await setView($, (cur) => ({ ...cur, base: v.draft, dirty: cur.draft !== v.draft }));
+    await setView($, (cur) => (cur.editor !== v.editor ? cur : { ...cur, base: v.draft, dirty: cur.draft !== v.draft }));
     await loadList($);
   } catch (error) {
     await setView($, (cur) => ({ ...cur, notice: `Couldn't pin: ${errorText(error)}` }));
@@ -198,7 +258,7 @@ async function remove($: $): Promise<void> {
   if (v.selectedId === null) return;
   try {
     await callTool($, "notes_delete", { id: v.selectedId });
-    await setView($, (cur) => ({ ...EMPTY, list: cur.list, notice: `Deleted "${v.title}".` }));
+    await setView($, (cur) => ({ ...EMPTY, list: cur.list, editor: cur.editor + 1, notice: `Deleted "${v.title}".` }));
     await refreshNotes($);
   } catch (error) {
     await setView($, (cur) => ({ ...cur, notice: `Couldn't delete: ${errorText(error)}` }));

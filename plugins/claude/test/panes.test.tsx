@@ -5,7 +5,9 @@ type TestEngine = Parameters<TestBody>[0];
 type TestOn = Parameters<TestBody>[1];
 
 // An in-memory stand-in for ccb-mcp, answering with the same shapes as
-// packages/mcp-server/src/server.ts, plus the engine calls the panes make.
+// packages/mcp-server/src/server.ts and refusing what its validation refuses (button IDs
+// and labels, empty bodies, unknown note IDs; variable names normalised), plus the engine
+// calls the panes make.
 
 interface Prompt { id: string; title: string; body: string; category: string | null; tags: string[]; favorite: boolean; deleted: boolean; used: number }
 interface Note { id: string; title: string; body: string; pinned: boolean; updatedAt: string; deleted: boolean }
@@ -23,6 +25,8 @@ interface Fake {
   toasts: string[];
   draft: string;
   clientStateCalls: () => number;
+  /** Tools whose next call fails, once each. */
+  failNext: string[];
 }
 
 let seq = 0;
@@ -31,7 +35,7 @@ let tick = 0;
 const stamp = () => new Date(Date.UTC(2026, 10, 10, 12, 0, tick++)).toISOString();
 
 function firstLine(body: string): string {
-  return (body.split("\n").find((l) => l.trim() !== "") ?? "Untitled").trim().slice(0, 60);
+  return (body.split("\n").find((l) => l.trim() !== "") ?? "").replace(/^#+\s*/, "").trim().slice(0, 120) || "Untitled note";
 }
 
 function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fake {
@@ -56,6 +60,7 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
     toasts: [],
     draft: opts.draft ?? "",
     clientStateCalls: () => f.calls.filter((c) => c.tool === "client_state").length,
+    failNext: [],
   };
   const live = <T extends { deleted: boolean }>(xs: T[]) => xs.filter((x) => !x.deleted);
   const summary = (p: Prompt) => ({ id: p.id, title: p.title, category: p.category, tags: p.tags, favorite: p.favorite, conflictOf: null, preview: p.body });
@@ -101,6 +106,7 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
       case "bank_save": {
         const fields = { title: String(a["title"]), body: String(a["body"]) };
         if (fields.title.trim() === "") throw new Error("prompts.title: must not be empty");
+        if (fields.body === "") throw new Error("prompts.body: must not be empty");
         let p = a["id"] !== undefined ? f.prompts.find((x) => x.id === a["id"]) : undefined;
         if (a["id"] !== undefined && !p) throw new Error("no record");
         if (!p) {
@@ -123,16 +129,22 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
         return { categories: f.categories.map((c, i) => ({ ...c, order: i, prompts: live(f.prompts).filter((p) => p.category === c.id).length })), uncategorised: 1 };
       case "variables_list":
         return { variables: f.variables };
-      case "variables_set":
-        f.variables[String(a["name"])] = String(a["value"]);
-        return { saved: { name: a["name"], value: a["value"] } };
+      case "variables_set": {
+        const name = String(a["name"]).trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+        if (!/^[a-z][a-z0-9_]{0,63}$/.test(name)) throw new Error("variables.id: invalid name");
+        f.variables[name] = String(a["value"]);
+        return { saved: { name, value: a["value"] } };
+      }
       case "variables_delete":
-        delete f.variables[String(a["name"])];
+        delete f.variables[String(a["name"]).trim().toLowerCase().replace(/[^a-z0-9_]/g, "_")];
         return { deleted: a["name"] };
       case "buttons_list":
         return { buttons: f.buttons.map((b) => ({ ...b, targetMissing: false })) };
       case "buttons_save": {
         const b = { id: String(a["id"]), label: String(a["label"]), icon: (a["icon"] as string | null) ?? null, action: a["action"] as Record<string, unknown>, order: f.buttons.length };
+        if (!/^btn_[a-z0-9_]{1,60}$/.test(b.id)) throw new Error("buttons.id: invalid");
+        if (b.label.trim() === "" || b.label.length > 24) throw new Error("buttons.label: 1 to 24 characters");
+        if ("promptId" in b.action && !live(f.prompts).some((p) => p.id === b.action["promptId"])) throw new Error("buttons.action.promptId: no such prompt");
         f.buttons = [...f.buttons.filter((x) => x.id !== b.id), b];
         return { saved: b };
       }
@@ -151,7 +163,9 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
         return { note: { ...n, deletedAt: null } };
       }
       case "notes_write": {
-        let n = a["id"] !== undefined ? live(f.notes).find((x) => x.id === a["id"]) : undefined;
+        let n = a["id"] !== undefined ? f.notes.find((x) => x.id === a["id"]) : undefined;
+        if (a["id"] !== undefined && !n) throw new Error(`notes: no record with id "${String(a["id"])}"`);
+        if (n) n.deleted = false; // saving a deleted note brings it back, as in core
         if (!n) {
           n = { id: nextId("n_new"), title: "", body: "", pinned: false, updatedAt: stamp(), deleted: false };
           f.notes.push(n);
@@ -186,6 +200,11 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
     f.calls.push({ tool: e.tool, args: e.args });
     try {
       if (opts.failTool === e.tool) throw new Error("disk full");
+      const once = f.failNext.indexOf(e.tool);
+      if (once >= 0) {
+        f.failNext.splice(once, 1);
+        throw new Error("disk full");
+      }
       return { value: { content: [{ type: "text", text: JSON.stringify(answer(e.tool, e.args)) }], isError: false } } as never;
     } catch (error) {
       return { value: { content: [{ type: "text", text: (error as Error).message }], isError: true } } as never;
@@ -671,4 +690,167 @@ test("/notes <text> while the open note has unsaved text keeps that text and add
   await ui.input({ key: "ccb-note-body", text: "Todo\ntyped", kind: "change" });
   await $.command.run({ command: "notes", args: "from the command" } as never);
   expect(f.notes.find((n) => n.id === "n_b")?.body).toBe("Todo\ntyped\nfrom the command");
+});
+
+// --- regressions from the independent M4 review ----------------------------------------
+
+const TURN = { turnId: "t1", answer: "ok", durationMs: 1, isAborted: false, reason: "answer" } as never;
+
+test("autosave never decides a change made elsewhere: both texts wait for Keep mine / Load theirs (review #1)", async ($, on) => {
+  const clock = mock.clock(on);
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.input({ key: "ccb-note-body", text: "Todo\nmine", kind: "change" });
+  const note = f.notes.find((n) => n.id === "n_b");
+  if (note) note.body = "Todo\ntheirs";
+  await $.turn.complete(TURN);
+  await clock.advance(5000);
+  await clock.settle();
+  expect(note?.body).toBe("Todo\ntheirs");
+  expect(await ui.find({ key: "ccb-note-keep-mine" })).toBeDefined();
+  await ui.press({ key: "ccb-note-save" });
+  await ui.press({ key: "ccb-note-pin" });
+  expect(note?.body).toBe("Todo\ntheirs");
+  expect(note?.pinned).toBe(true); // unchanged: pin was refused
+  expect(await ui.find({ type: "Text", text: "Choose Keep mine or Load theirs first." })).toBeDefined();
+  const r = await $.command.run({ command: "notes", args: "more" } as never);
+  expect((r as { text?: string }).text).toBe("Not added: Choose Keep mine or Load theirs first.");
+  expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Todo\nmine");
+});
+
+test("a failed save keeps you on the note, with its text, instead of switching (review #2)", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.input({ key: "ccb-note-body", text: "Todo\nprecious", kind: "change" });
+  f.failNext.push("notes_write");
+  await ui.press({ key: "ccb-note-n_a" });
+  expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Todo\nprecious");
+  expect(await ui.find({ type: "Text", text: /Not saved: disk full/ })).toBeDefined();
+  f.failNext.push("notes_write");
+  await ui.press({ key: "ccb-note-new" });
+  expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Todo\nprecious");
+  await ui.press({ key: "ccb-note-n_a" }); // saving works again: it saves, then switches
+  expect(f.notes.find((n) => n.id === "n_b")?.body).toBe("Todo\nprecious");
+  expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Ideas\nfirst idea");
+});
+
+test("/notes <text> while writing a new note adds to it instead of discarding it (review #3)", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.press({ key: "ccb-note-new" });
+  await ui.input({ key: "ccb-note-body", text: "Draft idea", kind: "change" });
+  const r = await $.command.run({ command: "notes", args: "plus this" } as never);
+  expect((r as { text?: string }).text).toBe('Added to "Draft idea".');
+  expect(f.notes.filter((n) => !n.deleted).map((n) => n.body)).toContain("Draft idea\nplus this");
+  expect(f.notes.filter((n) => n.body === "plus this")).toEqual([]);
+});
+
+test("reopening Notes while writing a new note keeps it, and it still autosaves (review #4)", async ($, on) => {
+  const clock = mock.clock(on);
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.press({ key: "ccb-note-new" });
+  await ui.input({ key: "ccb-note-body", text: "Fresh thought", kind: "change" });
+  await $.command.run({ command: "notes", args: "" } as never);
+  expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Fresh thought");
+  await clock.advance(600);
+  await clock.settle();
+  expect(f.notes.filter((n) => n.body === "Fresh thought").length).toBe(1);
+});
+
+test("a note deleted elsewhere: unsaved text is kept and saves as a new note", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.input({ key: "ccb-note-body", text: "Todo\nkeep me", kind: "change" });
+  const gone = f.notes.find((n) => n.id === "n_b");
+  if (gone) gone.deleted = true;
+  await $.turn.complete(TURN);
+  expect(await ui.find({ type: "Text", text: /deleted elsewhere. Your text is kept/ })).toBeDefined();
+  await ui.press({ key: "ccb-note-save" });
+  expect(gone?.deleted).toBe(true);
+  expect(f.notes.filter((n) => !n.deleted && n.body === "Todo\nkeep me").length).toBe(1);
+});
+
+test("Rename and delete confirmation survive a completed turn (review #9)", async ($, on) => {
+  fake(on);
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.press({ key: "ccb-note-rename" });
+  await ui.input({ key: "ccb-note-title", text: "Half typ", kind: "change" });
+  await ui.press({ key: "ccb-note-del" });
+  await $.turn.complete(TURN);
+  expect((await ui.find({ key: "ccb-note-title" }))?.props?.["value"]).toBe("Half typ");
+  expect(await ui.find({ key: "ccb-note-del-confirm" })).toBeDefined();
+});
+
+test("new buttons never overwrite an existing one, including labels without Latin letters (review #5)", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "pb", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  await ui.press({ key: "ccb-tab-buttons" });
+  for (const label of ["Review", "review!", "مراجعة", "🚀"]) {
+    await ui.press({ key: "ccb-new-button" });
+    await ui.input({ key: "ccb-b-label", text: label, kind: "change" });
+    await ui.input({ key: "ccb-b-text", text: `Do ${label}` });
+  }
+  expect(f.buttons.map((b) => [b.id, b.label])).toEqual([
+    ["btn_review", "Review"],
+    ["btn_review_2", "review!"],
+    ["btn_button", "مراجعة"],
+    ["btn_button_2", "🚀"],
+  ]);
+});
+
+test("a search button can open on a category", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "pb", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  await ui.press({ key: "ccb-tab-buttons" });
+  await ui.press({ key: "ccb-new-button" });
+  await ui.input({ key: "ccb-b-label", text: "Work", kind: "change" });
+  await ui.select({ key: "ccb-b-type", value: "insert-prompt" });
+  await ui.select({ key: "ccb-b-category", value: "c_work" });
+  await ui.press({ key: "ccb-b-save" });
+  expect(f.buttons[0]?.action).toEqual({ type: "insert-prompt", category: "c_work", search: null });
+});
+
+test("Save draft doesn't replace a prompt being edited; /pb <search> says the form hides results (review #6, #7)", async ($, on) => {
+  fake(on, { draft: "something else" });
+  await start($);
+  await $.command.run({ command: "pb", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  await ui.press({ key: "ccb-edit-p_plan" });
+  await ui.input({ key: "ccb-edit-title", text: "Plan my week", kind: "change" });
+  await ui.press({ key: "ccb-save-draft" }).catch(() => undefined); // not on screen while editing
+  const r = await $.command.run({ command: "pb", args: "save" } as never);
+  expect((r as { text?: string }).text).toBe("Save or cancel the prompt you're editing first.");
+  expect((await ui.find({ key: "ccb-edit-title" }))?.props?.["value"]).toBe("Plan my week");
+  await $.command.run({ command: "pb", args: "poem" } as never);
+  expect(await ui.find({ type: "Text", text: /Save or cancel the prompt you're editing to see the search results/ })).toBeDefined();
+  expect((await ui.find({ key: "ccb-edit-title" }))?.props?.["value"]).toBe("Plan my week");
+});
+
+test("the variable notice shows the name as saved (review #10)", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "pb", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  await ui.press({ key: "ccb-tab-variables" });
+  await ui.input({ key: "ccb-newvar-name", text: "My Var", kind: "change" });
+  await ui.input({ key: "ccb-newvar-value", text: "x" });
+  expect(f.variables["my_var"]).toBe("x");
+  expect(await ui.find({ type: "Text", text: "Saved {{my_var}}." })).toBeDefined();
 });
