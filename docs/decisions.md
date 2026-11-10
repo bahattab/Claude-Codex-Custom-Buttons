@@ -87,3 +87,14 @@ Each decision records the options considered, the choice and why. All were appro
 ## D16. TypeScript 6 for now (2026-11-10, M0)
 
 - **Why:** TypeScript 7.0.2 is the latest release, but `typescript-eslint` 8.72 supports TypeScript below 6.1. The project pins TypeScript 6.0.3 and moves to 7 when the linter supports it.
+
+## D17. Detect concurrent edits with `ancestors` (2026-11-10, M1)
+
+- **Options:** (a) compare each version with the hash this device saw at the last sync; (b) record on each version which other devices' versions it replaced (`ancestors`), and treat a device's own later version as replacing its earlier ones.
+- **Choice:** (b).
+- **Why:** (a) mistakes an old version still sitting in a rarely-synced device file for a new edit, creating false conflict copies, and depends on clocks. (b) decides "newer or concurrent" from the edit history itself, so typing a note 100 times offline produces no conflict, while two PCs editing the same note do. Only foreign versions are recorded, so the list stays short (capped at 32).
+- **Also decided:** a deletion that wins over a concurrent edit keeps the edit as a conflict copy, so no text is lost silently. Categories, variables, buttons and shared settings resolve by newest edit without copies.
+
+## D18. Hand-written JSON Schema, checked by tests (2026-11-10, M1)
+
+- **Why:** core stays dependency-free (D13), so it can't generate a JSON Schema from a schema library. `schema/library.schema.json` is written by hand and a test runs both it (through `ajv`, a development-only dependency) and the core validators over the same valid and invalid documents.

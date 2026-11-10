@@ -14,7 +14,7 @@ All persistent data lives in `~/.claude-codex-buttons/` on each computer. The sy
     └── <slug>--<id>.md Markdown mirror of each note, for other editors and tools
 ```
 
-The authoritative machine-readable definition will be `schema/library.schema.json` (JSON Schema draft 2020-12), generated from the `core` schema in M1.
+The validators in `packages/core/src/schema.ts` are the reference definition. The machine-readable [`schema/library.schema.json`](../schema/library.schema.json) (JSON Schema draft 2020-12) describes the stored form, including device files (`#/$defs/deviceFile`); tests check that both accept and reject the same documents.
 
 ## `library.json`
 
@@ -36,15 +36,16 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
       "updatedAt": "2026-11-02T14:10:33.020Z",
       "updatedBy": "dev_7f3a91",
       "deletedAt": null,
+      "ancestors": ["3f2a9c0d17b4e65a91c08d2e4f7b"],
       "conflictOf": null
     }
   ],
   "categories": [
-    { "id": "review", "name": "Code review", "order": 1, "updatedAt": "2026-10-01T09:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null }
+    { "id": "review", "name": "Code review", "order": 1, "updatedAt": "2026-10-01T09:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null, "ancestors": [] }
   ],
-  "variables": {
-    "project": { "value": "Billing API", "updatedAt": "2026-10-05T10:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null }
-  },
+  "variables": [
+    { "id": "project", "value": "Billing API", "updatedAt": "2026-10-05T10:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null, "ancestors": [] }
+  ],
   "buttons": [
     {
       "id": "btn_review",
@@ -54,7 +55,8 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
       "order": 1,
       "updatedAt": "2026-10-01T09:00:00.000Z",
       "updatedBy": "dev_7f3a91",
-      "deletedAt": null
+      "deletedAt": null,
+      "ancestors": []
     }
   ],
   "notes": [
@@ -67,24 +69,38 @@ The authoritative machine-readable definition will be `schema/library.schema.jso
       "updatedAt": "2026-11-09T21:14:02.118Z",
       "updatedBy": "dev_c02e5d",
       "deletedAt": null,
+      "ancestors": [],
       "conflictOf": null
     }
   ],
-  "sharedSettings": {
-    "regenerate": { "instructions": null, "updatedAt": null },
-    "continue": { "message": null, "updatedAt": null }
-  },
+  "sharedSettings": [
+    { "id": "continue.message", "value": "Continue from where you stopped.", "updatedAt": "2026-11-03T12:00:00.000Z", "updatedBy": "dev_7f3a91", "deletedAt": null, "ancestors": [] }
+  ],
   "settings": {
-    "regenerate": { "autoSubmit": false },
-    "buttons": { "maxVisible": 6 },
-    "sync": { "mode": "drive-api", "intervalSeconds": 60, "pushDelayMs": 2000 }
+    "regenerate": { "autoSubmit": false, "source": "auto" },
+    "continue": { "highlightOnTruncation": true },
+    "buttons": { "maxVisible": 6, "showBuiltIns": true },
+    "notes": { "autosaveMs": 2000, "mirrorFiles": true },
+    "sync": { "mode": "drive-api", "folderPath": null, "driveFolderName": "Claude Codex Buttons", "intervalSeconds": 60, "pushDelayMs": 2000, "backgroundService": true },
+    "codex": { "autoSync": true },
+    "google": { "clientFile": null }
   }
 }
 ```
 
 ## Field rules
 
-Every synced record carries `updatedAt` (ISO 8601 UTC), `updatedBy` (device ID) and `deletedAt` (timestamp or null). Merging uses these; see [google-drive-sync.md](google-drive-sync.md#merge-rules).
+Every synced record carries:
+
+| Field | Meaning |
+|---|---|
+| `id` | Unique within its collection |
+| `updatedAt` | ISO 8601 UTC time of the last content edit; always later than the version it replaced |
+| `updatedBy` | Device ID of the last editor (`dev_…`), or `starter` for starter-pack records |
+| `deletedAt` | Time of deletion (a tombstone), or null |
+| `ancestors` | Up to 32 content hashes of versions written by **other** devices that this version replaced. Lets the merge tell a newer version from a concurrent edit; see [google-drive-sync.md](google-drive-sync.md#merge-rules) |
+
+Every collection is a list of records with unique IDs, including variables (ID = variable name) and shared settings (ID = `regenerate.instructions` or `continue.message`).
 
 ### Prompt
 
@@ -104,7 +120,15 @@ Every synced record carries `updatedAt` (ISO 8601 UTC), `updatedBy` (device ID) 
 
 ### Variable
 
-Key: the variable name (`^[a-z][a-z0-9_]{0,63}$`). Value: up to 5,000 characters of plain text.
+`id` is the variable name (`^[a-z][a-z0-9_]{0,63}$`; other characters are normalised to `_` and letters lowercased). `value`: up to 5,000 characters of plain text.
+
+### Category
+
+`id` matches `^[a-z0-9][a-z0-9_-]{0,63}$`; `name` 1–60 characters; `order` a whole number.
+
+### Shared setting
+
+`id` is `regenerate.instructions` or `continue.message`; `value` is up to 10,000 characters, or null for the built-in default.
 
 ### Button
 

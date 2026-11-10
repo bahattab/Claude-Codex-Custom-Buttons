@@ -109,21 +109,32 @@ A pull uses Drive's change feed (`changes.list` from a saved start-page token) t
 
 ## Merge rules
 
-Merging works on each record (prompt, category, variable, button, note) separately, by ID, across the local library and every device file.
+Merging works on each record (prompt, category, variable, button, note, shared setting) separately, by ID, across the local library and every device file. Implemented in `packages/core/src/sync/merge.ts`.
+
+### Newer version or concurrent edit?
+
+Every edit stamps the record with `updatedAt`, `updatedBy` and `ancestors` (see [data-model.md](data-model.md#field-rules)). A version **replaces** another when either:
+
+- its `ancestors` contains the other's content hash (it was edited from that version on another device), or
+- both came from the same device and it is later (a device's own versions form a line, so typing in a note never conflicts with that note's earlier uploads).
+
+Versions that don't replace each other were edited **concurrently** (on two PCs before either synced).
 
 | Situation | Result |
 |---|---|
-| Record exists in only one place, and is new since this device last synced | Kept |
-| Same record, same content everywhere | Kept once |
-| Same record, different content | The latest `updatedAt` wins (ties broken by device ID); see conflict copies below |
-| One side deleted (tombstone), the other edited after the deletion | The edit wins (the record comes back) |
-| One side deleted, the other unchanged or edited before the deletion | Deleted |
+| Record exists in only one place | Kept |
+| Same content everywhere (even if edited separately) | Kept once |
+| One version replaces the other | The newer version, whatever the clocks say |
+| Concurrent edits to a **prompt or note** | Latest `updatedAt` wins (ties broken by device ID, then content); the other version is kept as a conflict copy |
+| Concurrent edits to a **category, variable, button or shared setting** | Latest `updatedAt` wins; no copy (these are small settings) |
+| A deletion and an edit made after it | The edit wins (the record comes back); nothing else is kept |
+| A deletion made after a concurrent edit | Deleted, and the edit is kept as a conflict copy so nothing is lost |
 | Record present locally, unchanged since this device's last sync, and absent from every device file that synced after that | Treated as deleted (its tombstone was already cleaned up elsewhere) |
 | `useCount`, `lastUsedAt` | Largest value wins; never a conflict |
 
 ### Conflict copies
 
-When two devices both changed the same record since they last saw each other's version, the losing version is kept as a **conflict copy**:
+When two devices edited the same prompt or note concurrently, the losing version is kept as a **conflict copy**:
 
 - its ID is derived from the original ID plus the losing version's `updatedAt` and device, so every device creates the **same** copy and duplicates never multiply;
 - its title gets " (conflict)" and `conflictOf` points to the original;
@@ -135,7 +146,9 @@ For notes, this means two PCs editing the same note offline both keep their text
 
 A deleted record keeps a small tombstone (ID and `deletedAt`) for 180 days so devices that were offline still learn about the deletion. A device file whose last sync is older than 180 days is ignored until that device syncs again; when it does, its own unsynced edits are kept and merged as normal.
 
-"Changed since the last sync" is known by keeping, per record, a short hash of its content as of the last successful sync (`sync-state.json`).
+"Unchanged since the last sync" is known by keeping, per record, a short hash of its content as of the last successful sync (`sync-state.json`).
+
+The merge is tested with simulated PCs in `packages/core/test/merge.test.ts`: propagation, 100 offline edits, concurrent edits on two and three PCs, deletions against edits, tombstone expiry, stale and returning devices, usage statistics, and convergence (every PC ends with identical data).
 
 ## Notes and their Markdown files
 
