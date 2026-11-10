@@ -126,3 +126,16 @@ Each decision records the options considered, the choice and why. All were appro
 ## D22. Recognise note-file edits by content, not timestamps (2026-11-10, M2)
 
 - **Why:** the independent review showed timestamp comparison loses edits. Any unrelated save rewrote the files before checking them, and file systems with coarse or skewed timestamps hid edits. The store now records a hash of what it last wrote to each note file (`notes-mirror.json`). Any file whose content differs from that hash was edited elsewhere, and is imported while the lock is held, before every change.
+
+## D23. Plugin and marketplace names (2026-11-10, M3)
+
+- **Choice:** the Claude Code plugin is `prompt-buttons` in the marketplace `ccb`; the Codex plugin will be `prompt-buttons-codex` in `ccb-codex`. The project, repository, data folder (`~/.claude-codex-buttons`) and credential-store service name are unchanged.
+- **Why:** `claude plugin validate` refuses third-party plugin names that start with `claude-` ("reserved: it passes as one of Anthropic's own") and asks for a name that describes what the plugin does.
+
+## D24. Slash commands send their message when their turn ends (2026-11-10, M3)
+
+- **Why:** Claude Code refuses `$.prompt.submit` inside a `command.run` hook ("it would wait on the turn this hook is holding; submit from a later event (turn.complete)"), found by the plugin's first test. Commands queue the text and the `turn.complete` hook sends it; buttons send immediately.
+
+## D25. Ship `ccb-mcp` inside the Claude plugin as one bundled file (2026-11-10, M3)
+
+- **Why:** an installed plugin gets no `npm install`, so its MCP server must run with Node alone. `scripts/build-plugin.mjs` bundles the server and its dependencies with esbuild (805 KB, minified) and copies `core` into the mod. The generated files are committed, and `npm run check:plugin` in CI fails if they don't match the sources.

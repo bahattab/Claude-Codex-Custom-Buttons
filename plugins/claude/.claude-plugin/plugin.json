@@ -1,0 +1,20 @@
+{
+  "name": "prompt-buttons",
+  "version": "0.1.0",
+  "description": "Continue, Regenerate and your own custom buttons above the prompt box, backed by a Prompt Bank shared with Codex and Claude Desktop.",
+  "license": "MIT",
+  "repository": "https://github.com/bahattab/Claude-Codex-Custom-Buttons",
+  "types": "./types/index.d.ts",
+  "mcpServers": {
+    "ccb": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/server/ccb-mcp.mjs"
+      ]
+    }
+  },
+  "author": {
+    "name": "bahattab",
+    "url": "https://github.com/bahattab"
+  }
+}

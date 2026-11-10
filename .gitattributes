@@ -1,0 +1,2 @@
+plugins/claude/hooks/core/** linguist-generated=true
+plugins/claude/server/** linguist-generated=true

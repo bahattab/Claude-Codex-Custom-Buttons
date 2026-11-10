@@ -36,10 +36,10 @@ The Claude and Codex plugins are separate folders. Codex also reads `.claude-plu
 
 Codex reads marketplace files from `.agents/plugins/marketplace.json` and also `.claude-plugin/marketplace.json` (X4). This repository will ship:
 
-- `.claude-plugin/marketplace.json` listing the Claude plugin (`claude-codex-buttons`);
-- `.agents/plugins/marketplace.json` listing the Codex plugin (`claude-codex-buttons-codex`).
+- `.claude-plugin/marketplace.json`: marketplace `ccb`, listing the Claude plugin `prompt-buttons` (exists since M3);
+- `.agents/plugins/marketplace.json`: marketplace `ccb-codex`, listing the Codex plugin `prompt-buttons-codex` (M6).
 
-Both marketplaces are named `claude-codex-buttons`. Which file Codex prefers when both exist is checked hands-on in M6 (X8). If Codex merges both, the Codex plugin's distinct name keeps the choice clear.
+Names starting with `claude-` are reserved by Claude Code (decision D23), so neither uses one. Which file Codex prefers when both exist is checked hands-on in M6 (X8). If Codex merges both, the Codex plugin's distinct name keeps the choice clear.
 
 ## MCP tools exposed by `ccb-mcp`
 
@@ -86,7 +86,7 @@ codex plugin marketplace add bahattab/Claude-Codex-Custom-Buttons
 ```
 
 ```bash
-codex plugin add claude-codex-buttons-codex@claude-codex-buttons
+codex plugin add prompt-buttons-codex@ccb-codex
 ```
 
 ```bash

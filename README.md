@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.0).** Done: design, workspace (M0), shared core (M1), and the local storage server `ccb-mcp` with the `ccb` command (M2). Not yet built: buttons and panes, Google Drive sync, and the Codex and Desktop packages. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), and the Claude Code button row with Continue, Regenerate and custom buttons (M3). Not yet built: the Prompt Bank and Notes panes, Google Drive sync, and the Codex and Desktop packages. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
 
 ---
 
@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | **Custom action buttons** | Define your own buttons once; each runs an action such as "send this prompt", "fill the prompt box" or "open a pane" | Clickable buttons in a row above the prompt box, plus `/btn <id>` | Generated skills, used as `$ccb-<id>` | Not available (no button API) |
 | **Regenerate Prompt** | Takes your selected text, your draft or your last message, rewrites it into a clearer prompt and puts it back in the prompt box for review (auto-submit optional) | Button + `/regen` | `regenerate-prompt` skill | Saved prompt via the "+" menu |
-| **Continue** | Sends a standard continuation message to finish a cut-off reply or workflow | Button + `/continue` (highlighted when the last reply was cut off) | `continue` skill | Saved prompt via the "+" menu |
+| **Continue** | Sends a standard continuation message to finish a cut-off reply or workflow | Button + `/cont` (highlighted when the last reply was cut off) | `continue` skill | Saved prompt via the "+" menu |
 | **Notes** | A scratchpad beside the chat that saves itself as you type and syncs through Google Drive, so you can open and edit notes from any PC | Side pane + `/notes` | `notes` skill (same synced notes) | Read/append through MCP tools |
 | **Prompt Bank** | Save, categorise, edit, search and insert reusable prompts in one click | Side pane + `/pb <search>` | `prompt-bank` skill + MCP tools | Prompts appear in the "+" menu |
 | **Automatic Google Drive sync** | The Prompt Bank, custom buttons, variables and Notes are saved locally and synced through your Google Drive automatically. Offline edits sync when the connection returns | Yes | Yes | Yes |
@@ -67,10 +67,10 @@ Requirements: Node.js 22 or newer, and a Google account for sync.
 ### 1. Claude Code and Claude Desktop (Code tab)
 
 ```bash
-/plugin install claude-codex-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
+/plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-The repository is private, so your GitHub account needs access to it.
+The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is private, so your GitHub account needs access to it. **Available now (M3):** Continue, Regenerate, your custom buttons, `/cont`, `/regen` and `/btn`. The Prompt Bank and Notes panes come next (M4).
 
 ### 2. Codex
 
@@ -79,7 +79,7 @@ codex plugin marketplace add bahattab/Claude-Codex-Custom-Buttons
 ```
 
 ```bash
-codex plugin add claude-codex-buttons-codex@claude-codex-buttons
+codex plugin add prompt-buttons-codex@ccb-codex
 ```
 
 See [docs/platforms/codex.md](docs/platforms/codex.md).
@@ -104,7 +104,7 @@ No Google Cloud setup? Point the library at your **Google Drive for desktop** fo
 
 | You want to | In Claude Code | In Codex |
 |---|---|---|
-| Finish a cut-off answer | Press **Continue** or type `/continue` | `$continue` |
+| Finish a cut-off answer | Press **Continue** or type `/cont` | `$continue` |
 | Improve a prompt | Select text (or type a draft) and press **Regenerate** or `/regen` | `$regenerate-prompt` |
 | Save the current draft as a prompt | Prompt Bank pane → **Save draft** | Ask: "save this to my prompt bank" |
 | Use a saved prompt | Prompt Bank pane → **Insert** or **Send**, or `/pb <search>` | `$prompt-bank` or `$ccb-<prompt>` |

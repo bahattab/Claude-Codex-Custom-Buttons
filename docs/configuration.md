@@ -40,7 +40,7 @@ Until packages are published, run `ccb` from a clone of the repository: `npm ins
 | `continue.message` | string or null | null (built-in) | The continuation message |
 | `continue.highlightOnTruncation` | boolean | `true` | Highlight Continue when a reply was cut off |
 | `buttons.maxVisible` | integer 1–12 | `6` | Buttons shown in the row before the overflow menu |
-| `buttons.showBuiltIns` | boolean | `true` | Show Continue, Regenerate, Notes, Prompts in the row |
+| `buttons.showBuiltIns` | boolean | `true` | Show the built-in buttons (Continue and Regenerate; Notes and Prompts from M4) in the row |
 | `notes.autosaveMs` | integer | `2000` | Delay after typing before a note saves (and is queued for upload) |
 | `notes.mirrorFiles` | boolean | `true` | Keep a Markdown copy of each note in `notes/` |
 | `sync.backgroundService` | boolean | `true` | Keep syncing when no Claude Code or Codex session is open (asked at `ccb login`) |

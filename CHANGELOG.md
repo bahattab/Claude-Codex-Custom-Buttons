@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M3, the Claude Code plugin `prompt-buttons`:
+  - a button row above the prompt box with Continue (highlighted when a reply was cut off), Regenerate (with Undo and a warning when the rewrite dropped code, paths or numbers) and your custom buttons, with a More list beyond `buttons.maxVisible`;
+  - `/cont`, `/regen [instruction|undo]` and `/btn <id>`.
+- `ccb-mcp` `client_state` tool.
+- `ccb-mcp` bundled into the plugin as one file (`npm run build:plugin`, drift check `npm run check:plugin`).
+- Marketplace `ccb` at the repository root.
+
 - Milestone M2, the local storage server and command line:
   - `@ccb/store`: a cross-process lock, crash-safe writes, backups with automatic recovery, a read-only mode for newer files, device identity, and a Markdown copy of each note (edits made in other editors are picked up).
   - `ccb-mcp`: 21 MCP tools for the Prompt Bank, categories, variables, buttons, notes, shared settings and Regenerate, plus MCP prompts built from the Prompt Bank.
