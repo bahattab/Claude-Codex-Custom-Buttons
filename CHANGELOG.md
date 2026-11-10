@@ -13,6 +13,14 @@ All notable changes to this project are documented here. The format follows [Kee
 - `ccb-mcp` bundled into the plugin as one file (`npm run build:plugin`, drift check `npm run check:plugin`).
 - Marketplace `ccb` at the repository root.
 
+### Fixed (from the independent M3 review)
+
+- Slash-command messages are sent from a timer just after the command returns. They were waiting for a turn end that may never come, and could be triggered by a subagent's or a stopped turn. Several queued messages now go out in order.
+- Undo regenerate now disappears after 30 seconds, and isn't offered when the rewrite was sent rather than placed in the box.
+- A Regenerate interrupted by a reload no longer leaves the button stuck on "Regenerating...".
+- The plugin asks Claude Code for its server's name (`$.mcp.connect`) instead of assuming it.
+- The More list has a heading and runs the picked button; buttons refresh only after the main conversation's turns.
+
 - Milestone M2, the local storage server and command line:
   - `@ccb/store`: a cross-process lock, crash-safe writes, backups with automatic recovery, a read-only mode for newer files, device identity, and a Markdown copy of each note (edits made in other editors are picked up).
   - `ccb-mcp`: 21 MCP tools for the Prompt Bank, categories, variables, buttons, notes, shared settings and Regenerate, plus MCP prompts built from the Prompt Bank.

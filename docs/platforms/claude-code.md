@@ -29,9 +29,15 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 
 The **Notes** and **Prompts** buttons and their panes arrive in M4. Until then, `insert-prompt` and `open-pane` buttons explain that they're coming. The sync status line arrives with sync in M5.
 
-### Why slash commands send after their turn
+### How slash commands send their message
 
-Claude Code refuses `$.prompt.submit` from inside a slash command's hook, because the command holds the turn the submit would wait for. So `/cont`, `/btn` and `/regen` with auto-submit queue the message, and the plugin sends it when that turn completes, normally right away. Buttons aren't inside a turn, so they send at once. (Decision D24.)
+Claude Code refuses `$.prompt.submit` from inside a slash command's hook, because the command holds the turn the submit would wait for. So `/cont`, `/btn` and `/regen` with auto-submit:
+
+1. queue the message;
+2. send it from a timer just after the command returns;
+3. if that send is refused, try again when the main conversation's next turn completes. Subagents' turns and turns you stopped don't count.
+
+Several queued messages go out in order. Buttons aren't inside a turn, so they send at once. (Decision D24.)
 
 ## How it plugs in
 
@@ -45,10 +51,10 @@ The plugin contains a **mod**: a TypeScript hooks module Claude Code loads, whic
 | Put text in the prompt box / send it | `$.prompt.fill({ text, mode })` / `$.prompt.submit({ text })` |
 | Rewrite a prompt | `$.model.complete` with `$.session.model()` |
 | "Reply was cut off" | `turn.step` hook (an async generator, since the event streams) reading `stopReason === "max_tokens"` |
-| Data: buttons, prompts, variables, settings | `$.mcp.call("plugin:prompt-buttons:ccb", tool, args)` to the bundled server |
+| Data: buttons, prompts, variables, settings | `$.mcp.connect("ccb")` (the server's key in `plugin.json`) returns the name `$.mcp.call` takes; then `$.mcp.call(name, tool, args)` |
 | Session state (buttons, highlight, Undo, busy) | `$.state` atoms declared in `types/index.d.ts` |
 | Messages | `$.ui.toast` |
-| Undo expiry | `$.clock.after` |
+| Undo expiry, sending after a command | `$.clock.after` |
 
 ## Plugin files
 
@@ -71,14 +77,14 @@ The plugin's `plugin.json` declares the server:
 "mcpServers": { "ccb": { "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/server/ccb-mcp.mjs"] } }
 ```
 
-Claude Code starts it when the plugin is enabled, and the mod reaches it as `plugin:prompt-buttons:ccb`. That name follows how Claude Code lists plugin servers; it is still to be confirmed in a live session (platform-facts C19). If the server can't be reached, the row still shows Continue and Regenerate with built-in defaults.
+Claude Code starts it when the plugin is enabled. The mod asks `$.mcp.connect("ccb")` for the server's name rather than assuming one. If the server can't be reached, the row still shows Continue and Regenerate with built-in defaults, and your buttons appear once it connects.
 
 ## Development loop
 
 ```bash
 npm run build && npm run build:plugin     # compile packages, regenerate plugin files
 claude plugin validate plugins/claude     # manifest and hooks as the engine reads them
-claude plugin test plugins/claude         # 20 tests against the engine's test kit
+claude plugin test plugins/claude         # 24 tests against the engine's test kit
 claude plugin validate .                  # the marketplace
 claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 ```

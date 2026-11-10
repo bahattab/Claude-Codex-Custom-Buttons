@@ -69,12 +69,13 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 **Done when:** `claude plugin validate`, `tsc -p plugins/claude` and `claude plugin test plugins/claude` pass, with UI tests run on the `terminal` and `desktop` surfaces; manual check in the Claude Desktop Code tab.
 
 **Result (2026-11-10):** done, except the hands-on check in the Claude Desktop Code tab, which needs your computer.
-- The plugin `prompt-buttons` validates; its mod type-checks against Claude Code 2.1.322; 20 plugin tests pass on terminal and desktop. Breaking four behaviours one at a time made a test fail each time.
+- The plugin `prompt-buttons` validates; its mod type-checks against Claude Code 2.1.322; 24 plugin tests pass on terminal and desktop. Breaking eight behaviours one at a time made a test fail each time.
+- The independent review found 4 major issues, all fixed: command messages could be sent on the wrong turn or never; Undo never expired; the busy mark could stick; the server name was assumed. It also found 5 minor issues, fixed too.
 - `ccb-mcp` gained `client_state`. It is bundled into the plugin as one file that runs on plain Node (tested from an empty folder), with a CI drift check.
 - Engine rules found by validation and tests:
   - plugin names may not start with `claude-` (D23);
   - `/continue` is built in, so the command is `/cont`;
-  - a slash command can't submit during its own turn, so the message is sent when the turn ends (D24);
+  - a slash command can't submit during its own turn, so it sends from a timer just after it returns (D24);
   - streaming hooks must be async generators.
 - Marketplace `ccb` at the repository root.
 

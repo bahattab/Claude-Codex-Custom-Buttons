@@ -35,7 +35,10 @@ export type ClientState = {
 };
 
 /** What Undo puts back after a Regenerate. */
-export type UndoState = { text: string };
+export type UndoState = { text: string; id: string };
+
+/** What is in progress, and since when (ms). */
+export type BusyState = { kind: string; since: number };
 
 declare module "claude-code" {
   interface PluginState {
@@ -43,7 +46,7 @@ declare module "claude-code" {
       client: ClientState | null;
       truncated: boolean;
       undo: UndoState | null;
-      busy: string | null;
+      busy: BusyState | null;
     };
   }
 }

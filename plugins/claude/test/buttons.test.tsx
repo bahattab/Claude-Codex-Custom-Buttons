@@ -1,4 +1,4 @@
-import { expect, test } from "claude-code/testing";
+import { expect, mock, test } from "claude-code/testing";
 import type { TestBody } from "claude-code/testing";
 
 type TestEngine = Parameters<TestBody>[0];
@@ -25,19 +25,32 @@ const STATE = {
   regenerateInstructions: null,
 };
 
-function engine(on: TestOn, opts: { state?: unknown; draft?: string; selection?: string; messages?: Array<{ role: string; text: string }>; rewrite?: string; onModel?: (e: { prompt: string }) => unknown; mcpDown?: boolean } = {}): Recorded {
+function engine(on: TestOn, opts: { state?: unknown; draft?: string; selection?: string; messages?: Array<{ role: string; text: string }>; rewrite?: string; onModel?: (e: { prompt: string }) => unknown; mcpDown?: boolean; refuseSubmits?: number } = {}): Recorded {
   const rec: Recorded = { submits: [], fills: [], toasts: [], mcp: [] };
   const state = opts.state ?? STATE;
   on("command.register", () => ({ value: { command: "x" } }) as never);
+  on("mcp.connect", (_$, e) =>
+    ({
+      value: opts.mcpDown
+        ? { isConnected: false, reason: "failed", message: "not connected" }
+        : { isConnected: true, server: `plugin:prompt-buttons:${(e as { server: string }).server}` },
+    }) as never,
+  );
   on("mcp.call", (_$, e) => {
     rec.mcp.push({ tool: e.tool, args: e.args });
+    if (e.server !== "plugin:prompt-buttons:ccb") throw new Error(`unexpected server ${e.server}`);
     if (opts.mcpDown) return { value: { content: [{ type: "text", text: "not connected" }], isError: true } } as never;
     const reply = (data: unknown) => ({ value: { content: [{ type: "text", text: JSON.stringify(data) }], isError: false } }) as never;
     if (e.tool === "client_state") return reply(state);
     if (e.tool === "bank_get") return reply({ expanded: { text: "Plan my day for Billing API", unknown: [], unavailable: [], unanswered: [] } });
     return { value: { content: [{ type: "text", text: "unknown tool" }], isError: true } } as never;
   });
+  let refusals = opts.refuseSubmits ?? 0;
   on("prompt.submit", (_$, e) => {
+    if (refusals > 0) {
+      refusals--;
+      throw new Error("refused");
+    }
     rec.submits.push(e.text);
     return { text: e.text } as never;
   });
@@ -68,13 +81,44 @@ async function start($: TestEngine): Promise<void> {
   await $.session.start({ cwd: "/", surface: "desktop", isInteractive: true } as never);
 }
 
-test("/cont sends the configured Continue message", async ($, on) => {
+test("/cont sends the configured Continue message right after the command returns", async ($, on) => {
+  const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
   await $.command.run({ command: "cont", args: "" } as never);
-  expect(rec.submits).toEqual([]); // a command can't submit inside its own turn...
+  await clock.settle();
+  expect(rec.submits).toEqual(["Keep going."]); // sent from a timer, no turn end needed (review finding #2)
+});
+
+test("two commands in one go both send, in order (review finding #5)", async ($, on) => {
+  const clock = mock.clock(on);
+  const rec = engine(on);
+  await start($);
+  await $.command.run({ command: "btn", args: "btn_plan" } as never);
+  await $.command.run({ command: "cont", args: "" } as never);
+  await clock.settle();
+  expect(rec.submits).toEqual(["Plan my day for Billing API", "Keep going."]);
+});
+
+test("a refused send waits for the main conversation's next completed turn, not a subagent's or a stopped one (review finding #1)", async ($, on) => {
+  const clock = mock.clock(on);
+  const rec = engine(on, { refuseSubmits: 1 });
+  await start($);
+  await $.command.run({ command: "cont", args: "" } as never);
+  await clock.settle();
+  expect(rec.submits).toEqual([]);
+  await $.turn.complete({ ...(TURN_DONE as object), agentId: "sub-1" } as never);
+  expect(rec.submits).toEqual([]);
+  await $.turn.complete({ ...(TURN_DONE as object), isAborted: true, reason: "aborted" } as never);
+  expect(rec.submits).toEqual([]);
   await $.turn.complete(TURN_DONE);
-  expect(rec.submits).toEqual(["Keep going."]); // ...so it is sent when that turn ends
+  expect(rec.submits).toEqual(["Keep going."]);
+});
+
+test("finds its server through $.mcp.connect instead of guessing the name (review finding #6)", async ($, on) => {
+  const rec = engine(on);
+  await start($);
+  expect(rec.mcp.some((c) => c.tool === "client_state")).toBe(true); // the stand-in rejects any other server name
 });
 
 const ABOVE = (surface: "terminal" | "desktop", hasSurvey = false) =>
@@ -99,13 +143,17 @@ test("the button row shows Continue, Regenerate and user buttons on terminal and
   }
 });
 
-test("buttons beyond maxVisible go into a More list", async ($, on) => {
-  engine(on, { state: { ...STATE, settings: { ...STATE.settings, buttons: { maxVisible: 2, showBuiltIns: true } } } });
+test("buttons beyond maxVisible go into a More list that runs the picked button (review finding #8)", async ($, on) => {
+  const rec = engine(on, { state: { ...STATE, settings: { ...STATE.settings, buttons: { maxVisible: 2, showBuiltIns: true } } } });
   await start($);
   const ui = await $.ui.mount(ABOVE("desktop"));
   expect(await ui.find({ key: "ccb-btn-btn_hello" })).toBeDefined();
   expect(await ui.find({ key: "ccb-btn-btn_ask" })).toBeUndefined();
   expect(await ui.find({ key: "ccb-more" })).toBeDefined();
+  await ui.select({ key: "ccb-more", value: "" });
+  expect(rec.fills).toEqual([]); // the "More (2)..." heading does nothing
+  await ui.select({ key: "ccb-more", value: "btn_ask" });
+  expect(rec.fills).toEqual([{ text: "Explain {{?topic}}", mode: "replace" }]);
   await ui.unmount();
 });
 
@@ -178,7 +226,8 @@ test("Regenerate warns when the rewrite dropped code, paths or numbers", async (
   expect(rec.toasts.join()).toMatch(/dropped .*src\/api\/users\.ts/);
 });
 
-test("Regenerate submits after the command's turn when autoSubmit is on", async ($, on) => {
+test("Regenerate submits after the command returns when autoSubmit is on, with no Undo", async ($, on) => {
+  const clock = mock.clock(on);
   const rec = engine(on, {
     draft: "rough",
     rewrite: "Clear.",
@@ -187,8 +236,25 @@ test("Regenerate submits after the command's turn when autoSubmit is on", async 
   await start($);
   await $.command.run({ command: "regen", args: "" } as never);
   expect(rec.fills).toEqual([]);
-  await $.turn.complete(TURN_DONE);
+  await clock.settle();
   expect(rec.submits).toEqual(["Clear."]);
+  const ui = await $.ui.mount(ABOVE("desktop"));
+  expect(await ui.find({ key: "ccb-undo" })).toBeUndefined(); // the box never changed (review finding #7)
+  await ui.unmount();
+});
+
+test("Undo regenerate disappears after 30 seconds (review finding #3)", async ($, on) => {
+  const clock = mock.clock(on);
+  engine(on, { draft: "rough", rewrite: "Clear." });
+  await start($);
+  const ui = await $.ui.mount(ABOVE("desktop"));
+  await ui.press({ key: "ccb-regenerate" });
+  expect(await ui.find({ key: "ccb-undo" })).toBeDefined();
+  await clock.advance(29_000);
+  expect(await ui.find({ key: "ccb-undo" })).toBeDefined();
+  await clock.advance(2_000);
+  expect(await ui.find({ key: "ccb-undo" })).toBeUndefined();
+  await ui.unmount();
 });
 
 test("Regenerate reports a failed model call and leaves the prompt alone", async ($, on) => {
@@ -248,11 +314,12 @@ test("a button whose prompt was deleted explains instead of sending", async ($, 
   await ui.unmount();
 });
 
-test("/btn runs a button after its turn, and explains unknown or missing ids", async ($, on) => {
+test("/btn runs a button, and explains unknown or missing ids", async ($, on) => {
+  const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
   await $.command.run({ command: "btn", args: "btn_plan" } as never);
-  await $.turn.complete(TURN_DONE);
+  await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API"]);
   const unknown = (await $.command.run({ command: "btn", args: "btn_nope" } as never)) as { text?: string };
   expect(unknown.text).toMatch(/No button "btn_nope".*btn_plan/);
