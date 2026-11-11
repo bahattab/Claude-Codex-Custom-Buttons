@@ -318,3 +318,11 @@ describe("review fixes (M5a), continued", () => {
     expect(await readFile(join(a.home, "sync-state.json"), "utf8")).toBe(before);
   });
 });
+
+describe("openBrowser", () => {
+  it("doesn't throw when no browser opener is installed", async () => {
+    const { openBrowser } = await import("@ccb/sync");
+    expect(() => openBrowser("https://example.invalid/")).not.toThrow();
+    await new Promise((r) => setTimeout(r, 50));
+  });
+});
