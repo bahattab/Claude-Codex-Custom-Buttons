@@ -17,6 +17,7 @@ Start with the project [README](../README.md) for an overview. These documents a
 
 ## Set up and run
 
+- [Installation guide](install.md): install every part step by step, turn on sync, troubleshoot, uninstall.
 - [Google Cloud setup](google-cloud-setup.md): one-time OAuth client creation.
 - [Configuration](configuration.md): settings, paths, environment variables.
 

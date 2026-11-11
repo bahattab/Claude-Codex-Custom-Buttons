@@ -63,6 +63,8 @@ Why the difference: only Claude Code exposes an API for adding buttons and panes
 
 ## Installation
 
+**Step-by-step guide, with checks, updates, troubleshooting and uninstall: [docs/install.md](docs/install.md).** The short version follows.
+
 Requirements: Node.js 22.12 or newer, and a Google account for sync.
 
 ### 1. Claude Code and Claude Desktop (Code tab)
