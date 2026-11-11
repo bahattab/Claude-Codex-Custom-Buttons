@@ -36,6 +36,7 @@ import {
   type SharedSettingId,
 } from "@ccb/core";
 import { LibraryStore } from "@ccb/store";
+import type { SyncEngine } from "@ccb/sync";
 
 export const SERVER_NAME = "ccb-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -139,7 +140,12 @@ export function promptNames(library: Library): Map<string, Prompt> {
   return names;
 }
 
-export function createServer(store: LibraryStore): McpServer {
+export interface ServerOptions {
+  /** The sync engine to tell about changes and to run for sync_now / sync_status. */
+  sync?: SyncEngine;
+}
+
+export function createServer(store: LibraryStore, opts: ServerOptions = {}): McpServer {
   const mcp = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
@@ -159,6 +165,9 @@ export function createServer(store: LibraryStore): McpServer {
     if (mcp.isConnected()) mcp.sendPromptListChanged();
   };
 
+  /** Something changed here: sync uploads it after sync.pushDelayMs. */
+  const changed = (): void => opts.sync?.notifyChanged();
+
   const write = async <T>(op: (lib: Library, ctx: Parameters<Parameters<LibraryStore["update"]>[0]>[1]) => OpResult<T>): Promise<T> => {
     let record: T | undefined;
     await store.update((lib, ctx) => {
@@ -166,7 +175,13 @@ export function createServer(store: LibraryStore): McpServer {
       record = result.record;
       return result.library;
     });
+    changed();
     return record as T;
+  };
+
+  /** Picks up notes edited in their Markdown files; those edits sync like any other. */
+  const importNotes = async (): Promise<void> => {
+    if ((await store.importNoteEdits()) > 0) changed();
   };
 
   const readOnly = { readOnlyHint: true, openWorldHint: false } as const;
@@ -292,6 +307,7 @@ export function createServer(store: LibraryStore): McpServer {
             prompts: lib.prompts.map((p) => (p.id === args.id && p.deletedAt === null ? recordUse(p, new Date().toISOString()) : p)),
           }));
           prompt = library.prompts.find((p) => p.id === args.id) ?? prompt;
+          changed();
         }
         const result: Record<string, unknown> = { prompt, askFields: askFields(prompt.body) };
         if (args.expand) {
@@ -496,7 +512,7 @@ export function createServer(store: LibraryStore): McpServer {
     { title: "List notes", description: "Notes, pinned first, then most recently edited.", annotations: syncsFiles },
     () =>
       guard(async () => {
-        await store.importNoteEdits();
+        await importNotes();
         const library = await read();
         const notes = live(library.notes)
           .sort((a, b) => Number(b.pinned) - Number(a.pinned) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
@@ -510,7 +526,7 @@ export function createServer(store: LibraryStore): McpServer {
     { title: "Read a note", description: "The full text of one note.", inputSchema: { id: z.string() }, annotations: syncsFiles },
     (args) =>
       guard(async () => {
-        await store.importNoteEdits();
+        await importNotes();
         const note = (await read()).notes.find((n) => n.id === args.id && n.deletedAt === null);
         return note ? ok({ note }) : failure(`No note with id ${JSON.stringify(args.id)}`);
       }),
@@ -646,6 +662,36 @@ export function createServer(store: LibraryStore): McpServer {
     const expanded = expand(prompt.body, { variables: variableMap(library), builtIns: dateBuiltIns(new Date()), answers: args });
     return { description: prompt.title, ...message(expanded.text) };
   });
+
+  // --- sync ----------------------------------------------------------------------------
+
+  const syncUnavailable = (): ToolResult => failure("Sync isn't running in this server.");
+
+  mcp.registerTool(
+    "sync_status",
+    {
+      title: "Sync status",
+      description: "Google Drive sync status: state (idle, syncing, offline, signed-out, not-set-up, off, error), pending changes, conflicts, last sync times and other devices. Sync is automatic.",
+      annotations: readOnly,
+    },
+    () => guard(async () => (opts.sync ? ok(await opts.sync.status()) : syncUnavailable())),
+  );
+
+  mcp.registerTool(
+    "sync_now",
+    {
+      title: "Sync now",
+      description: "Pull changes from other devices and upload this device's changes now. Sync already runs by itself; use this only when asked to sync immediately.",
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    () =>
+      guard(async () => {
+        if (!opts.sync) return syncUnavailable();
+        const status = await opts.sync.syncNow();
+        promptsChanged(); // a pull may have brought new prompts
+        return ok(status);
+      }),
+  );
 
   return mcp;
 }

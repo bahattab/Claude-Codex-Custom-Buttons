@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M5a, automatic Google Drive sync:
+  - the sync engine in a new package `@ccb/sync`: uploads 2 seconds after a change, pulls every 60 seconds and at start, and retries offline changes with backoff (2 s to 5 min);
+  - Drive API mode (a small `fetch` client using the change feed and the `drive.file` scope) and Drive for desktop folder mode;
+  - Google sign-in with PKCE; the sign-in is kept by the OS (macOS Keychain, Linux Secret Service, Windows DPAPI), or in a private file with `google.tokenStore = "file"`;
+  - `ccb login`, `ccb logout`, `ccb sync`, `ccb status`, and Drive checks in `ccb doctor`;
+  - `sync_now` and `sync_status` tools.
 - Milestone M4, the Claude Code plugin's panes:
   - **Prompt Bank** pane: search while typing, category and favourites filters, Insert, Send, Copy, Edit, Duplicate, Delete with Undo, New and Save draft; a Variables tab and a Buttons tab for making and deleting custom buttons;
   - **Notes** pane: pinned-first picker, editor with autosave, Rename, Pin, Copy, Insert into prompt, Delete; Keep mine / Load theirs when a note changed elsewhere while you had unsaved text;

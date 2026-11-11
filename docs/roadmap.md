@@ -9,7 +9,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M2 | `ccb-mcp` server with local storage (prompts, buttons, variables, notes), plus `ccb` basics | **Done** (2026-11-10) | M1 |
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | **Done** (2026-11-10) | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
-| M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Planned | M2 |
+| M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | In progress (M5a done) | M2 |
 | M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Planned | M2, M5 |
 | M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Planned | M2, M5 |
 | M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7 |
@@ -104,6 +104,8 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 
 ## M5: Google Drive sync
 
+Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and tools) and **M5b** (background service and the plugin's sync interface).
+
 - Drive API mode: `ccb login`/`logout`, keychain storage, per-device files, automatic push with outbox and retry, automatic pull with the change feed, status reporting, **Connect/Reconnect Google Drive** from the panes.
 - Background sync service for Windows (Task Scheduler), macOS (launchd) and Linux (systemd user service): `ccb service status|stop|uninstall`.
 - Drive-folder fallback mode using the same per-device layout.
@@ -112,6 +114,19 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 - In the panes (moved from M4): sync status and **Sync now** in the Prompt Bank, a sync indicator per note, `/pb sync`, and choosing which text to keep for a conflict copy.
 
 **Done when:** fake-Drive integration tests pass (three devices, offline note edits, simultaneous pushes, a device returning after a long absence); a manual two-computer test shows a saved prompt and an edited note on the second computer within 60 seconds with no user action, and an offline note edit arrives after reconnecting.
+
+**M5a result (2026-11-11):** done, except the hands-on checks.
+- New package `@ccb/sync`: the engine (pull, merge, push; push 2 s after a change; pull every 60 s and at start; backoff 2 s to 5 min), the Drive API remote over `fetch` with the change feed, the Drive-folder remote, PKCE sign-in, and the OS token stores (D27–D30).
+- `ccb login [--client <file>] [--no-browser]`, `ccb logout`, `ccb sync`, `ccb status`; Drive checks in `ccb doctor`; `sync_now` and `sync_status` tools; `ccb-mcp` syncs while it runs and after every change; new setting `google.tokenStore`.
+- Tests against an in-memory Google Drive and simulated computers:
+  - three computers converging, deletions travelling, and conflict copies;
+  - offline edits uploading by themselves, with backoff;
+  - the push delay, the interval pull and the change feed;
+  - two processes on one computer;
+  - invalid device files, and two folders created at once;
+  - 401 refresh, sign-out, 429/5xx, a disabled API, a deleted own file and an expired feed position;
+  - the sign-in flow and the token-store commands.
+- **Not verified here (needs your computers):** a real Google account; the OS credential tools (G7); that two computers see each other's files with `drive.file` (G6). The two-computer check above covers these.
 
 ## M6: Codex plugin
 

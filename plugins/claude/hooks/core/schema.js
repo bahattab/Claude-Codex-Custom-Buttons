@@ -43,7 +43,7 @@ export function defaultSettings() {
             backgroundService: true,
         },
         codex: { autoSync: true },
-        google: { clientFile: null },
+        google: { clientFile: null, tokenStore: "os" },
     };
 }
 /**
@@ -425,7 +425,7 @@ function validateSettings(raw, errors) {
             backgroundService: sync.bool("backgroundService", d.sync.backgroundService),
         },
         codex: { autoSync: codex.bool("autoSync", d.codex.autoSync) },
-        google: { clientFile: google.textOrNull("clientFile", 4096) },
+        google: { clientFile: google.textOrNull("clientFile", 4096), tokenStore: google.oneOf("tokenStore", ["os", "file"], d.google.tokenStore) },
     };
 }
 /** Validates and normalises a library already migrated to SCHEMA_VERSION. */

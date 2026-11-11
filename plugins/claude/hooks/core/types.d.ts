@@ -109,8 +109,10 @@ export interface LocalSettings {
     codex: {
         autoSync: boolean;
     };
+    /** tokenStore: "os" keeps the sign-in in the OS credential store; "file" in a file only you can read. */
     google: {
         clientFile: string | null;
+        tokenStore: "os" | "file";
     };
 }
 /** The synced collections, each an array of records with unique IDs. */

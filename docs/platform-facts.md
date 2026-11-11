@@ -63,6 +63,8 @@ Last updated: 2026-11-10 (milestone M0).
 | G3 | Files have a `version` that "increases monotonically … reflects every change made to the file on the server", but `files.update` has **no conditional (only-if-unchanged) parameter** | **Changed** | Drive v3 discovery document. Consequence: one file per device (decision D12) |
 | G4 | Change feed: `changes.getStartPageToken`, `changes.list` (also `changes.watch`, which needs a public HTTPS endpoint and is not used) | **Confirmed** | Drive v3 discovery document |
 | G5 | Desktop OAuth with a local loopback redirect (`http://localhost:<port>`), `access_type: 'offline'` to get a refresh token, `prompt: 'consent'` to force a new one | **Confirmed** | `google-auth-library-nodejs` README |
+| G6 | With `drive.file`, files the app created can be listed and read by the same OAuth client signed in on another computer (same Google account), which is what lets devices see each other's files | **Unconfirmed** (inference from the scope's description: "files you use with this app") | To confirm with the two-computer hands-on test (roadmap M5) |
+| G7 | macOS `security -i` reads `add-generic-password ... -w <token>` from standard input; `secret-tool store` reads the secret from standard input; PowerShell `ProtectedData` with `CurrentUser` scope is available in Windows PowerShell 5.1 after `Add-Type -AssemblyName System.Security` | **Unconfirmed** in this project (not runnable in the Linux build container) | Commands tested with a stand-in runner; confirm hands-on on each OS |
 
 ## Claude Desktop
 

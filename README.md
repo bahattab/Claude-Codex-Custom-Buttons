@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), and the Claude Code Prompt Bank and Notes panes (M4). Not yet built: Google Drive sync, and the Codex and Desktop packages. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, `ccb sync` and `ccb status` (M5a). Not yet built: the background sync service and the plugin's sync status and Connect button (M5b), and the Codex and Desktop packages. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
 
 ---
 
@@ -40,7 +40,7 @@ Details: [docs/google-drive-sync.md](docs/google-drive-sync.md).
  ccb CLI ─────────────────┘        ▼                                 devices/<this-pc>.json
                         ~/.claude-codex-buttons/                     devices/<other-pc>.json
                           library.json   (local working copy, works offline)
-                          outbox.json    (changes waiting to upload)
+                          sync-state.json (what was last uploaded and pulled)
                           notes/*.md     (Markdown copy of each note)
 ```
 
@@ -70,7 +70,7 @@ Requirements: Node.js 22 or newer, and a Google account for sync.
 /plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is private, so your GitHub account needs access to it. **Available now (M3, M4):** Continue, Regenerate, your custom buttons, the Prompt Bank and Notes panes, `/cont`, `/regen`, `/btn`, `/pb` and `/notes`. Until sync ships (M5), everything is stored on this computer only.
+The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is private, so your GitHub account needs access to it. **Available now (M3, M4):** Continue, Regenerate, your custom buttons, the Prompt Bank and Notes panes, `/cont`, `/regen`, `/btn`, `/pb` and `/notes`. To sync between computers, run `npx ccb login` once on each (see below).
 
 ### 2. Codex
 

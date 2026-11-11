@@ -55,6 +55,8 @@ async function newPrompt(title = "Daily plan", body = "Plan my day for {{project
 
 const ALL_TOOLS = [
   "library_status",
+  "sync_status",
+  "sync_now",
   "client_state",
   "bank_search",
   "bank_get",

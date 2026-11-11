@@ -23,6 +23,21 @@ import {
   type SyncedData,
 } from "@ccb/core";
 import { LibraryStore, exists, lockIsHeld, noteFileName, readText, writeFileAtomic, type StoreOptions } from "@ccb/store";
+import {
+  SyncEngine,
+  formatStatus,
+  loadClient,
+  login,
+  logout,
+  parseClientFile,
+  remoteProvider,
+  saveClient,
+  tokenStoreFor,
+  type Fetch,
+  type Scheduler,
+  type SetupOptions,
+  type SyncStatus,
+} from "@ccb/sync";
 
 export const CLI_VERSION = "0.1.0";
 export const EXPORT_FORMAT = "ccb-export/1";
@@ -33,6 +48,8 @@ export interface Io {
   err: (text: string) => void;
   /** For tests: store options (home, clock). */
   store?: StoreOptions;
+  /** For tests: how sync reaches Google and the OS, and the browser. */
+  sync?: Omit<SetupOptions, "home"> & { openBrowser?: (url: string) => void | Promise<void>; scheduler?: Scheduler };
 }
 
 const HELP = `ccb ${CLI_VERSION} — Claude Codex Custom Buttons
@@ -43,11 +60,15 @@ Usage:
   ccb config set <key> <value>    Change a setting (use "null" to clear)
   ccb export [file]               Export prompts, buttons, variables and notes as JSON
   ccb import <file>               Merge an export, a device file or a library.json
-  ccb doctor                      Check the local data folder, repair what it safely can, and explain any problems
+  ccb login [--client <file>]     Sign in to Google Drive (opens the browser); --no-browser only prints the link
+  ccb logout                      Sign out of Google Drive and revoke the sign-in
+  ccb sync                        Sync now (sync is automatic; this only forces it)
+  ccb status                      Show the sync status
+  ccb doctor                      Check the local data folder and sync, repair what it safely can, and explain any problems
   ccb --version | --help
 
 Data folder: $CCB_HOME, or ~/.claude-codex-buttons
-Google Drive commands (login, sync, status, service) arrive in a later release.`;
+The background sync service (ccb service) arrives in a later release.`;
 
 class UsageError extends Error {}
 
@@ -279,7 +300,7 @@ async function doctor(store: LibraryStore, io: Io): Promise<number> {
       else add("ok", `Notes mirror: ${live(library.notes).length} note file(s) in ${paths.notes}`);
     }
 
-    if (library) add("ok", `Sync mode: ${library.settings.sync.mode} (Google Drive sync is not available in this version yet)`);
+    if (library) for (const [level, text] of await syncChecks(store, library, io)) add(level, text);
   }
 
   const mark: Record<Level, string> = { ok: "[ok]  ", warn: "[warn]", fail: "[FAIL]" };
@@ -287,11 +308,120 @@ async function doctor(store: LibraryStore, io: Io): Promise<number> {
   return results.some(([level]) => level === "fail") ? 1 : 0;
 }
 
+// --- sync ------------------------------------------------------------------------------
+
+function setup(store: LibraryStore, io: Io): SetupOptions {
+  const { openBrowser: _o, scheduler: _s, ...rest } = io.sync ?? {};
+  return { ...rest, home: store.paths.home };
+}
+
+function engineFor(store: LibraryStore, io: Io): SyncEngine {
+  return new SyncEngine({ store, remote: remoteProvider(setup(store, io)), ...(io.sync?.scheduler ? { scheduler: io.sync.scheduler } : {}) });
+}
+
+function printStatus(status: SyncStatus, io: Io): void {
+  for (const line of formatStatus(status)) io.out(line);
+}
+
+async function loginCmd(store: LibraryStore, values: { client?: string; "no-browser"?: boolean }, io: Io): Promise<number> {
+  const library = await readLibrary(store);
+  let client;
+  if (values.client) {
+    const text = await readText(values.client);
+    if (text === null) throw new UsageError(`Can't read ${values.client}.`);
+    client = parseClientFile(text);
+  } else {
+    const loaded = await loadClient(store.paths.home, library);
+    if ("missing" in loaded) throw new UsageError(loaded.missing);
+    client = loaded;
+  }
+  const tokens = await tokenStoreFor(setup(store, io), library);
+  if ("unavailable" in tokens) {
+    io.err(tokens.unavailable);
+    return 1;
+  }
+  await saveClient(store.paths.home, client);
+  if (library.settings.sync.mode !== "drive-api") {
+    await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, mode: "drive-api" } } }));
+    io.out("Sync mode set to drive-api.");
+  }
+  io.out("Opening Google sign-in in your browser. If it doesn't open, visit:");
+  await login({
+    client,
+    store: tokens,
+    ...(io.sync?.fetch ? { fetch: io.sync.fetch } : {}),
+    ...(values["no-browser"] ? { openBrowser: () => undefined } : io.sync?.openBrowser ? { openBrowser: io.sync.openBrowser } : {}),
+    onUrl: (url) => io.out(url),
+  });
+  io.out(`Signed in. The sign-in is kept in: ${tokens.name}.`);
+  const status = await engineFor(store, io).syncNow();
+  printStatus(status, io);
+  return 0;
+}
+
+async function logoutCmd(store: LibraryStore, io: Io): Promise<number> {
+  const library = await readLibrary(store);
+  const tokens = await tokenStoreFor(setup(store, io), library);
+  if ("unavailable" in tokens) {
+    io.out("Not signed in (no credential store on this computer).");
+    return 0;
+  }
+  const { revoked } = await logout({ store: tokens, ...(io.sync?.fetch ? { fetch: io.sync.fetch as Fetch } : {}) });
+  io.out(revoked ? "Signed out and revoked the sign-in with Google." : "Signed out on this computer. Google couldn't be reached to revoke the sign-in; remove the app under Third-party connections in your Google Account if you want.");
+  return 0;
+}
+
+async function syncCmd(store: LibraryStore, io: Io): Promise<number> {
+  const status = await engineFor(store, io).syncNow();
+  printStatus(status, io);
+  return status.state === "idle" || status.state === "off" ? 0 : 1;
+}
+
+async function statusCmd(store: LibraryStore, io: Io): Promise<number> {
+  printStatus(await engineFor(store, io).status(), io);
+  return 0;
+}
+
+async function syncChecks(store: LibraryStore, library: Library, io: Io): Promise<Array<[Level, string]>> {
+  const out: Array<[Level, string]> = [];
+  const s = library.settings.sync;
+  if (s.mode === "off") return [["ok", "Sync is off (sync.mode = off)"]];
+  out.push(["ok", `Sync mode: ${s.mode}`]);
+  if (s.mode === "drive-folder") {
+    if (!s.folderPath) out.push(["warn", "sync.folderPath is not set: ccb config set sync.folderPath <folder inside Google Drive for desktop>"]);
+    else out.push((await exists(s.folderPath)) ? ["ok", `Sync folder ${s.folderPath}`] : ["warn", `Sync folder ${s.folderPath} isn't there (is Google Drive for desktop running?); changes wait until it is`]);
+  } else {
+    const client = await loadClient(store.paths.home, library);
+    if ("missing" in client) out.push(["warn", client.missing]);
+    else out.push(["ok", `Google OAuth client ${client.clientId.slice(0, 12)}...`]);
+    const tokens = await tokenStoreFor(setup(store, io), library);
+    if ("unavailable" in tokens) out.push(["warn", tokens.unavailable]);
+    else {
+      const token = await tokens.get().catch((e: Error) => e);
+      if (token instanceof Error) out.push(["fail", `${tokens.name}: ${token.message}`]);
+      else out.push(token ? ["ok", `Signed in (kept in ${tokens.name})`] : ["warn", "Not signed in to Google Drive: run ccb login"]);
+    }
+  }
+  const status = await engineFor(store, io).status();
+  if (status.state === "offline") out.push(["warn", `Last sync attempt: offline (${status.message ?? ""}). ${status.pending} change(s) wait and upload automatically`]);
+  if (status.state === "error") out.push(["fail", `Last sync failed: ${status.message ?? "unknown error"}`]);
+  if (status.state === "idle" && status.lastPullAt) out.push(["ok", `Last sync ${status.lastPullAt}; ${status.devices.length} other device(s); ${status.pending} pending`]);
+  for (const d of status.invalidDevices) out.push(["warn", `Device file ${d.deviceId}.json in Drive is invalid and is skipped: ${d.error}`]);
+  for (const d of status.staleDevices) out.push(["warn", `Device ${d} hasn't synced for 180 days and is ignored until it syncs again`]);
+  if (status.conflicts) out.push(["warn", `${status.conflicts} conflict copy(ies) to resolve in the Prompt Bank or Notes`]);
+  return out;
+}
+
 /** Runs one ccb command. Returns the process exit code. */
 export async function run(argv: string[], io: Io): Promise<number> {
   let parsed;
   try {
-    parsed = parseArgs({ args: argv, allowPositionals: true, strict: true, options: { help: { type: "boolean", short: "h" }, version: { type: "boolean", short: "v" } } });
+    parsed = parseArgs({
+      args: argv,
+      allowPositionals: true,
+      strict: true,
+      options: { help: { type: "boolean", short: "h" }, version: { type: "boolean", short: "v" }, client: { type: "string" }, "no-browser": { type: "boolean" } },
+    });
   } catch (error) {
     io.err((error as Error).message);
     io.err('Run "ccb --help" for usage.');
@@ -317,6 +447,14 @@ export async function run(argv: string[], io: Io): Promise<number> {
         return await importCmd(store, rest, io);
       case "doctor":
         return await doctor(store, io);
+      case "login":
+        return await loginCmd(store, parsed.values, io);
+      case "logout":
+        return await logoutCmd(store, io);
+      case "sync":
+        return await syncCmd(store, io);
+      case "status":
+        return await statusCmd(store, io);
       default:
         throw new UsageError(`Unknown command "${command}". Run "ccb --help".`);
     }

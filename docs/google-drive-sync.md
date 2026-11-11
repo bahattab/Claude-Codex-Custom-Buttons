@@ -18,7 +18,7 @@ You never have to press a sync button. After the one-time Google sign-in:
 | You save a prompt, button or variable, or type in a note | Saved locally at once, uploaded about 2 seconds later |
 | Another PC changed something | Pulled within 60 seconds, and immediately when Claude Code or Codex starts or a Prompt Bank or Notes pane opens |
 | You edit a note's Markdown file in another editor | Detected and uploaded like any other edit |
-| You're offline | Changes wait in the outbox; uploads retry by themselves and go through when the connection returns |
+| You're offline | Changes wait as pending; uploads retry by themselves and go through when the connection returns |
 | A sign-in token expires | The status line and panes show **Reconnect Google Drive**; one click reopens sign-in, and queued changes upload afterwards |
 
 **Sync now** (`/pb sync`, `ccb sync`) exists only to force an immediate pull; nothing depends on it.
@@ -67,7 +67,7 @@ Each device file holds that device's full, merged view of the synced data (see [
 | Variables | Yes |
 | **Notes** | **Yes** |
 | Regenerate instructions, Continue message | Yes |
-| Other settings, outbox, sync state, device ID | No (per device) |
+| Other settings, sync state, device ID | No (per device) |
 
 ## Sync modes
 
@@ -90,11 +90,11 @@ Because each device still writes only its own file, Drive for desktop never has 
 
 ## How a change reaches Drive (Drive API mode)
 
-1. The change (a prompt saved, a note typed, a button edited) is written to the local library and recorded in `outbox.json`.
+1. The change (a prompt saved, a note typed, a button edited) is written to the local library. A record counts as **pending** while its content differs from what this device last uploaded (the hashes in `sync-state.json`), so nothing pending can be lost or duplicated by a crash (decision D29).
 2. A push is scheduled `sync.pushDelayMs` later (default 2,000 ms). Further changes in that window reset the timer, so a burst of edits, such as typing a note, becomes one upload.
 3. **Push:** the device uploads its own `devices/<deviceId>.json` with its current merged view. No other device writes this file, so no conflict check is needed.
-4. On success, the outbox is cleared and the status line shows `✓ synced`.
-5. If offline or Google returns an error, the outbox keeps the changes and the push retries with backoff (2 s, 4 s, 8 s … capped at 5 minutes). The status line shows `offline · N pending`. **Edits made offline, including notes, are uploaded automatically when the connection returns.**
+4. On success, the uploaded hashes are saved, nothing is pending, and the status shows `Sync ✓`.
+5. If offline or Google returns an error, the changes stay pending and the push retries with backoff (2 s, 4 s, 8 s … capped at 5 minutes). The status line shows `offline · N pending`. **Edits made offline, including notes, are uploaded automatically when the connection returns.**
 
 ## How other devices get changes
 
@@ -105,7 +105,11 @@ A pull happens:
 - on **Sync now**, `/pb sync` or `ccb sync`;
 - every `sync.intervalSeconds` (default 60) while `ccb-mcp` or the background sync service is running.
 
-A pull uses Drive's change feed (`changes.list` from a saved start-page token) to find which device files changed, downloads only those, and merges them into the local library. If the merge changes the local library, this device's own file is pushed again so every device converges.
+A pull uses Drive's change feed (`changes.list` from a saved start-page token) to find which device files changed and downloads only those into `sync-cache/`. The merge then uses **every** device file (the merge's tombstone rules need them all). If the merge changes the local library, this device's own file is pushed again so every device converges. A run (pull, merge, push) holds `.sync.lock`, so two processes on one computer never upload an older view after a newer one (decision D30).
+
+### Finding the folder
+
+With the `drive.file` scope the app sees only the files it created. It looks for `My Drive/Claude Codex Buttons/devices/` and creates it (with a README) if missing. If two computers sign in at the same moment and each creates the folder, every computer writes into the oldest folder and reads from all of them, so they still find each other; a change to these folders makes the next pull list everything again.
 
 ## Merge rules
 
@@ -169,10 +173,20 @@ Several `ccb-mcp` processes can run at once (Claude Code and Codex open together
 
 ## Sign-in and tokens
 
-- `ccb login` runs Google's OAuth flow for desktop apps: it opens the browser, receives the code on a local loopback address (`http://localhost:<port>`), and requests offline access so Google returns a refresh token. The refresh token is stored in the operating system's credential store (`@napi-rs/keyring`) under the service name `claude-codex-buttons`.
+- `ccb login` runs Google's OAuth flow for desktop apps with PKCE: it opens the browser (`--no-browser` only prints the link), receives the code on a local loopback address (`http://127.0.0.1:<port>`), and requests offline access so Google returns a refresh token. All calls to Google use a small client over Node's built-in `fetch` (decision D28).
+- The refresh token is kept by the operating system, through its own tools, so the plugin needs no native module (decision D27):
+
+  | OS | Where | Tool |
+  |---|---|---|
+  | macOS | login Keychain, service `claude-codex-buttons` | `security` |
+  | Linux | Secret Service (GNOME Keyring, KWallet), service `claude-codex-buttons` | `secret-tool` (package `libsecret-tools` or `libsecret`) |
+  | Windows | `google-token.dpapi`, encrypted for your Windows account with DPAPI | PowerShell |
+  | Any (opt-in) | `google-token.json`, readable only by you | `ccb config set google.tokenStore file` |
+
+  The token is passed to these tools on standard input, never on a command line.
 - Scope: `https://www.googleapis.com/auth/drive.file` only ("See, edit, create, and delete only the specific Google Drive files you use with this app").
 - `ccb logout` deletes the token and revokes it with Google.
-- If no credential store is available (for example, a cloud container), `ccb-mcp` reports `sync unavailable: no credential store` and keeps working locally. See [platforms/claude-code.md](platforms/claude-code.md#cloud-sessions) for the Claude connector alternative.
+- If no credential store is available (for example, a cloud container or a Linux server without a desktop session), sync shows `Sync ⚠ no credential store` with the fix, and everything keeps working locally. See [platforms/claude-code.md](platforms/claude-code.md#cloud-sessions) for the Claude connector alternative.
 
 **Testing-mode caveat:** while the Google Cloud OAuth app is in "Testing" publishing status, refresh tokens are reported to expire after about 7 days, so `ccb login` must be repeated weekly. Publishing the app removes this. See [google-cloud-setup.md](google-cloud-setup.md#publishing-status).
 
@@ -196,7 +210,7 @@ Several `ccb-mcp` processes can run at once (Claude Code and Codex open together
 | `Sync ⚠ sign in` | Token missing, expired or revoked | Run `ccb login` |
 | `Sync off` | `sync.mode = "off"` | Optional |
 
-`ccb doctor` checks the token, the Drive folder, each device file's validity, the lock and the outbox, and prints a fix for each problem.
+`ccb status` prints the status and what to do; `ccb sync` forces a sync. `ccb doctor` checks the OAuth client, the credential store and sign-in, the sync folder (folder mode), the last sync outcome, invalid and stale device files and conflicts, and prints a fix for each problem.
 
 ## Testing plan
 

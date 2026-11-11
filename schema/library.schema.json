@@ -243,8 +243,11 @@
         "google": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["clientFile"],
-          "properties": { "clientFile": { "type": ["string", "null"], "maxLength": 4096 } }
+          "required": ["clientFile", "tokenStore"],
+          "properties": {
+            "clientFile": { "type": ["string", "null"], "maxLength": 4096 },
+            "tokenStore": { "enum": ["os", "file"] }
+          }
         }
       }
     },

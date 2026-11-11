@@ -7,7 +7,7 @@
 | Regenerate instructions, Continue message | `library.json` → `sharedSettings` | Yes |
 | Everything else below | `library.json` → `settings` | No (per device) |
 | Google OAuth client | `~/.claude-codex-buttons/google-client.json` | No |
-| Google refresh token | OS credential store, service `claude-codex-buttons` | No |
+| Google refresh token | OS credential store, service `claude-codex-buttons` (see `google.tokenStore`) | No |
 
 Change settings with the `ccb` command (available since M2). The Prompt Bank pane's **Settings** tab is planned for M8:
 
@@ -50,6 +50,7 @@ Until packages are published, run `ccb` from a clone of the repository: `npm ins
 | `sync.intervalSeconds` | integer 15–3600 | `60` | Automatic pull interval |
 | `sync.pushDelayMs` | integer 500–60000 | `2000` | Wait after a change before it uploads automatically |
 | `google.clientFile` | path | none | OAuth client JSON downloaded from Google Cloud |
+| `google.tokenStore` | `"os"` \| `"file"` | `"os"` | Where the Google sign-in is kept: the OS credential store, or a file readable only by you (for computers without one, such as a Linux server) |
 | `codex.autoSync` | boolean | `true` | Regenerate Codex `$ccb-<id>` skills after each sync that changes buttons or prompts |
 
 ## Environment variables

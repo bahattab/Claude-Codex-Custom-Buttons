@@ -153,3 +153,24 @@ Each decision records the options considered, the choice and why. All were appro
   - an atom imported from another module and read or updated there;
   - `$` handed to a stored callback (`hooks.onLibraryChanged($)`): "$ is always spelled $.noun.event(...) at the call site".
   A direct call to an imported function that takes `$` is accepted. The first design passed callbacks into each pane module; it was replaced.
+
+## D27. Keep the Google sign-in with the OS's own tools (2026-11-11, M5)
+
+- **Choice:** macOS Keychain through `security`, Linux Secret Service through `secret-tool`, Windows a DPAPI-encrypted file through PowerShell. A file readable only by you is used only when `google.tokenStore` is `"file"`. The token goes to these tools on standard input, never on a command line; a token with unexpected characters is refused rather than quoted.
+- **Why:** the plan named `@napi-rs/keyring`, a native module. The Claude plugin's server is one bundled JavaScript file run by plain Node with no `npm install` (D25), so it can't carry per-platform native binaries. The project owner chose this option (2026-11-11).
+- **Limits:** the commands are tested with a stand-in command runner only; they still need a hands-on check on each OS (platform-facts G7).
+
+## D28. A small fetch-based Drive and OAuth client (2026-11-11, M5)
+
+- **Choice:** call the documented Drive v3 endpoints (`files.list`, `files.create`, media upload and download, `changes.getStartPageToken`, `changes.list`) and Google's OAuth endpoints (authorise with PKCE, token, revoke) with Node's built-in `fetch`, instead of `@googleapis/drive` and `google-auth-library`.
+- **Why:** sync needs a handful of calls; the bundled server stays small (834 KB) and has no new dependencies; a fake Drive behind the same `fetch` tests every path. Chosen by the project owner (2026-11-11).
+
+## D29. "Pending" is derived from hashes, not an outbox log (2026-11-11, M5)
+
+- **Choice:** a record is pending while its content hash differs from the hash saved at the last successful upload (`sync-state.json`). There is no `outbox.json`.
+- **Why:** a log can drift from the library (a crash between writing the library and the log, edits by another process). Comparing hashes can't: after any crash, whatever differs from Drive is uploaded on the next run, once.
+
+## D30. One sync at a time per computer, with a cache of device files (2026-11-11, M5)
+
+- **Choice:** a sync run (pull, merge, push) holds `.sync.lock`, and the newest copy of every other device's file is kept in `sync-cache/`.
+- **Why:** two `ccb-mcp` processes on one computer (Claude Code and Codex open together) could otherwise upload an older view after a newer one. The change feed downloads only changed files, but the merge needs every device file (a record missing from every newer file counts as deleted), so the others come from the cache.
