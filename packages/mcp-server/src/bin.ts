@@ -21,7 +21,7 @@ const sync = createSyncEngine(store, {
     if (merged) {
       void store
         .read()
-        .then(({ library }) => (library?.settings.codex.autoSync ? writeCodexSkills(library, { onlyIfInstalled: true }) : undefined))
+        .then(({ library }) => (library?.settings.codex.autoSync ? writeCodexSkills(library, { onlyIfInstalled: true, owner: store.paths.home }) : undefined))
         .catch(() => undefined);
     }
   },

@@ -2,7 +2,9 @@
   "mcpServers": {
     "ccb": {
       "command": "node",
-      "args": ["./server/ccb-mcp.mjs"]
+      "args": ["./server/ccb-mcp.mjs"],
+      "cwd": ".",
+      "env_vars": ["CODEX_HOME", "CCB_HOME"]
     }
   }
 }

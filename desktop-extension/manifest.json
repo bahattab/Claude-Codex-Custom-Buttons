@@ -117,6 +117,10 @@
       "description": "Instructions for rewriting a prompt more clearly"
     },
     {
+      "name": "translate_instructions",
+      "description": "The request for translating text with Claude"
+    },
+    {
       "name": "conflict_resolve",
       "description": "Settle a conflict copy of a prompt or note"
     },

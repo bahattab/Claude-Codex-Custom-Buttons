@@ -195,3 +195,12 @@ Each decision records the options considered, the choice and why. All were appro
 
 - **Choice:** generated `$ccb-<name>` skills come from every `submit` or `fill` button and every favourite prompt, not from every prompt.
 - **Why:** Codex lists every skill to the model, so hundreds of prompts would crowd out other skills and use context. Marking a prompt as a favourite is the switch. Every prompt stays reachable through the `prompt-bank` skill.
+
+## D35. Translate with the model the user is already using (2026-11-11, M9)
+
+- **Choice:** translations come from the session's own model (`$.model.complete` in Claude Code, the Codex model through the `translate` skill, Claude in Claude Desktop through the prompt), following `translate_instructions`. No translation service such as Google Translate is called.
+- **Why:**
+  - no new account, key, network host or privacy-policy change;
+  - the text goes only where the user's chat already goes;
+  - a language model keeps code, placeholders and formatting.
+- **Instant translation** polls the selection, because there's no selection event (C26), and translates a selection only once it has held still for one interval. Results are cached, and numbers or single characters are skipped, so the model isn't called while text is still being selected. It can be turned off with `translate.instant`.

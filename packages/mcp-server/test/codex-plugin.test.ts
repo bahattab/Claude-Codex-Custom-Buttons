@@ -1,6 +1,7 @@
 // The Codex plugin (plugins/codex): its manifest, MCP config, skills and marketplace entry,
 // checked against the rules Codex 0.167 applies (docs/platform-facts.md X1–X12), and its
-// bundled server started the way Codex starts it (working directory = plugin folder).
+// bundled server started the way Codex starts it: in the folder `cwd` names, resolved
+// against the plugin root (without `cwd`, Codex would use the project's folder).
 import { cp, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,9 +36,9 @@ describe("Codex plugin files", () => {
     expect(manifest["version"]).toBe(version);
   });
 
-  it(".mcp.json starts the bundled server with a path relative to the plugin folder", async () => {
+  it(".mcp.json starts the bundled server from the plugin folder (cwd \".\") and passes CODEX_HOME and CCB_HOME", async () => {
     const mcp = (await json(join(plugin, ".mcp.json")))["mcpServers"] as Record<string, { command: string; args: string[]; cwd?: string }>;
-    expect(mcp["ccb"]).toEqual({ command: "node", args: ["./server/ccb-mcp.mjs"] });
+    expect(mcp["ccb"]).toEqual({ command: "node", args: ["./server/ccb-mcp.mjs"], cwd: ".", env_vars: ["CODEX_HOME", "CCB_HOME"] });
     // The same bundle as the Claude plugin (npm run check:plugin keeps both up to date).
     const a = await readFile(join(plugin, "server", "ccb-mcp.mjs"), "utf8");
     const b = await readFile(join(root, "plugins", "claude", "server", "ccb-mcp.mjs"), "utf8");
@@ -46,7 +47,12 @@ describe("Codex plugin files", () => {
 
   it("every skill has front matter Codex accepts: name = folder (at most 64), a one-line description, tool names that exist", async () => {
     const names = (await readdir(join(plugin, "skills"))).sort();
-    expect(names).toEqual(["continue", "drive-sync", "notes", "prompt-bank", "regenerate-prompt"]);
+    expect(names).toEqual(["continue", "drive-sync", "notes", "prompt-bank", "regenerate-prompt", "translate"]);
+    for (const name of names) {
+      const text = await readFile(join(plugin, "skills", name, "SKILL.md"), "utf8");
+      // Codex doesn't substitute these in skills (X5), and agents must not run the unrelated npm "ccb".
+      expect(text, name).not.toMatch(/\$ARGUMENTS|\$\d|npx ccb/);
+    }
     const tools = new Set(
       (await readFile(join(root, "packages", "mcp-server", "src", "server.ts"), "utf8")).match(/registerTool\(\s*"([a-z_]+)"/g)?.map((m) => m.replace(/registerTool\(\s*"/, "").replace(/"$/, "")),
     );
@@ -74,7 +80,13 @@ describe("bundled ccb-mcp in the Codex plugin", () => {
     const home = await mkdtemp(join(tmpdir(), "ccb-codex-home-"));
     try {
       await cp(plugin, dir, { recursive: true });
-      const transport = new StdioClientTransport({ command: process.execPath, args: ["./server/ccb-mcp.mjs"], cwd: dir, env: { PATH: process.env["PATH"] ?? "", CCB_HOME: home } });
+      const config = ((await json(join(dir, ".mcp.json")))["mcpServers"] as Record<string, { args: string[]; cwd: string }>)["ccb"];
+      const transport = new StdioClientTransport({
+        command: process.execPath,
+        args: config?.args ?? [],
+        cwd: join(dir, config?.cwd ?? "missing"), // as Codex resolves a relative cwd
+        env: { PATH: process.env["PATH"] ?? "", HOME: home, CCB_HOME: home, CODEX_HOME: join(home, "codex") },
+      });
       const client = new Client({ name: "codex-plugin-test", version: "0" });
       await client.connect(transport);
       try {

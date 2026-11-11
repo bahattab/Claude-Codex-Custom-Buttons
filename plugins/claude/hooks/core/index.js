@@ -11,6 +11,7 @@ export { BUILT_IN_VARIABLES, askFields, dateBuiltIns, expand, usedVariables, } f
 export { searchPrompts } from "./search.js";
 export { DEFAULT_CONTINUE_MESSAGE, REFINE_INSTRUCTIONS, buildRefineRequest, cleanRefineOutput, missingFragments, protectedFragments, } from "./refine.js";
 export { MIGRATIONS, loadLibrary } from "./migrate.js";
+export { TRANSLATE_INSTRUCTIONS, TRANSLATE_LANGUAGES, TRANSLATE_MAX_CHARS, buildTranslateRequest, parseTranslation, worthTranslating, } from "./translate.js";
 export { STARTER_CATEGORIES, STARTER_PROMPTS, STARTER_VARIABLES, seedStarterPack } from "./starter.js";
 export { RETENTION_DAYS, emptyBase, merge, needsPush, sameData, toDeviceFile, } from "./sync/merge.js";
 export { appendNote, resolveConflict, deleteButton, deleteCategory, deleteNote, deletePrompt, deleteVariable, saveButton, saveCategory, saveNote, savePrompt, setSharedSetting, setVariable, sharedSetting, } from "./ops.js";

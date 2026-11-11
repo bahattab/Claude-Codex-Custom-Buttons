@@ -5,8 +5,8 @@ metadata:
   short-description: "Improve a prompt"
 ---
 
-The prompt to rewrite is the text after the skill's name: $ARGUMENTS
-If that is empty, use the user's previous message.
+The prompt to rewrite is the text the user wrote after the skill's name.
+If there is none, use the user's previous message.
 
 1. Call the `ccb` MCP tool `refine_instructions` with `text` set to that prompt (and `extra` set to any extra instruction the user gave, such as "make it shorter"). It returns the rewriting instructions (`system`) and the request to rewrite (`user`).
 2. Follow those instructions yourself to produce the rewritten prompt. Don't answer the prompt: only rewrite it.

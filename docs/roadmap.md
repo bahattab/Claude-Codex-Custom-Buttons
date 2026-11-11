@@ -10,9 +10,10 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | **Done** (2026-11-10) | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
 | M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Done | M2 |
-| M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Done | M2, M5 |
+| M6 | Codex plugin: skills, MCP config, generated `$ccb-<name>` skills | Done | M2, M5 |
 | M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Done | M2, M5 |
-| M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7 |
+| M9 | Translate: instant translation of selected text, Translate pane, `/tr`, Codex skill, Desktop prompt | Done | M4 |
+| M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7, M9 |
 
 M5 can run in parallel with M3–M4 because both only depend on the server's tool interface, which is fixed in M2.
 
@@ -172,6 +173,10 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
   - the plugin files follow Codex's rules (paths, names, descriptions, and the tool names the skills use exist);
   - the server starts from a copy of the plugin folder, the way Codex starts it;
   - the skill generator, auto-regeneration, and `ccb sync codex`.
+- The independent review found 1 critical, 1 major and 6 minor issues, all fixed:
+  - **Critical:** Codex starts a plugin server in the project's folder unless `.mcp.json` sets `cwd`, so the server never started (fixed with `"cwd": "."`, X10 corrected; the test now starts it the way Codex resolves `cwd`);
+  - **Major:** the `drive-sync` skill told the agent to run `npx ccb`, which is an unrelated npm package;
+  - **Minor:** `$1`/`$ARGUMENTS` aren't substituted by Codex (now named values); emoji split by shortening; `CODEX_HOME` not passed through; skills written without the Codex plugin; two libraries removing each other's skills; skill instructions missing tool arguments.
 
 ## M7: Claude Desktop Chat tab
 
@@ -185,6 +190,19 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - `npm run build:desktop` validates the manifest and packs `dist/claude-codex-buttons.mcpb` with the official `mcpb` 2.1.2 (215 KB, 3 files); CI runs it.
 - Tests check the manifest against the MCPB v0.4 schema, its tool list against the server, and the version against the server and both plugins.
 - **Still open, hands-on:** whether the Chat tab's "+" menu lists the generated prompts (D5), and whether Claude Desktop's built-in Node.js is 22.12 or newer (D7). Until then this is the documented limitation: if prompts don't appear, everything still works through the tools ("find my standup prompt").
+
+## M9: Translate (added 2026-11-11 at the project owner's request)
+
+- Instant translation of selected text, modelled on browser translators such as ImTranslator: the translation appears above the prompt box as soon as a selection holds still.
+- A Translate pane (language picker, Swap, Copy, Insert, Replace, recent translations), the **Translate** button and `/tr`.
+- Codex `translate` skill, Claude Desktop `ccb-translate` prompt, `translate_instructions` tool, `translate.*` settings.
+- *(A Google passkey option for sign-in was started and then dropped at the owner's request. Google's own sign-in page, which `ccb login` opens, already offers passkeys.)*
+
+**Result (2026-11-11):** done. Translation uses the session's own model (decision D35).
+- Tests:
+  - core: the request, the reply parsing and the filter for what's worth translating;
+  - server: the tool, the prompt and the settings;
+  - 8 plugin tests: the pane on terminal and desktop, language choice, Swap and history, `/tr` forms, the instant bubble with its stable-selection rule and cache, skipping numbers, instant off, and model failures.
 
 ## M8: Release v0.1.0
 

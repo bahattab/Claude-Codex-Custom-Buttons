@@ -51,7 +51,11 @@ Until packages are published, run `ccb` from a clone of the repository: `npm ins
 | `sync.pushDelayMs` | integer 500–60000 | `2000` | Wait after a change before it uploads automatically |
 | `google.clientFile` | path | none | OAuth client JSON downloaded from Google Cloud |
 | `google.tokenStore` | `"os"` \| `"file"` | `"os"` | Where the Google sign-in is kept: the OS credential store, or a file readable only by you (for computers without one, such as a Linux server) |
-| `codex.autoSync` | boolean | `true` | Regenerate Codex `$ccb-<id>` skills after each sync that changes buttons or prompts |
+| `codex.autoSync` | boolean | `true` | While the Codex plugin is installed, rewrite the `$ccb-<name>` Codex skills for buttons and favourite prompts after changes and syncs |
+| `translate.target` | text | `"auto"` | `auto`, or a language to always translate into |
+| `translate.primary` | text | `"English"` | With `auto`: the language text is translated into |
+| `translate.secondary` | text | `"Arabic"` | With `auto`: used instead when the text is already in the primary language |
+| `translate.instant` | boolean | `true` | Translate text in Claude Code as soon as it's selected (shown above the prompt box) |
 
 ## Environment variables
 

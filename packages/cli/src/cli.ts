@@ -455,7 +455,7 @@ async function daemon(store: LibraryStore, io: Io): Promise<number> {
     onStatus: (s, { merged }) => {
       if (merged) {
         void readLibrary(store)
-          .then((lib) => (lib.settings.codex.autoSync ? writeCodexSkills(lib, { onlyIfInstalled: true, home: codexHome(io.env) }) : undefined))
+          .then((lib) => (lib.settings.codex.autoSync ? writeCodexSkills(lib, { onlyIfInstalled: true, owner: store.paths.home, home: codexHome({ ...process.env, ...io.env }) }) : undefined))
           .catch(() => undefined);
       }
       const line = statusLineOf(s);
@@ -498,8 +498,8 @@ async function syncCmd(store: LibraryStore, args: string[], values: { daemon?: b
   if (values.daemon) return daemon(store, io);
   if (args[0] === "codex") {
     const library = await readLibrary(store);
-    const home = codexHome(io.env);
-    const { written, removed } = await writeCodexSkills(library, { home });
+    const home = codexHome({ ...process.env, ...io.env });
+    const { written, removed } = await writeCodexSkills(library, { home, owner: store.paths.home });
     io.out(`Codex skills in ${home}/skills: ${written.length} written, ${removed.length} removed (one per button and favourite prompt; use them as $ccb-<name>).`);
     return 0;
   }

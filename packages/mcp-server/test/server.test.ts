@@ -59,6 +59,7 @@ const ALL_TOOLS = [
   "sync_now",
   "sync_connect",
   "conflict_resolve",
+  "translate_instructions",
   "client_state",
   "bank_search",
   "bank_get",
@@ -298,11 +299,11 @@ describe("settings and Regenerate", () => {
 });
 
 describe("prompts", () => {
-  it("lists Continue, Regenerate and one prompt per Prompt Bank entry", async () => {
+  it("lists Continue, Regenerate, Translate and one prompt per Prompt Bank entry", async () => {
     const { prompts } = await client.listPrompts();
     const names = prompts.map((p) => p.name);
-    expect(names).toEqual(expect.arrayContaining(["ccb-continue", "ccb-regenerate", "ccb-explain-this-code"]));
-    expect(names).toHaveLength(2 + STARTER_PROMPTS.length);
+    expect(names).toEqual(expect.arrayContaining(["ccb-continue", "ccb-regenerate", "ccb-translate", "ccb-explain-this-code"]));
+    expect(names).toHaveLength(3 + STARTER_PROMPTS.length);
     const tests = prompts.find((p) => p.name === "ccb-write-tests-for");
     expect(tests?.arguments).toEqual([{ name: "framework", description: "Default: the project's existing", required: false }]);
   });

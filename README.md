@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5). and the Codex plugin with its skills, plus generated `$ccb-*` skills for your buttons and favourite prompts (M6). and the Claude Desktop Chat-tab extension `.mcpb` (M7). Next: the v0.1.0 release (M8). Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5), the Codex plugin with its skills and generated `$ccb-*` skills for your buttons and favourite prompts (M6), the Claude Desktop Chat-tab extension `.mcpb` (M7), and instant translation of selected text (M9). Next: the v0.1.0 release (M8). Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
 
 ---
 
@@ -15,6 +15,7 @@
 | **Continue** | Sends a standard continuation message to finish a cut-off reply or workflow | Button + `/cont` (highlighted when the last reply was cut off) | `continue` skill | Saved prompt via the "+" menu |
 | **Notes** | A scratchpad beside the chat that saves itself as you type and syncs through Google Drive, so you can open and edit notes from any PC | Side pane + `/notes` | `notes` skill (same synced notes) | Read/append through MCP tools |
 | **Prompt Bank** | Save, categorise, edit, search and insert reusable prompts in one click | Side pane + `/pb <search>` | `prompt-bank` skill + MCP tools | Prompts appear in the "+" menu |
+| **Translate** | Instant translation of selected text with the model you already use: select text and its translation appears; a Translate pane with a language picker, Swap, Copy and Insert | Instant bubble + Translate pane + `/tr` | `translate` skill | `ccb-translate` prompt |
 | **Automatic Google Drive sync** | The Prompt Bank, custom buttons, variables and Notes are saved locally and synced through your Google Drive automatically. Offline edits sync when the connection returns | Yes | Yes | Yes |
 
 The idea is adapted from a WordPress "reusable widgets + text tokens" plugin: define something once, use it everywhere, and change it in one place. See [docs/reference-mapping.md](docs/reference-mapping.md).

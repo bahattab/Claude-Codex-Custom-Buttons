@@ -239,6 +239,8 @@ describe("Codex skills follow buttons and favourites", () => {
   it("a button saved through a tool becomes a $ccb- skill in Codex's folder by itself", async () => {
     const home = await tmp("ccb-mcp-codex-");
     const codex = await tmp("ccb-codex-home-");
+    const { mkdir: mk } = await import("node:fs/promises");
+    await mk(join(codex, "plugins", "cache", "ccb-codex"), { recursive: true }); // the Codex plugin is installed
     const store = new LibraryStore({ home });
     const server = createServer(store, { codexHome: codex });
     const [x, y] = InMemoryTransport.createLinkedPair();
@@ -252,6 +254,30 @@ describe("Codex skills follow buttons and favourites", () => {
       await new Promise((r) => setTimeout(r, 50));
       text = await readFile(join(codex, "skills", "ccb-ship", "SKILL.md"), "utf8").catch(() => null);
     }
-    expect(text).toContain("Ship $1");
+    expect(text).toContain("Ship <value 1: what>");
+  });
+});
+
+describe("translate through ccb-mcp", () => {
+  it("translate_instructions and the ccb-translate prompt follow the translate settings", async () => {
+    const home = await tmp("ccb-mcp-tr-");
+    const store = new LibraryStore({ home });
+    await store.update((lib) => ({ ...lib, settings: { ...lib.settings, translate: { ...lib.settings.translate, primary: "Arabic", secondary: "French" } } }));
+    const server = createServer(store);
+    const [x, y] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "t", version: "0" });
+    clients.push(client);
+    await Promise.all([server.connect(x), client.connect(y)]);
+    const raw = (await client.callTool({ name: "translate_instructions", arguments: { text: "Hello" } })) as { content: Array<{ text: string }> };
+    const req = JSON.parse(raw.content[0]?.text ?? "{}") as { system: string; user: string };
+    expect(req.user).toContain("Translate into Arabic. If the text is already in Arabic, translate it into French instead.");
+    const to = JSON.parse(((await client.callTool({ name: "translate_instructions", arguments: { text: "Hello", to: "German" } })) as { content: Array<{ text: string }> }).content[0]?.text ?? "{}") as { user: string };
+    expect(to.user).toContain("Translate into German.");
+    const { prompts } = await client.listPrompts();
+    expect(prompts.map((p) => p.name)).toContain("ccb-translate");
+    const got = await client.getPrompt({ name: "ccb-translate", arguments: { text: "Bonjour", to: "English" } });
+    expect((got.messages[0]?.content as { text: string }).text).toContain("Translate into English.");
+    const state = JSON.parse(((await client.callTool({ name: "client_state", arguments: {} })) as { content: Array<{ text: string }> }).content[0]?.text ?? "{}") as { settings: { translate: { primary: string } } };
+    expect(state.settings.translate.primary).toBe("Arabic");
   });
 });

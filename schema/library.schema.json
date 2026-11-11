@@ -186,7 +186,7 @@
     "settings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["regenerate", "continue", "buttons", "notes", "sync", "codex", "google"],
+      "required": ["regenerate", "continue", "buttons", "notes", "sync", "codex", "google", "translate"],
       "properties": {
         "regenerate": {
           "type": "object",
@@ -239,6 +239,17 @@
           "additionalProperties": false,
           "required": ["autoSync"],
           "properties": { "autoSync": { "type": "boolean" } }
+        },
+        "translate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target", "primary", "secondary", "instant"],
+          "properties": {
+            "target": { "type": "string", "minLength": 1, "maxLength": 60 },
+            "primary": { "type": "string", "minLength": 1, "maxLength": 60 },
+            "secondary": { "type": "string", "minLength": 1, "maxLength": 60 },
+            "instant": { "type": "boolean" }
+          }
         },
         "google": {
           "type": "object",

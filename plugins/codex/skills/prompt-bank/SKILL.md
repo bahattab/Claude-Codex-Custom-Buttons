@@ -7,10 +7,10 @@ metadata:
 
 The Prompt Bank lives in the `ccb` MCP server and is shared with Claude Code and the user's other computers. Never invent prompt IDs: always look them up.
 
-**Find and use a prompt** (for example "use my standup prompt", or the words after the skill's name: $ARGUMENTS)
+**Find and use a prompt** (for example "use my standup prompt", or the words after the skill's name)
 1. `bank_search` with `query` set to the words (empty lists favourites and recent prompts first).
 2. If several match, list their titles (and previews) and ask which one; if one matches, use it.
-3. `bank_get` with that `id`, `expand: true` and `markUsed: true`. If `expanded.unanswered` lists `{{?ask}}` fields, ask the user for each value, then call `bank_get` again with `answers`.
+3. `bank_get` with that `id`, `expand: true`, `markUsed: true`, and `builtIns` for what you know: `selection` (text the user pasted or pointed at), `last_prompt` (their previous message), `cwd`. Any built-in left out comes back in `expanded.unavailable` and is left empty, so supply it or ask. If `expanded.unanswered` lists `{{?ask}}` fields, ask the user for each value, then call `bank_get` again with `answers`.
 4. Treat `expanded.text` as the user's request and carry it out.
 
 **Save a prompt** ("save this as a prompt"): `bank_save` with a short `title` and the `body` (use `{{name}}` for values that change, and `{{?name}}` to ask each time). Optional: `category` (from `bank_list_categories`), `tags`, `favorite`. Confirm with the title.
@@ -21,4 +21,4 @@ The Prompt Bank lives in the `ccb` MCP server and is shared with Claude Code and
 
 **Buttons**: `buttons_list`, `buttons_save` and `buttons_delete`. Every submit or fill button, and every favourite prompt, also appears in Codex as a `$ccb-<name>` skill.
 
-**Conflict copies** (a prompt edited on two computers at once): titles ending in "(conflict)". Offer `conflict_resolve` with `keep` set to `copy`, `original` or `both`.
+**Conflict copies** (a prompt edited on two computers at once): titles ending in "(conflict)". Offer `conflict_resolve` with `collection: "prompts"`, `copyId` (the copy's `id`) and `keep` set to `copy` (its text replaces the original), `original` (the copy goes) or `both`.

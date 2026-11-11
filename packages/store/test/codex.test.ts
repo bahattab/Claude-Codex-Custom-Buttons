@@ -54,12 +54,12 @@ describe("Codex skills from buttons and favourite prompts", () => {
     const skills = codexSkills(lib);
     expect(skills.map((s) => s.name)).toEqual(["ccb-standup", "ccb-hello", "ccb-review-code"]);
     const standup = skills[0]?.content ?? "";
-    expect(standup).toContain("Write my standup for Billing API about $1 on (today's date)");
-    expect(frontmatter(standup)["description"]).toMatch(/Arguments: \$1 = topic/);
-    expect(standup).toContain("$ARGUMENTS");
+    expect(standup).toContain("Write my standup for Billing API about <value 1: topic> on (today's date)");
+    expect(frontmatter(standup)["description"]).toMatch(/Asks for: value 1 = topic/);
+    expect(standup).not.toMatch(/\$ARGUMENTS|\$1/); // Codex doesn't substitute these in skills
     expect(standup).toContain(CODEX_MARKER);
     const hello = skills[1]?.content ?? "";
-    expect(frontmatter(hello)["description"]).toContain("$1 = name (default: the team)");
+    expect(frontmatter(hello)["description"]).toContain("value 1 = name (default: the team)");
     expect(skills[2]?.content).toContain("Review (the text the user selected or pasted) carefully");
     for (const s of skills) {
       const fm = frontmatter(s.content);
@@ -87,22 +87,41 @@ describe("Codex skills from buttons and favourite prompts", () => {
     await writeFile(join(dir, "skills", "ccb-mine", "SKILL.md"), "---\nname: ccb-mine\ndescription: mine\n---\n");
     await mkdir(join(dir, "skills", "ccb-hello"), { recursive: true });
     await writeFile(join(dir, "skills", "ccb-hello", "SKILL.md"), "---\nname: ccb-hello\ndescription: my own hello\n---\n");
-    const first = await writeCodexSkills(lib, { home: dir });
+    const first = await writeCodexSkills(lib, { home: dir, owner: "/lib/a" });
     expect(first.written.sort()).toEqual(["ccb-review-code", "ccb-standup"]);
     expect(await readFile(join(dir, "skills", "ccb-hello", "SKILL.md"), "utf8")).toContain("my own hello");
-    expect((await writeCodexSkills(lib, { home: dir })).written).toEqual([]); // unchanged: nothing rewritten
+    expect((await writeCodexSkills(lib, { home: dir, owner: "/lib/a" })).written).toEqual([]); // unchanged: nothing rewritten
+    // Another library on this computer leaves these alone, and they leave its alone.
+    const other = await writeCodexSkills({ ...lib, buttons: [], prompts: [] }, { home: dir, owner: "/lib/b" });
+    expect(other.removed).toEqual([]);
+    await writeFile(join(dir, "skills", "ccb-standup", "notes.txt"), "mine");
 
     const fewer = { ...lib, buttons: lib.buttons.map((b) => (b.id === "btn_standup" ? { ...b, deletedAt: ctx.now } : b)) };
-    const second = await writeCodexSkills(fewer, { home: dir });
+    const second = await writeCodexSkills(fewer, { home: dir, owner: "/lib/a" });
     expect(second.removed).toEqual(["ccb-standup"]);
-    expect((await readdir(join(dir, "skills"))).sort()).toEqual(["ccb-hello", "ccb-mine", "ccb-review-code"]);
+    expect(await readdir(join(dir, "skills", "ccb-standup"))).toEqual(["notes.txt"]); // the user's file stays
+    expect((await readdir(join(dir, "skills"))).sort()).toEqual(["ccb-hello", "ccb-mine", "ccb-review-code", "ccb-standup"]);
   });
 
-  it("does nothing when Codex isn't installed and only installed use is asked for", async () => {
+  it("writes automatically only when the Codex plugin is installed", async () => {
     const { lib } = library();
-    const r = await writeCodexSkills(lib, { home: join(dir, "nope"), onlyIfInstalled: true });
-    expect(r.skipped).toBe(true);
+    expect((await writeCodexSkills(lib, { home: join(dir, "nope"), onlyIfInstalled: true })).skipped).toBe(true);
+    expect((await writeCodexSkills(lib, { home: dir, onlyIfInstalled: true })).skipped).toBe(true); // Codex, but not our plugin
+    await mkdir(join(dir, "plugins", "cache", "ccb-codex"), { recursive: true });
+    expect((await writeCodexSkills(lib, { home: dir, onlyIfInstalled: true })).skipped).toBe(false);
+    await rm(join(dir, "plugins"), { recursive: true });
+    await writeFile(join(dir, "config.toml"), '[plugins."prompt-buttons-codex@ccb-codex"]\nenabled = true\n');
+    expect((await writeCodexSkills(lib, { home: dir, onlyIfInstalled: true })).skipped).toBe(false);
     expect(codexHome({ CODEX_HOME: "/x/y" })).toBe("/x/y");
     expect(codexHome({})).toMatch(/\.codex$/);
+  });
+
+  it("never splits an emoji when shortening a title", () => {
+    let lib = emptyLibrary();
+    lib = ok(savePrompt(lib, { title: `${"x".repeat(79)}🚀 launch`, body: "b", favorite: true }, ctx, rnd)).library;
+    const skill = codexSkills(lib)[0]?.content ?? "";
+    const short = /short-description: (.*)/.exec(skill)?.[1] ?? "";
+    expect(JSON.parse(short)).toBe(`${"x".repeat(79)}🚀`);
+    expect(skill).not.toMatch(/\\ud83d"/);
   });
 });

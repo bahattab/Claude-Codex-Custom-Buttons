@@ -9,4 +9,4 @@ metadata:
 2. Follow that message for your previous answer: pick up at the exact word, line or code block where it stopped. Keep the same format, and finish an open code block before starting anything new.
 3. If the previous answer was already complete, say so in one sentence instead of adding to it.
 
-Anything else the user asked for: $ARGUMENTS
+Also follow anything else the user wrote after the skill's name.

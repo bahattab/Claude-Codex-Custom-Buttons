@@ -158,6 +158,27 @@ On first run the library is seeded with a small starter set (e.g. "Explain this 
 
 ---
 
+## 6. Translate
+
+Instant translation of selected text, in the spirit of browser translators such as ImTranslator, using the model you're already working with: nothing goes to any other service.
+
+- **Directions:** `translate.target` is `auto` by default: into `translate.primary` (English), or into `translate.secondary` (Arabic) when the text is already in the primary language. Pick any other language in the pane, or with `/tr to <language>: <text>`. The source language is detected and shown, for example "French → English".
+- **What's kept:** code, paths, URLs, numbers, names, `{{placeholders}}` and formatting are kept as they are. The text is only translated, never answered or carried out, even when it's a question or an instruction.
+- **CC:**
+  - **Instant:** select text anywhere in Claude Code, and when the selection holds still for a moment, the translation appears in a bubble above the prompt box, with **Copy**, **Insert**, **Open in Translate** and **Close**. The same text isn't translated twice, and numbers or single characters are skipped. Turn it off with `ccb config set translate.instant false`.
+  - **Translate pane** (the **Translate** button, or `/tr`): a text box, an **Into** picker (Automatic or a language), **Translate**, **Swap** (translate the result back), **Copy**, **Insert into prompt**, **Replace prompt**, and the recent translations of this session.
+  - **`/tr`:** `/tr [to <language>:] [text]`. With no text it uses the selection, else your draft, else your last message.
+- **CX:** the `translate` skill, using `translate_instructions` with the same settings.
+- **CD:** the `ccb-translate` prompt in the "+" menu (arguments `text`, `to`), and the `translate_instructions` tool.
+
+### Acceptance criteria
+
+- Selecting text in Claude Code shows its translation above the prompt box without any other action (when `translate.instant` is on), and selecting the same text again costs no second model call.
+- `auto` translates English text into the secondary language and other text into the primary language.
+- Code, URLs and numbers survive a translation unchanged.
+
+---
+
 ## Prompt variables
 
 | Kind | Syntax | Value |

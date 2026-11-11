@@ -10,6 +10,7 @@ import {
   appendNote,
   askFields,
   buildRefineRequest,
+  buildTranslateRequest,
   dateBuiltIns,
   deleteButton,
   deleteCategory,
@@ -146,7 +147,7 @@ function toAction(input: z.infer<typeof actionSchema>): ButtonAction {
  */
 export function promptNames(library: Library): Map<string, Prompt> {
   const names = new Map<string, Prompt>();
-  const reserved = new Set(["ccb-continue", "ccb-regenerate"]);
+  const reserved = new Set(["ccb-continue", "ccb-regenerate", "ccb-translate"]);
   const oldestFirst = [...live(library.prompts)].sort(
     (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
@@ -203,7 +204,7 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
       void (async () => {
         const { library } = await store.read();
         if (library?.settings.codex.autoSync) {
-          await writeCodexSkills(library, { onlyIfInstalled: true, ...(opts.codexHome ? { home: opts.codexHome } : {}) });
+          await writeCodexSkills(library, { onlyIfInstalled: true, owner: store.paths.home, ...(opts.codexHome ? { home: opts.codexHome } : {}) });
         }
       })().catch(() => undefined);
     }, 500);
@@ -293,6 +294,7 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
             continue: library.settings.continue,
             buttons,
             notes: { autosaveMs: notes.autosaveMs },
+            translate: library.settings.translate,
           },
           continueMessage: sharedSetting(library, "continue.message") ?? DEFAULT_CONTINUE_MESSAGE,
           regenerateInstructions: sharedSetting(library, "regenerate.instructions"),
@@ -661,6 +663,22 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
       }),
   );
 
+  mcp.registerTool(
+    "translate_instructions",
+    {
+      title: "Translation request",
+      description:
+        'The complete request (system and user parts) for translating text with the client\'s own model; ccb-mcp never calls a model itself. Without "to", uses the translate settings (into the primary language, or the secondary one when the text is already in the primary). The model answers "FROM <language> TO <language>", a blank line, then the translation.',
+      inputSchema: { text: z.string(), to: z.string().optional().describe('A language, e.g. "French"; or "auto"') },
+      annotations: readOnly,
+    },
+    (args) =>
+      guard(async () => {
+        const { translate } = (await read()).settings;
+        return ok(buildTranslateRequest(args.text, { ...translate, ...(args.to ? { target: args.to } : {}) }));
+      }),
+  );
+
   // --- prompts (dynamic list from the Prompt Bank) -------------------------------------
 
   mcp.server.setRequestHandler(ListPromptsRequestSchema, async () => {
@@ -674,6 +692,15 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
         arguments: [
           { name: "text", description: "The prompt to improve", required: true },
           { name: "extra", description: "Anything else to change", required: false },
+        ],
+      },
+      {
+        name: "ccb-translate",
+        title: "Translate",
+        description: "Translate text (into your primary language, or the secondary one when it's already in the primary).",
+        arguments: [
+          { name: "text", description: "The text to translate", required: true },
+          { name: "to", description: "The language to translate into (default: automatic)", required: false },
         ],
       },
     ];
@@ -704,6 +731,10 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
         instructions: sharedSetting(library, "regenerate.instructions"),
         ...(args["extra"] !== undefined ? { extra: args["extra"] } : {}),
       });
+      return message(`${req.system}\n\n${req.user}`);
+    }
+    if (request.params.name === "ccb-translate") {
+      const req = buildTranslateRequest(args["text"] ?? "", { ...library.settings.translate, ...(args["to"] ? { target: args["to"] } : {}) });
       return message(`${req.system}\n\n${req.user}`);
     }
     const prompt = promptNames(library).get(request.params.name);
