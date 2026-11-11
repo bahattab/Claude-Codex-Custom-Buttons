@@ -2,8 +2,9 @@
 // (no npm install). Attached to each release. Run after `npm run build`.
 import { build } from "esbuild";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 await build({
   entryPoints: [join(root, "packages", "cli", "dist", "bin.js")],
   outfile: join(root, "dist", "ccb.mjs"),

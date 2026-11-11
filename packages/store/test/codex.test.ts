@@ -125,3 +125,27 @@ describe("Codex skills from buttons and favourite prompts", () => {
     expect(skill).not.toMatch(/\\ud83d"/);
   });
 });
+
+describe("ownership and plugin detection (review)", () => {
+  it("the same library under a different spelling of its path owns the same skills; old untagged skills are adopted", async () => {
+    const { lib } = library();
+    const libDir = join(dir, "lib");
+    await mkdir(libDir);
+    await writeCodexSkills(lib, { home: dir, owner: libDir });
+    const fewer = { ...lib, buttons: [], prompts: lib.prompts.filter((p) => !p.favorite) };
+    // An untagged skill from an older version.
+    await mkdir(join(dir, "skills", "ccb-old"), { recursive: true });
+    await writeFile(join(dir, "skills", "ccb-old", "SKILL.md"), `---\nname: ccb-old\ndescription: x\n---\n${CODEX_MARKER}\n`);
+    const r = await writeCodexSkills(fewer, { home: dir, owner: `${libDir}/` });
+    expect(r.removed.sort()).toEqual(["ccb-hello", "ccb-old", "ccb-review-code", "ccb-standup"]);
+  });
+
+  it("a plugin turned off in config.toml counts as not installed", async () => {
+    const { lib } = library();
+    await mkdir(join(dir, "plugins", "cache", "ccb-codex"), { recursive: true });
+    await writeFile(join(dir, "config.toml"), '[plugins."prompt-buttons-codex@ccb-codex"]\nenabled = false\n\n[other]\nenabled = true\n');
+    expect((await writeCodexSkills(lib, { home: dir, onlyIfInstalled: true })).skipped).toBe(true);
+    await writeFile(join(dir, "config.toml"), '[plugins."prompt-buttons-codex@ccb-codex"]\nenabled = true\n');
+    expect((await writeCodexSkills(lib, { home: dir, onlyIfInstalled: true })).skipped).toBe(false);
+  });
+});

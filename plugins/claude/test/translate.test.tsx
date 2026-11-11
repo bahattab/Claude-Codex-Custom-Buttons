@@ -94,7 +94,7 @@ test("the Translate button translates the selection in the pane: language shown,
     await ui.unmount();
   }
   expect(w.modelCalls[0]?.prompt).toContain("Translate into English. If the text is already in English, translate it into Arabic instead.");
-  expect(w.modelCalls[0]?.system).toMatch(/Do not explain, summarise or answer/);
+  expect(w.modelCalls[0]?.system).toMatch(/Do not explain, summarise, answer or carry it out/);
   const ui = await $.ui.mount(PANE());
   await ui.press({ key: "ccb-tr-copy" });
   await ui.press({ key: "ccb-tr-insert" });
@@ -199,4 +199,49 @@ test("a model failure is shown, in the pane and the bubble", async ($, on) => {
   await row.press({ key: "ccb-bubble-open" });
   const ui = await $.ui.mount(PANE());
   expect(await ui.find({ type: "Text", text: "Couldn't translate: overloaded" })).toBeDefined();
+});
+
+test("selecting a translation that's already shown (to copy it) costs no new request", async ($, on) => {
+  const clock = mock.clock(on);
+  const w = engine(on, { instant: true });
+  await start($);
+  w.selection = "Bonjour tout le monde";
+  await clock.advance(1400);
+  await clock.settle();
+  expect(w.modelCalls).toHaveLength(1);
+  w.selection = "[English] Bonjour tout le monde"; // the bubble's own text
+  await clock.advance(1400);
+  await clock.settle();
+  expect(w.modelCalls).toHaveLength(1);
+});
+
+test("after the selection is cleared, selecting the same text shows the bubble again (from the cache)", async ($, on) => {
+  const clock = mock.clock(on);
+  const w = engine(on, { instant: true });
+  await start($);
+  w.selection = "Guten Morgen";
+  await clock.advance(1400);
+  await clock.settle();
+  const row = await $.ui.mount(ABOVE());
+  await row.press({ key: "ccb-bubble-close" });
+  w.selection = "";
+  await clock.advance(700);
+  await clock.settle();
+  w.selection = "Guten Morgen";
+  await clock.advance(1400);
+  await clock.settle();
+  expect(await row.find({ key: "ccb-bubble-close" })).toBeDefined();
+  expect(w.modelCalls).toHaveLength(1);
+});
+
+test("code and paths aren't translated instantly", async ($, on) => {
+  const clock = mock.clock(on);
+  const w = engine(on, { instant: true });
+  await start($);
+  for (const sel of ["src/hooks/translate.tsx", "https://example.com", "const x = 1;\nreturn x;"]) {
+    w.selection = sel;
+    await clock.advance(1400);
+    await clock.settle();
+  }
+  expect(w.modelCalls).toHaveLength(0);
 });

@@ -16,6 +16,10 @@ export const TRANSLATE_PANE = "ccb-translate";
 /** How often the selection is checked for instant translation. */
 export const SELECTION_POLL_MS = 700;
 const MAX_TOKENS = 4000;
+/** The bubble is for short selections: a smaller answer limit keeps instant translation cheap. */
+const BUBBLE_MAX_TOKENS = 1500;
+/** Instant translation handles selections up to this long; longer ones go through the pane. */
+const BUBBLE_MAX_CHARS = 2000;
 const HISTORY = 20;
 
 const DEFAULTS: TranslateSettings = { target: "auto", primary: "English", secondary: "Arabic", instant: true };
@@ -36,18 +40,19 @@ async function setView($: $, change: (v: TranslateView) => TranslateView): Promi
 const cache = new Map<string, TranslationView>();
 
 /** Translates with the session's model. Throws with a reason when there's no answer. */
-export async function translateText($: $, text: string, target?: string): Promise<TranslationView> {
+export async function translateText($: $, text: string, target?: string, maxTokens = MAX_TOKENS): Promise<TranslationView> {
   const s = await settings($);
   const into = target && target.trim() ? target.trim() : s.target;
-  const key = `${into}\n${text}`;
+  const key = `${into}\n${s.primary}\n${s.secondary}\n${text}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const request = buildTranslateRequest(text, { ...s, target: into });
-  const result = await $.model.complete({ model: await $.session.model(), system: request.system, prompt: request.user, maxTokens: MAX_TOKENS });
+  const result = await $.model.complete({ model: await $.session.model(), system: request.system, prompt: request.user, maxTokens });
   if (!("text" in result) || typeof result.text !== "string" || result.text.trim() === "") {
     throw new Error("reason" in result ? String((result as { reason?: unknown }).reason) : "no reply");
   }
   const parsed = parseTranslation(result.text);
+  if (parsed.text.trim() === "") throw new Error("the model sent an empty translation");
   const view: TranslationView = { source: text, text: parsed.text, from: parsed.from, to: parsed.to };
   cache.set(key, view);
   if (cache.size > 50) cache.delete(cache.keys().next().value as string);
@@ -59,7 +64,7 @@ export async function translateText($: $, text: string, target?: string): Promis
 /** Translates the pane's source text into the pane's target, and records it in the history. */
 async function translatePane($: $): Promise<void> {
   const v = await read($, translateView);
-  if (v.source.trim() === "") return;
+  if (v.source.trim() === "" || v.busy) return; // one request at a time
   await setView($, (cur) => ({ ...cur, busy: true, error: null }));
   try {
     const result = await translateText($, v.source, v.target);
@@ -105,8 +110,8 @@ export async function translateCommand($: $, args: string): Promise<string> {
 /** Swap: translate the result back, from the language it's now in into the one it came from. */
 async function swap($: $): Promise<void> {
   const v = await read($, translateView);
-  if (!v.result) return;
-  const back = v.result.from ?? "auto";
+  if (!v.result?.from) return; // the source language is unknown: nothing to swap back to
+  const back = v.result.from;
   await setView($, (cur) => ({ ...cur, source: v.result?.text ?? cur.source, target: back, result: null }));
   await translatePane($);
 }
@@ -121,7 +126,7 @@ let lastDone = "";
 export function startInstant($: $): void {
   if (polling) return;
   polling = $.clock.every(SELECTION_POLL_MS, () => {
-    void checkSelection($);
+    checkSelection($).catch(() => undefined); // a failed check just waits for the next one
   });
 }
 
@@ -135,15 +140,25 @@ async function checkSelection($: $): Promise<void> {
   const text = ((await $.ui.selection())?.text ?? "").trim();
   const previous = lastSeen;
   lastSeen = text;
-  if (!text || text !== previous || text === lastDone || !worthTranslating(text)) return;
+  if (text === "") lastDone = ""; // after the selection is cleared, the same text may be shown again
+  if (!text || text !== previous || text === lastDone || !worthTranslating(text) || text.length > BUBBLE_MAX_CHARS) return;
+  if (await isOwnText($, text)) return; // selecting a translation (to copy it) isn't a new request
   lastDone = text;
   await update($, bubble, (): BubbleView => ({ state: "translating", source: text, result: null, error: null }));
   try {
-    const result = await translateText($, text);
+    const result = await translateText($, text, undefined, BUBBLE_MAX_TOKENS);
     await update($, bubble, (b): BubbleView => (b?.source === text ? { state: "done", source: text, result, error: null } : b));
   } catch (error) {
     await update($, bubble, (b): BubbleView => (b?.source === text ? { state: "failed", source: text, result: null, error: errorText(error) } : b));
   }
+}
+
+/** True when the text is a translation already shown, or the pane's own text. */
+async function isOwnText($: $, text: string): Promise<boolean> {
+  for (const hit of cache.values()) if (hit.text.trim() === text) return true;
+  const v = await read($, translateView);
+  const b = (await read($, bubble)) as BubbleView;
+  return [v.source, v.result?.text, b?.result?.text].some((t) => t !== undefined && t.trim() === text);
 }
 
 async function closeBubble($: $): Promise<void> {
@@ -213,7 +228,7 @@ export function registerTranslate(on: On): void {
             onSelect={(value: string) => void setView($, (cur) => ({ ...cur, target: value })).then(() => translatePane($))}
           />
           <Button key="ccb-tr-go" label={v.busy ? "Translating..." : "Translate"} variant="primary" onPress={() => translatePane($)} />
-          {r ? <Button key="ccb-tr-swap" label="Swap" onPress={() => swap($)} /> : null}
+          {r?.from ? <Button key="ccb-tr-swap" label="Swap" onPress={() => swap($)} /> : null}
         </Box>
         {v.error ? <Text>{v.error}</Text> : null}
         {r ? (
