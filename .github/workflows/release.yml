@@ -1,12 +1,15 @@
 name: Release
 
-# Pushing a tag such as v0.1.0 builds the release files and publishes a GitHub release:
+# Pushing a tag such as v0.1.0, or running this workflow from the Actions tab ("Run
+# workflow", which tags the current commit with the version), builds the release files and
+# publishes a GitHub release:
 #   ccb.mjs                      the ccb command in one file (node ccb.mjs ...)
 #   claude-codex-buttons.mcpb    the Claude Desktop extension
 # The Claude Code and Codex plugins install straight from the repository at that tag.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,16 +27,19 @@ jobs:
       - run: npm run check
       - run: npm run check:plugin
       - run: npm run build:release
-      - name: Check the tag matches the version
+      - name: The tag (from the version) and a check that they match
         run: |
           version=$(node -p "require('./desktop-extension/manifest.json').version")
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then tag="v$version"; else tag="$GITHUB_REF_NAME"; fi
+          test "v$version" = "$tag" || { echo "Tag $tag doesn't match version $version"; exit 1; }
+          echo "TAG=$tag" >> "$GITHUB_ENV"
       - name: Release notes from CHANGELOG.md
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on {print}' CHANGELOG.md > release-notes.md
           test -s release-notes.md || echo "See CHANGELOG.md." > release-notes.md
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/ccb.mjs dist/claude-codex-buttons.mcpb --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+        # From the Actions tab, this also creates the tag on the commit that was built.
+        run: gh release create "$TAG" dist/ccb.mjs dist/claude-codex-buttons.mcpb --target "$GITHUB_SHA" --title "$TAG" --notes-file release-notes.md
