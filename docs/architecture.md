@@ -81,42 +81,36 @@ If several tools run at the same time, each starts its own `ccb-mcp` process. Th
 2. It expands `{{variables}}` with `core`, asking for any `{{?ask}}` values in a small input.
 3. It runs the button's action type (see [features.md](features.md#action-types)).
 
-## Repository layout (planned)
+## Repository layout
 
 ```
 .
 ├── README.md · LICENSE · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
-├── package.json                 npm workspaces root
-├── tsconfig.base.json
-├── schema/
-│   └── library.schema.json      JSON Schema for library.json
+├── package.json                 npm workspaces root; build, check and release scripts
+├── schema/library.schema.json   JSON Schema for library.json and device files
 ├── packages/
-│   ├── core/                    src/{schema,template,search,refine,sync,migrate}/ + test/
-│   ├── store/                   lock, atomic writes, backups, notes mirror
-│   ├── sync/                    engine, drive, folder, google sign-in, token stores
-│   ├── mcp-server/              tools and prompts + test/
-│   └── cli/                     src/{commands,service}/ + test/
+│   ├── core/                    schema, records, template, search, refine, translate, merge (src/ + test/)
+│   ├── store/                   lock, atomic writes, backups, notes mirror, Codex skill writer
+│   ├── sync/                    sync engine, Drive API and folder remotes, Google sign-in, token stores
+│   ├── mcp-server/              ccb-mcp: tools and prompts
+│   └── cli/                     ccb: config, import/export, login, sync, status, service, doctor
 ├── plugins/
-│   ├── claude/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── hooks/hooks.json
-│   │   ├── hooks/register.tsx   the mod
-│   │   ├── hooks/core/          copy of packages/core (generated, decision D13)
+│   ├── claude/                  Claude Code plugin prompt-buttons
+│   │   ├── .claude-plugin/plugin.json (+ icon.png)
+│   │   ├── hooks/               the mod: register, bank, notes, translate, client, mcp (+ generated core/)
+│   │   ├── server/ccb-mcp.mjs   generated bundle
 │   │   ├── types/index.d.ts     $.state contract
-│   │   └── tests/*.test.tsx
-│   └── codex/
-│       ├── .codex-plugin/plugin.json
-│       ├── .mcp.json
-│       └── skills/{continue,regenerate-prompt,prompt-bank,notes}/SKILL.md
-├── desktop-extension/
-│   └── manifest.json
-├── .claude-plugin/
-│   └── marketplace.json         Claude Code marketplace (lists the Claude plugin)
-├── .agents/plugins/
-│   └── marketplace.json         Codex marketplace (lists the Codex plugin)
-├── scripts/check-links.mjs      documentation link checker
+│   │   └── test/                plugin tests (claude plugin test)
+│   └── codex/                   Codex plugin prompt-buttons-codex
+│       ├── .codex-plugin/plugin.json · .mcp.json · icon.png
+│       ├── server/ccb-mcp.mjs   generated bundle (same as Claude's)
+│       └── skills/              continue, regenerate-prompt, prompt-bank, notes, drive-sync, translate
+├── desktop-extension/           Claude Desktop MCPB manifest and icon
+├── .claude-plugin/marketplace.json   Claude Code marketplace ccb
+├── .agents/plugins/marketplace.json  Codex marketplace ccb-codex
+├── scripts/                     build-plugin, build-cli, build-desktop, make-icon, check-links
 ├── docs/
-└── .github/workflows/ci.yml
+└── .github/workflows/           ci.yml, release.yml
 ```
 
 ## Technology choices

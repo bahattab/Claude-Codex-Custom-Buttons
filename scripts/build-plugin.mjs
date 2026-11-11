@@ -7,9 +7,10 @@
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const plugin = join(root, "plugins", "claude");
 const codexServer = join(root, "plugins", "codex", "server", "ccb-mcp.mjs");
 const check = process.argv.includes("--check");

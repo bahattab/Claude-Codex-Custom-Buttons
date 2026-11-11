@@ -60,6 +60,8 @@ const ALL_TOOLS = [
   "sync_connect",
   "conflict_resolve",
   "translate_instructions",
+  "settings_get",
+  "settings_set",
   "client_state",
   "bank_search",
   "bank_get",

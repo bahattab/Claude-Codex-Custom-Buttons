@@ -200,7 +200,7 @@ Each decision records the options considered, the choice and why. All were appro
 
 - **Choice:** translations come from the session's own model (`$.model.complete` in Claude Code, the Codex model through the `translate` skill, Claude in Claude Desktop through the prompt), following `translate_instructions`. No translation service such as Google Translate is called.
 - **Why:**
-  - no new account, key, network host or privacy-policy change;
+  - no new account, key or network host (the privacy policy now says that selected text goes to the session's model);
   - the text goes only where the user's chat already goes;
   - a language model keeps code, placeholders and formatting.
-- **Instant translation** polls the selection, because there's no selection event (C26), and translates a selection only once it has held still for one interval. Results are cached, and numbers or single characters are skipped, so the model isn't called while text is still being selected. It can be turned off with `translate.instant`.
+- **Instant translation** polls the selection, because there's no selection event (C26), and translates a selection only once it has held still for one interval. Results are cached; numbers, single characters, code, paths, URLs and already-shown translations are skipped; and the bubble uses a smaller answer limit. So the model isn't called while text is still being selected, or when you select a translation to copy it. It can be turned off with `translate.instant`.

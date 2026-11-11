@@ -12,12 +12,14 @@ This project is open-source software that runs on your own computers. It has no 
 | The same data, if you turn on sync | In **your own** Google Drive, in a folder named `Claude Codex Buttons` |
 | Your Google sign-in (a refresh token), if you connect Google Drive | Your operating system's credential store (macOS Keychain, the Secret Service on Linux, or a file encrypted for your Windows account). In a file only your account can read if you choose `google.tokenStore = "file"` |
 | A copy of the Google OAuth client you set up | `~/.claude-codex-buttons/google-client.json`, readable only by your user account |
-| Codex skills generated from your buttons and favourite prompts | Your Codex folder (`~/.codex/skills/ccb-*`), only if Codex is installed |
+| Codex skills generated from your buttons and favourite prompts, with your `{{variables}}` filled in | Your Codex folder (`~/.codex/skills/ccb-*`), only while the Codex plugin `prompt-buttons-codex` is installed, or when you run `ccb sync codex` |
+| The background sync service, if you install it | A per-user service file: `~/.config/systemd/user/claude-codex-buttons-sync.service` (Linux), `~/Library/LaunchAgents/com.claude-codex-buttons.sync.plist` (macOS), or a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` plus `sync-service.vbs` (Windows) |
 
 ## What leaves your computer
 
 - **Google Drive, only if you connect it.** Your synced data goes to your own Google Drive through Google's API, over HTTPS. The plugin asks only for the `drive.file` permission, so it can see and change only the files it created; it can't read the rest of your Drive. Google's handling of that data is covered by Google's own privacy policy and terms. You can disconnect at any time with `ccb logout`, which also revokes the sign-in, or under *Third-party connections* in your Google Account.
-- **The AI tool you use.** When you use a prompt, Regenerate a prompt, or ask the assistant to read a note, that text is sent to the model of the tool you're using (Claude in Claude Code or Claude Desktop, the Codex model in Codex), the same as anything you type there. That provider's policy applies.
+- **The AI tool you use.** When you use a prompt, Regenerate or translate text, or ask the assistant to read a note, that text is sent to the model of the tool you're using (Claude in Claude Code or Claude Desktop, the Codex model in Codex), the same as anything you type there. That provider's policy applies.
+- **Instant translation (Claude Code, on by default).** Text you select in Claude Code is sent to Claude, the model of your session, to be translated, as soon as the selection holds still; code, paths and URLs are skipped. No other translation service is involved. Turn it off with `ccb config set translate.instant false` or in the Prompt Bank's Settings tab.
 - **Nothing else.** No usage data, crash reports or identifiers are sent anywhere. Logs stay on your computer and never contain prompt or note text.
 
 ## Your control

@@ -4,7 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-11
+
+First release: Claude Code plugin, Codex plugin, Claude Desktop extension, the `ccb` command, and automatic Google Drive sync.
+
 ### Added
+
+- Milestone M8, the release:
+  - `ccb.mjs` (the `ccb` command in one file) and `claude-codex-buttons.mcpb` on each GitHub release, built by a tag-triggered workflow;
+  - the Prompt Bank **Settings** tab, and the `settings_get` and `settings_set` tools;
+  - `ccb` output piped into `head` no longer crashes.
 
 - Milestone M9, Translate: instant translation of selected text in Claude Code (a bubble above the prompt box), a Translate pane with a language picker, Swap, Copy, Insert and recent translations, the Translate button and `/tr`; the Codex `translate` skill, the Claude Desktop `ccb-translate` prompt, the `translate_instructions` tool and `translate.*` settings.
 - Milestone M7, the Claude Desktop extension `claude-codex-buttons.mcpb`: an MCPB 0.4 manifest, `npm run build:desktop` (validated and packed with the official `mcpb` tool, also in CI), a privacy policy, and a project icon also used by the Claude and Codex plugins.

@@ -3,8 +3,8 @@
 // $CODEX_HOME/skills/<name>/SKILL.md; every file written here carries a marker, and only
 // marked folders are ever rewritten or removed.
 import { homedir } from "node:os";
-import { join } from "node:path";
-import { mkdir, readdir, rm, rmdir } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { mkdir, readdir, realpath, rm, rmdir } from "node:fs/promises";
 
 import { askFields, expand, hash, live, slugify, type Button, type Library, type Prompt } from "@ccb/core";
 
@@ -36,10 +36,22 @@ function ownerTag(owner: string): string {
   return `<!-- ccb-library: ${hash(owner).slice(0, 12)} -->`;
 }
 
-/** True when the Codex plugin prompt-buttons-codex is installed in this Codex home. */
+/**
+ * True when the Codex plugin prompt-buttons-codex is installed and not turned off in this
+ * Codex home: its config.toml section, when there is one, decides; else the plugin cache.
+ */
 export async function codexPluginInstalled(home: string): Promise<boolean> {
-  if ((await readdir(join(home, "plugins", "cache", "ccb-codex")).catch(() => null)) !== null) return true;
-  return ((await readText(join(home, "config.toml"))) ?? "").includes("prompt-buttons-codex@");
+  const config = (await readText(join(home, "config.toml"))) ?? "";
+  const section = /^\s*\[plugins\."prompt-buttons-codex@[^"]*"\]\s*$([\s\S]*?)(?=^\s*\[|$(?![\s\S]))/m.exec(config);
+  if (section) return !/^\s*enabled\s*=\s*false\b/m.test(section[1] ?? "");
+  return (await readdir(join(home, "plugins", "cache", "ccb-codex")).catch(() => null)) !== null;
+}
+
+/** The library's data folder as one canonical path, so the same library always has the same tag. */
+async function canonical(owner: string): Promise<string> {
+  if (!owner) return "";
+  const absolute = resolve(owner);
+  return realpath(absolute).catch(() => absolute);
 }
 
 /** $CODEX_HOME, else ~/.codex. */
@@ -140,8 +152,10 @@ export async function writeCodexSkills(
 ): Promise<{ written: string[]; removed: string[]; skipped: boolean }> {
   const home = opts.home ?? codexHome();
   if (opts.onlyIfInstalled && !(await codexPluginInstalled(home))) return { written: [], removed: [], skipped: true };
-  const owner = opts.owner ?? "";
+  const owner = await canonical(opts.owner ?? "");
   const tag = ownerTag(owner);
+  // Skills written before libraries were tagged belong to whichever library meets them first.
+  const ours = (text: string) => text.includes(CODEX_MARKER) && (text.includes(tag) || !text.includes("<!-- ccb-library:"));
   const dir = join(home, "skills");
   await mkdir(dir, { recursive: true });
   const skills = codexSkills(library, owner);
@@ -150,7 +164,7 @@ export async function writeCodexSkills(
   for (const s of skills) {
     const path = join(dir, s.name, "SKILL.md");
     const existing = await readText(path);
-    if (existing !== null && (!existing.includes(CODEX_MARKER) || (existing.includes("<!-- ccb-library:") && !existing.includes(tag)))) continue; // the user's own, or another library's
+    if (existing !== null && !ours(existing)) continue; // the user's own, or another library's
     if (existing === s.content) continue;
     await mkdir(join(dir, s.name), { recursive: true });
     await writeFileAtomic(path, s.content, 0o644);
@@ -160,7 +174,7 @@ export async function writeCodexSkills(
   for (const name of await readdir(dir).catch(() => [] as string[])) {
     if (!name.startsWith("ccb-") || wanted.has(name)) continue;
     const text = await readText(join(dir, name, "SKILL.md"));
-    if (text === null || !text.includes(CODEX_MARKER) || !text.includes(tag)) continue;
+    if (text === null || !ours(text)) continue;
     await rm(join(dir, name, "SKILL.md"), { force: true });
     await rmdir(join(dir, name)).catch(() => undefined); // left in place if the user added files
     removed.push(name);

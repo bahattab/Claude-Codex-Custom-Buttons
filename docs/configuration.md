@@ -9,13 +9,13 @@
 | Google OAuth client | `~/.claude-codex-buttons/google-client.json` | No |
 | Google refresh token | OS credential store, service `claude-codex-buttons` (see `google.tokenStore`) | No |
 
-Change settings with the `ccb` command (available since M2). The Prompt Bank pane's **Settings** tab is planned for M8:
+Change settings in the Prompt Bank pane's **Settings** tab (Claude Code), by asking Claude or Codex (the `settings_set` tool), or with the `ccb` command:
 
 ```bash
-npx ccb config list
-npx ccb config get sync.intervalSeconds
-npx ccb config set regenerate.autoSubmit true
-npx ccb config set continue.message "Keep going from where you stopped."
+ccb config list
+ccb config get sync.intervalSeconds
+ccb config set regenerate.autoSubmit true
+ccb config set continue.message "Keep going from where you stopped."
 ```
 
 `config set` checks the value against the same rules as everything else and refuses invalid ones. `null` clears a setting, or restores the default for the shared Regenerate instructions and Continue message.
@@ -71,14 +71,14 @@ The Claude Code plugin exposes the most-used settings (`regenerate.autoSubmit`, 
 
 ## Codex
 
-Buttons and prompts are turned into Codex skills in `$CODEX_HOME/skills/ccb-<id>/` (default `~/.codex/skills`) automatically after each sync (`codex.autoSync`). `npx ccb sync codex` forces it. See [platforms/codex.md](platforms/codex.md#generated-skills).
+Buttons and prompts are turned into Codex skills in `$CODEX_HOME/skills/ccb-<id>/` (default `~/.codex/skills`) automatically after each sync (`codex.autoSync`). `ccb sync codex` forces it. See [platforms/codex.md](platforms/codex.md#generated-skills).
 
 ## Background sync service
 
 ```bash
-npx ccb service status
-npx ccb service stop
-npx ccb service uninstall
+ccb service status
+ccb service stop
+ccb service uninstall
 ```
 
 See [google-drive-sync.md](google-drive-sync.md#background-sync-service).

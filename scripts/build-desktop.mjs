@@ -5,10 +5,12 @@
 import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
-const mcpb = join(root, "node_modules", ".bin", process.platform === "win32" ? "mcpb.cmd" : "mcpb");
-const run = (...args) => execFileSync(mcpb, args, { stdio: "inherit", cwd: root });
+const root = fileURLToPath(new URL("..", import.meta.url));
+// Run the MCPB CLI's script with this Node (a .cmd shim can't be run without a shell on Windows).
+const mcpb = join(root, "node_modules", "@anthropic-ai", "mcpb", "dist", "cli", "cli.js");
+const run = (...args) => execFileSync(process.execPath, [mcpb, ...args], { stdio: "inherit", cwd: root });
 
 run("validate", join(root, "desktop-extension", "manifest.json"));
 if (!process.argv.includes("--check")) {

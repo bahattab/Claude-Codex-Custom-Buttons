@@ -281,3 +281,30 @@ describe("translate through ccb-mcp", () => {
     expect(state.settings.translate.primary).toBe("Arabic");
   });
 });
+
+describe("settings tools", () => {
+  it("settings_get lists every setting; settings_set accepts good values and refuses others without changing them", async () => {
+    const home = await tmp("ccb-mcp-settings-");
+    const store = new LibraryStore({ home });
+    const server = createServer(store);
+    const [x, y] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "t", version: "0" });
+    clients.push(client);
+    await Promise.all([server.connect(x), client.connect(y)]);
+    const call = async (name: string, args: Record<string, unknown> = {}) =>
+      (await client.callTool({ name, arguments: args })) as { isError?: boolean; content: Array<{ text: string }> };
+    const got = JSON.parse((await call("settings_get")).content[0]?.text ?? "{}") as { local: Record<string, unknown>; shared: Record<string, unknown> };
+    expect(got.local["translate.primary"]).toBe("English");
+    expect(got.shared["continue.message"]).toBeNull();
+    expect((await call("settings_set", { key: "sync.intervalSeconds", value: 120 })).isError).toBeFalsy();
+    const refused = await call("settings_set", { key: "sync.intervalSeconds", value: 5 });
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0]?.text).toMatch(/isn't allowed.*stays 120/);
+    expect((await call("settings_set", { key: "sync.intervalSeconds", value: "x" })).content[0]?.text).toMatch(/takes a number/);
+    expect((await call("settings_set", { key: "nope.key", value: 1 })).content[0]?.text).toMatch(/Unknown setting/);
+    expect((await call("settings_set", { key: "translate.primary", value: "French" })).isError).toBeFalsy();
+    const after = JSON.parse((await call("settings_get")).content[0]?.text ?? "{}") as { local: Record<string, unknown> };
+    expect(after.local["sync.intervalSeconds"]).toBe(120);
+    expect(after.local["translate.primary"]).toBe("French");
+  });
+});

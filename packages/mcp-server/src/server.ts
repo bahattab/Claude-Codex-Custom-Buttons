@@ -10,6 +10,8 @@ import {
   appendNote,
   askFields,
   buildRefineRequest,
+  defaultSettings,
+  validateLibrary,
   buildTranslateRequest,
   dateBuiltIns,
   deleteButton,
@@ -63,6 +65,12 @@ async function guard(body: () => Promise<ToolResult>): Promise<ToolResult> {
 }
 
 class OpFailed extends Error {}
+
+class SettingRefused extends Error {
+  constructor(readonly kept: unknown) {
+    super("setting refused");
+  }
+}
 
 function unwrap<T>(result: OpResult<T>): { library: Library; record: T } {
   if (!result.ok) throw new OpFailed(result.errors.join("; "));
@@ -640,6 +648,66 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
       guard(async () => {
         const record = await write((lib, ctx) => setSharedSetting(lib, args.id as SharedSettingId, args.value, ctx));
         return ok({ saved: { id: record.id, value: record.value } });
+      }),
+  );
+
+  /** Every local setting as "group.name", with its default (for its type). */
+  const settingDefaults = new Map<string, unknown>(
+    Object.entries(defaultSettings()).flatMap(([group, values]) => Object.entries(values as Record<string, unknown>).map(([name, v]) => [`${group}.${name}`, v] as const)),
+  );
+
+  mcp.registerTool(
+    "settings_get",
+    {
+      title: "Settings",
+      description: "This device's settings (as group.name keys) and the two shared settings (Regenerate instructions, Continue message).",
+      annotations: readOnly,
+    },
+    () =>
+      guard(async () => {
+        const library = await read();
+        const local = Object.fromEntries(
+          [...settingDefaults.keys()].map((key) => {
+            const [group, name] = key.split(".") as [string, string];
+            return [key, (library.settings as unknown as Record<string, Record<string, unknown>>)[group]?.[name] ?? null];
+          }),
+        );
+        return ok({ local, shared: { "regenerate.instructions": sharedSetting(library, "regenerate.instructions"), "continue.message": sharedSetting(library, "continue.message") } });
+      }),
+  );
+
+  mcp.registerTool(
+    "settings_set",
+    {
+      title: "Change a setting",
+      description: 'Change one of this device\'s settings, e.g. key "translate.primary", value "French". A value that isn\'t allowed is refused and the setting keeps its value. For the shared settings use settings_set_shared.',
+      inputSchema: { key: z.string(), value: z.union([z.string(), z.number(), z.boolean(), z.null()]) },
+      annotations: edits,
+    },
+    (args) =>
+      guard(async () => {
+        if (!settingDefaults.has(args.key)) return failure(`Unknown setting ${JSON.stringify(args.key)}. Use settings_get to list them.`);
+        const example = settingDefaults.get(args.key);
+        if (args.value !== null && example !== null && typeof args.value !== typeof example) {
+          return failure(`${args.key} takes a ${typeof example}.`);
+        }
+        const [group, name] = args.key.split(".") as [string, string];
+        const valueOf = (lib: Library): unknown => (lib.settings as unknown as Record<string, Record<string, unknown>>)[group]?.[name];
+        try {
+          await store.update((lib) => {
+            const groups = lib.settings as unknown as Record<string, Record<string, unknown>>;
+            const next = { ...lib, settings: { ...lib.settings, [group]: { ...groups[group], [name]: args.value } } as Library["settings"] };
+            // Validation would swap a value it doesn't accept for the default: refuse instead.
+            const checked = validateLibrary(next);
+            if (!checked.ok || valueOf(checked.value) !== args.value) throw new SettingRefused(valueOf(lib));
+            return next;
+          });
+        } catch (error) {
+          if (!(error instanceof SettingRefused)) throw error;
+          return failure(`${JSON.stringify(args.value)} isn't allowed for ${args.key}; it stays ${JSON.stringify(error.kept)}.`);
+        }
+        if (group === "sync") opts.sync?.notifyChanged();
+        return ok({ saved: { key: args.key, value: args.value } });
       }),
   );
 

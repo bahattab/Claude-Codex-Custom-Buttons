@@ -38,7 +38,7 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 | **Instant translation** | Select text and its translation appears above the prompt box (from the language detected into English, or into Arabic when it's already English; see `translate.*` settings), with Copy, Insert, Open in Translate and Close |
 | **Translate** button, `/tr [to <language>:] [text]` | The Translate pane: pick a language, Translate, Swap, Copy, Insert into prompt, Replace prompt, recent translations |
 
-`insert-prompt` buttons open the Prompt Bank on their search or category; `open-pane` buttons open either pane. Opening either pane pulls other computers' changes at once. The Settings tab arrives in M8.
+`insert-prompt` buttons open the Prompt Bank on their search or category; `open-pane` buttons open either pane. Opening either pane pulls other computers' changes at once. The Prompt Bank's **Settings** tab changes every setting.
 
 ### How slash commands send their message
 
@@ -102,7 +102,7 @@ Claude Code starts it when the plugin is enabled. The mod asks `$.mcp.connect("c
 ```bash
 npm run build && npm run build:plugin     # compile packages, regenerate plugin files
 claude plugin validate plugins/claude     # manifest and hooks as the engine reads them
-claude plugin test plugins/claude         # 77 tests against the engine's test kit
+claude plugin test plugins/claude         # 78 tests against the engine's test kit
 claude plugin validate .                  # the marketplace
 claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 ```
