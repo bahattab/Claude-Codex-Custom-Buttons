@@ -386,7 +386,8 @@ function serviceContext(store: LibraryStore, io: Io): ServiceContext {
     userHome: s.userHome ?? homedir(),
     dataHome: store.paths.home,
     node: s.node ?? process.execPath,
-    script: s.script ?? fileURLToPath(new URL("./bin.js", import.meta.url)),
+    // The script being run: dist/bin.js, or the single-file ccb.mjs from a release.
+    script: s.script ?? (process.argv[1] ? process.argv[1] : fileURLToPath(new URL("./bin.js", import.meta.url))),
     uid: s.uid ?? (typeof process.getuid === "function" ? process.getuid() : userInfo().uid),
   };
 }

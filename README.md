@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5), the Codex plugin with its skills and generated `$ccb-*` skills for your buttons and favourite prompts (M6), the Claude Desktop Chat-tab extension `.mcpb` (M7), and instant translation of selected text (M9). Next: the v0.1.0 release (M8). Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: v0.1.0.** Built: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5), the Codex plugin with its skills and generated `$ccb-*` skills for your buttons and favourite prompts (M6), the Claude Desktop Chat-tab extension `.mcpb` (M7), and instant translation of selected text (M9)., and the v0.1.0 release (M8). Still to check by hand: see [the roadmap](docs/roadmap.md#m8-release-v010).
 
 ---
 
@@ -61,9 +61,9 @@ Full details: [architecture](docs/architecture.md) · [Drive sync](docs/google-d
 
 Why the difference: only Claude Code exposes an API for adding buttons and panes. Codex and the Desktop chat do not offer one, and this project does not inject code into apps. See [docs/platforms/](docs/platforms/).
 
-## Installation *(planned)*
+## Installation
 
-Requirements: Node.js 22 or newer, and a Google account for sync.
+Requirements: Node.js 22.12 or newer, and a Google account for sync.
 
 ### 1. Claude Code and Claude Desktop (Code tab)
 
@@ -71,7 +71,7 @@ Requirements: Node.js 22 or newer, and a Google account for sync.
 /plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is private, so your GitHub account needs access to it. **Available now (M3, M4):** Continue, Regenerate, your custom buttons, the Prompt Bank and Notes panes, `/cont`, `/regen`, `/btn`, `/pb` and `/notes`. To sync between computers, run `npx ccb login` once on each (see below).
+The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is private, so your GitHub account needs access to it. You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/cont`, `/regen`, `/btn`, `/pb`, `/notes` and `/tr`.
 
 ### 2. Codex
 
@@ -89,19 +89,25 @@ See [docs/platforms/codex.md](docs/platforms/codex.md).
 
 Download `claude-codex-buttons.mcpb` from the Releases page (or build it with `npm run build:desktop`) and open it with Claude Desktop. See [docs/platforms/claude-desktop.md](docs/platforms/claude-desktop.md).
 
-### 4. Connect Google Drive (once per computer)
+### 4. The `ccb` command (for sign-in, settings and the background service)
+
+Download `ccb.mjs` from the Releases page and run it with Node.js, for example `node ccb.mjs doctor`. To type just `ccb`, put it somewhere on your `PATH` (on macOS or Linux: `chmod +x ccb.mjs` and `mv ccb.mjs ~/.local/bin/ccb`). Install it in a lasting place before `ccb service install`: the background service remembers where it was installed from. (Don't use `npx ccb`: that name on npm belongs to an unrelated package.)
+
+From a clone of the repository: `npm ci && npm run build`, then `node packages/cli/dist/bin.js`.
+
+### 5. Connect Google Drive (once per computer)
 
 Open the Prompt Bank or Notes pane and press **Connect Google Drive**, or run:
 
 ```bash
-npx ccb login
+ccb login
 ```
 
 This opens a browser window to sign in to Google, then offers to keep syncing in the background. From then on sync is automatic. The plugin only asks for the `drive.file` permission, which lets it see the files it creates and nothing else in your Drive. Before the first sign-in, whoever runs the plugin needs a Google Cloud OAuth client; follow [docs/google-cloud-setup.md](docs/google-cloud-setup.md).
 
 No Google Cloud setup? Point the library at your **Google Drive for desktop** folder instead; see [Fallback mode](docs/google-drive-sync.md#fallback-google-drive-for-desktop-folder).
 
-## Quick start *(planned)*
+## Quick start
 
 | You want to | In Claude Code | In Codex |
 |---|---|---|
@@ -111,7 +117,7 @@ No Google Cloud setup? Point the library at your **Google Drive for desktop** fo
 | Use a saved prompt | Prompt Bank pane → **Insert** or **Send**, or `/pb <search>` | `$prompt-bank` or `$ccb-<prompt>` |
 | Make your own button | Prompt Bank pane → **Buttons** → **New button** | Appears as a `$ccb-<id>` skill |
 | Take a note | **Notes** button or `/notes` | `$notes` |
-| See sync status | Status line (`Sync ✓ 12:04`) | `npx ccb status` |
+| See sync status | Status line (`Sync ✓ 12:04`) | `ccb status` |
 
 ### Prompt variables
 
@@ -125,7 +131,7 @@ Details: [docs/features.md](docs/features.md#prompt-variables).
 
 ## Configuration
 
-Settings live in `~/.claude-codex-buttons/library.json` and can be changed with `npx ccb config` (a Settings tab in the Prompt Bank pane is planned). Key settings: auto-submit after Regenerate (default off), the Continue message, the sync interval (default 60 s) and the sync mode. Full list: [docs/configuration.md](docs/configuration.md).
+Settings live in `~/.claude-codex-buttons/library.json` and can be changed in the Prompt Bank pane's **Settings** tab or with `ccb config`. Key settings: auto-submit after Regenerate (default off), the Continue message, the sync interval (default 60 s) and the sync mode. Full list: [docs/configuration.md](docs/configuration.md).
 
 ## Privacy and security
 

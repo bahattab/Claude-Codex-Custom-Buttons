@@ -24,7 +24,9 @@
     "build:plugin": "node scripts/build-plugin.mjs",
     "check:plugin": "node scripts/build-plugin.mjs --check",
     "build:desktop": "node scripts/build-desktop.mjs",
-    "check:desktop": "node scripts/build-desktop.mjs --check"
+    "check:desktop": "node scripts/build-desktop.mjs --check",
+    "build:cli": "node scripts/build-cli.mjs",
+    "build:release": "npm run build && npm run build:plugin && npm run build:cli && npm run build:desktop"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",

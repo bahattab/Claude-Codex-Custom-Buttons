@@ -113,7 +113,7 @@ export type ButtonDraft = {
 };
 
 export type BankView = {
-  tab: "prompts" | "variables" | "buttons";
+  tab: "prompts" | "variables" | "buttons" | "settings";
   query: string;
   category: string | null;
   favoritesOnly: boolean;
@@ -133,6 +133,13 @@ export type BankData = {
   variables: Record<string, string>;
   buttons: ButtonView[];
   counts: { prompts: number; favorites: number; notes: number; conflicts: number } | null;
+  /** The Settings tab's values (settings_get), loaded when the tab opens. */
+  settings?: SettingsData | null;
+};
+
+export type SettingsData = {
+  local: Record<string, string | number | boolean | null>;
+  shared: { "regenerate.instructions": string | null; "continue.message": string | null };
 };
 
 export type NoteSummary = { id: string; title: string; pinned: boolean; updatedAt: string; conflictOf: string | null; length: number };

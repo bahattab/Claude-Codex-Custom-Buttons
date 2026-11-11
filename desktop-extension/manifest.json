@@ -109,6 +109,14 @@
       "description": "Delete a note"
     },
     {
+      "name": "settings_get",
+      "description": "List this device's settings and the shared ones"
+    },
+    {
+      "name": "settings_set",
+      "description": "Change one of this device's settings"
+    },
+    {
       "name": "settings_set_shared",
       "description": "Change the Regenerate instructions or Continue message for every device"
     },

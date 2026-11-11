@@ -26,7 +26,7 @@ This project deliberately does **not** inject scripts into the Electron app to a
 1. Download `claude-codex-buttons.mcpb` from the repository's Releases page, or build it yourself with `npm ci && npm run build && npm run build:plugin && npm run build:desktop`. The build writes `dist/claude-codex-buttons.mcpb`.
 2. Open the file with Claude Desktop (double-click, or drag it onto the window) and confirm the install.
 3. Optional: choose a **Data folder**. Leave it empty to share the usual library (`~/.claude-codex-buttons`) with Claude Code, Codex and `ccb`.
-4. To sync with your other computers, connect Google Drive once: ask Claude in the chat to "connect Google Drive" (the `sync_connect` tool), or run `npx ccb login`.
+4. To sync with your other computers, connect Google Drive once: ask Claude in the chat to "connect Google Drive" (the `sync_connect` tool), or run `ccb login`.
 
 ## Packaging
 
@@ -48,4 +48,4 @@ desktop-extension/
 
 ## Sign-in
 
-Run `npx ccb login` once on the computer, or ask Claude in the chat to connect Google Drive. The extension's server finds the same sign-in in the OS credential store.
+Run `ccb login` once on the computer, or ask Claude in the chat to connect Google Drive. The extension's server finds the same sign-in in the OS credential store.

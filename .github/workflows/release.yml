@@ -1,0 +1,39 @@
+name: Release
+
+# Pushing a tag such as v0.1.0 builds the release files and publishes a GitHub release:
+#   ccb.mjs                      the ccb command in one file (node ccb.mjs ...)
+#   claude-codex-buttons.mcpb    the Claude Desktop extension
+# The Claude Code and Codex plugins install straight from the repository at that tag.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:plugin
+      - run: npm run build:release
+      - name: Check the tag matches the version
+        run: |
+          version=$(node -p "require('./desktop-extension/manifest.json').version")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on {print}' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || echo "See CHANGELOG.md." > release-notes.md
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/ccb.mjs dist/claude-codex-buttons.mcpb --title "$GITHUB_REF_NAME" --notes-file release-notes.md

@@ -28,6 +28,7 @@ interface Fake {
   clientStateCalls: () => number;
   /** Tools whose next call fails, once each. */
   failNext: string[];
+  settings: { local: Record<string, string | number | boolean | null>; shared: Record<string, string | null> };
   /** Sync as the server reports it; null when the server runs without sync. */
   sync: SyncSummary | null;
   connect: { state: string; url: string | null; message: string | null } | null;
@@ -67,6 +68,10 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
     failNext: [],
     sync: null,
     connect: null,
+    settings: {
+      local: { "regenerate.autoSubmit": false, "regenerate.source": "auto", "continue.highlightOnTruncation": true, "buttons.maxVisible": 6, "buttons.showBuiltIns": true, "notes.autosaveMs": 2000, "notes.mirrorFiles": true, "sync.mode": "drive-api", "sync.folderPath": null, "sync.intervalSeconds": 60, "translate.target": "auto", "translate.primary": "English", "translate.secondary": "Arabic", "translate.instant": true, "codex.autoSync": true },
+      shared: { "regenerate.instructions": null, "continue.message": null },
+    },
   };
   const live = <T extends { deleted: boolean }>(xs: T[]) => xs.filter((x) => !x.deleted);
   const summary = (p: Prompt) => ({ id: p.id, title: p.title, category: p.category, tags: p.tags, favorite: p.favorite, conflictOf: p.conflictOf ?? null, preview: p.body });
@@ -93,6 +98,17 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
           regenerateInstructions: null,
           sync: f.sync,
         };
+      case "settings_get":
+        return f.settings;
+      case "settings_set": {
+        const key = String(a["key"]);
+        if (key === "sync.intervalSeconds" && Number(a["value"]) < 15) throw new Error(`${JSON.stringify(a["value"])} isn't allowed for ${key}; it stays ${JSON.stringify(f.settings.local[key])}.`);
+        f.settings.local[key] = a["value"] as string | number | boolean | null;
+        return { saved: { key, value: a["value"] } };
+      }
+      case "settings_set_shared":
+        f.settings.shared[String(a["id"])] = (a["value"] as string | null) ?? null;
+        return { saved: { id: a["id"], value: a["value"] } };
       case "sync_now":
       case "sync_status":
         if (!f.sync) throw new Error("Sync isn't running in this server.");
@@ -1031,5 +1047,39 @@ test("notes changed here and not uploaded yet are marked with a dot", async ($, 
   await $.turn.complete({ turnId: "t", answer: "a", durationMs: 1, isAborted: false, reason: "answer" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   expect((await ui.find({ key: "ccb-note-n_a" }))?.props?.["label"]).toBe("Ideas");
+});
+
+// --- M8: the Settings tab ------------------------------------------------------------------
+
+test("the Settings tab changes this device's settings and the shared ones", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  await $.command.run({ command: "pb", args: "" } as never);
+  for (const surface of ["terminal", "desktop"] as const) {
+    const ui = await $.ui.mount(PANE(surface, "ccb-bank"));
+    await ui.press({ key: "ccb-tab-settings" });
+    expect((await ui.find({ key: "ccb-set-translate.instant" }))?.props?.["label"]).toBe("Instant: on");
+    await ui.unmount();
+  }
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  await ui.press({ key: "ccb-tab-settings" });
+  await ui.press({ key: "ccb-set-regenerate.autoSubmit" });
+  expect(f.settings.local["regenerate.autoSubmit"]).toBe(true);
+  expect((await ui.find({ key: "ccb-set-regenerate.autoSubmit" }))?.props?.["label"]).toBe("Send the rewrite at once: on");
+  await ui.select({ key: "ccb-set-translate.primary", value: "French" });
+  expect(f.settings.local["translate.primary"]).toBe("French");
+  await ui.select({ key: "ccb-set-buttons.maxVisible", value: "3" });
+  expect(f.settings.local["buttons.maxVisible"]).toBe(3); // a number, not text
+  await ui.input({ key: "ccb-set-continue-message", text: "Keep going, please." });
+  expect(f.settings.shared["continue.message"]).toBe("Keep going, please.");
+  expect(await ui.find({ type: "Text", text: "Saved for every device." })).toBeDefined();
+  await ui.input({ key: "ccb-set-continue-message", text: "  " });
+  expect(f.settings.shared["continue.message"]).toBeNull();
+  // Folder mode shows the folder field.
+  expect(await ui.find({ key: "ccb-set-sync-folderPath" })).toBeUndefined();
+  await ui.select({ key: "ccb-set-sync.mode", value: "drive-folder" });
+  await ui.input({ key: "ccb-set-sync-folderPath", text: "/drive/CCB" });
+  expect(f.settings.local["sync.folderPath"]).toBe("/drive/CCB");
+  expect(f.calls.filter((c) => c.tool === "client_state").length).toBeGreaterThan(3); // the row picks the changes up
 });
 

@@ -104,6 +104,6 @@ codex plugin add prompt-buttons-codex@ccb-codex
 codex mcp list
 ```
 
-`codex mcp list` should show the server `ccb` (`node ./server/ccb-mcp.mjs`). Node.js 22 or newer must be installed, because the plugin's server runs on it. To sync through Google Drive, run `npx ccb login` once (see [the sync guide](../google-drive-sync.md)).
+`codex mcp list` should show the server `ccb` (`node ./server/ccb-mcp.mjs`). Node.js 22 or newer must be installed, because the plugin's server runs on it. To sync through Google Drive, run `ccb login` once (see [the sync guide](../google-drive-sync.md)).
 
 Don't install the Claude plugin (`prompt-buttons`) into Codex: its `hooks/hooks.json` is a Claude Code mod module list, not Codex hooks.

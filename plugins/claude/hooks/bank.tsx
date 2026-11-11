@@ -3,8 +3,8 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, On } from "claude-code";
 
-import type { BankData, BankView, ButtonDraft, ButtonView, ConnectView, PromptDraft, PromptSummary, SyncSummary } from "../types";
-import { dateBuiltIns, slugify } from "./core/index.js";
+import type { BankData, BankView, ButtonDraft, ButtonView, ConnectView, PromptDraft, PromptSummary, SettingsData, SyncSummary } from "../types";
+import { TRANSLATE_LANGUAGES, dateBuiltIns, slugify } from "./core/index.js";
 import { readClient, refreshClient } from "./client.js";
 import { builtIns, callTool, errorText } from "./mcp.js";
 
@@ -388,6 +388,45 @@ function describeAction(b: ButtonView): string {
   return a.type;
 }
 
+// --- settings -------------------------------------------------------------------------
+
+async function loadSettings($: $): Promise<void> {
+  try {
+    const settings = await callTool<SettingsData>($, "settings_get");
+    await update($, bankData, (d) => ({ ...d, settings }));
+  } catch (error) {
+    await notice($, `Couldn't load the settings: ${errorText(error)}`);
+  }
+}
+
+async function openTab($: $, tab: BankView["tab"]): Promise<void> {
+  await setView($, (v) => ({ ...v, tab, notice: null }));
+  if (tab === "settings") await loadSettings($);
+}
+
+/** Changes one setting; refused values keep the old one and say why. */
+async function setSetting($: $, key: string, value: string | number | boolean | null): Promise<void> {
+  try {
+    await callTool($, "settings_set", { key, value });
+    await notice($, "Saved.");
+  } catch (error) {
+    await notice($, errorText(error));
+  }
+  await loadSettings($);
+  await refreshClient($); // the button row and translation read these
+}
+
+async function setShared($: $, id: "regenerate.instructions" | "continue.message", value: string | null): Promise<void> {
+  try {
+    await callTool($, "settings_set_shared", { id, value: value && value.trim() ? value : null });
+    await notice($, value && value.trim() ? "Saved for every device." : "Back to the built-in text, on every device.");
+  } catch (error) {
+    await notice($, `Not saved: ${errorText(error)}`);
+  }
+  await loadSettings($);
+  await refreshClient($);
+}
+
 // --- drawing --------------------------------------------------------------------------
 
 export function registerBank(on: On): void {
@@ -397,7 +436,7 @@ export function registerBank(on: On): void {
     const view = await read($, bankView);
     const data = await read($, bankData);
     const tabButton = (tab: BankView["tab"], label: string) => (
-      <Button key={`ccb-tab-${tab}`} label={label} {...(view.tab === tab ? { variant: "primary" as const } : {})} onPress={() => setView($, (v) => ({ ...v, tab, notice: null }))} />
+      <Button key={`ccb-tab-${tab}`} label={label} {...(view.tab === tab ? { variant: "primary" as const } : {})} onPress={() => openTab($, tab)} />
     );
     const counts = data.counts;
     const sync = (await readClient($))?.sync ?? null;
@@ -550,6 +589,84 @@ export function registerBank(on: On): void {
           </Box>
         </Box>
       );
+    } else if (view.tab === "settings") {
+      const st = data.settings;
+      const v = (key: string) => st?.local[key] ?? null;
+      const toggle = (key: string, label: string) => (
+        <Button key={`ccb-set-${key}`} label={`${label}: ${v(key) ? "on" : "off"}`} onPress={() => setSetting($, key, !v(key))} />
+      );
+      const choose = (key: string, label: string, options: Array<string | number>) => (
+        <Select
+          key={`ccb-set-${key}`}
+          label={label}
+          value={String(v(key) ?? "")}
+          options={options.map((o) => ({ label: String(o), value: String(o) }))}
+          onSelect={(value: string) => void setSetting($, key, typeof options[0] === "number" ? Number(value) : value)}
+        />
+      );
+      const languages = [...new Set<string>([...TRANSLATE_LANGUAGES, String(v("translate.primary") ?? ""), String(v("translate.secondary") ?? "")].filter(Boolean))].sort();
+      body = !st ? (
+        <Text dimColor>Loading the settings...</Text>
+      ) : (
+        <Box flexDirection="column" gap={1}>
+          <Text bold>Regenerate</Text>
+          <Box flexDirection="row" gap={1}>
+            {toggle("regenerate.autoSubmit", "Send the rewrite at once")}
+            {choose("regenerate.source", "Rewrite", ["auto", "selection", "draft", "last"])}
+          </Box>
+          <Input
+            key="ccb-set-regenerate-instructions"
+            label="Instructions (every device)"
+            rows={3}
+            value={st.shared["regenerate.instructions"] ?? ""}
+            placeholder="Empty: the built-in instructions. Enter saves."
+            onSubmit={(t: string) => setShared($, "regenerate.instructions", t)}
+          />
+          <Text bold>Continue</Text>
+          <Input
+            key="ccb-set-continue-message"
+            label="Message (every device)"
+            value={st.shared["continue.message"] ?? ""}
+            placeholder="Empty: the built-in message. Enter saves."
+            onSubmit={(t: string) => setShared($, "continue.message", t)}
+          />
+          {toggle("continue.highlightOnTruncation", "Highlight when a reply was cut off")}
+          <Text bold>Button row</Text>
+          <Box flexDirection="row" gap={1}>
+            {choose("buttons.maxVisible", "Buttons shown", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+            {toggle("buttons.showBuiltIns", "Built-in buttons")}
+          </Box>
+          <Text bold>Notes</Text>
+          <Box flexDirection="row" gap={1}>
+            {choose("notes.autosaveMs", "Save after (ms)", [500, 1000, 2000, 5000, 10000])}
+            {toggle("notes.mirrorFiles", "Markdown files")}
+          </Box>
+          <Text bold>Translate</Text>
+          <Box flexDirection="row" gap={1}>
+            {choose("translate.target", "Into", ["auto", ...languages])}
+            {choose("translate.primary", "Primary", languages)}
+            {choose("translate.secondary", "Secondary", languages)}
+            {toggle("translate.instant", "Instant")}
+          </Box>
+          <Text bold>Sync</Text>
+          <Box flexDirection="row" gap={1}>
+            {choose("sync.mode", "Mode", ["drive-api", "drive-folder", "off"])}
+            {choose("sync.intervalSeconds", "Pull every (s)", [30, 60, 120, 300, 600])}
+          </Box>
+          {v("sync.mode") === "drive-folder" ? (
+            <Input
+              key="ccb-set-sync-folderPath"
+              label="Drive for desktop folder"
+              value={String(v("sync.folderPath") ?? "")}
+              placeholder="A folder inside your Google Drive for desktop folder. Enter saves."
+              onSubmit={(t: string) => setSetting($, "sync.folderPath", t.trim() || null)}
+            />
+          ) : null}
+          <Text dimColor>The background sync service is installed or removed with ccb service install / uninstall.</Text>
+          <Text bold>Codex</Text>
+          {toggle("codex.autoSync", "Keep $ccb- skills up to date")}
+        </Box>
+      );
     } else {
       const d = view.buttonDraft;
       const editB = (change: Partial<ButtonDraft>) => setView($, (v) => (v.buttonDraft ? { ...v, buttonDraft: { ...v.buttonDraft, ...change } } : v));
@@ -643,6 +760,7 @@ export function registerBank(on: On): void {
           {tabButton("prompts", "Prompts")}
           {tabButton("variables", "Variables")}
           {tabButton("buttons", "Buttons")}
+          {tabButton("settings", "Settings")}
           {counts ? (
             <Text dimColor>
               {counts.prompts} prompts, {counts.favorites} favourites, {counts.notes} notes

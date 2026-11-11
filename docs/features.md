@@ -134,7 +134,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 - **Category filter** and **favourites only** toggle.
 - **Each prompt:** **Insert** (fill the prompt box), **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (with confirmation and undo).
 - **Save draft:** saves the current prompt-box text as a new prompt.
-- **Tabs:** Prompts · Variables (set, add, delete) · Buttons (create any action type, delete) · *(M8)* Settings.
+- **Tabs:** Prompts · Variables (set, add, delete) · Buttons (create any action type, delete) · Settings (every setting, including the shared Regenerate instructions and Continue message).
 - **Unsaved edits** are kept if the pane closes and reopen with it. Only **Cancel** discards them; a failed save keeps the form and its text.
 - `/pb` opens the pane; `/pb <search>` opens it with the search filled in; `/pb save <title>` saves the current draft directly; `/pb sync` syncs now.
 

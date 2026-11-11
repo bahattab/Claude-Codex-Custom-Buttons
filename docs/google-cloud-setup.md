@@ -33,10 +33,10 @@ You can skip this page if you use the [Drive for desktop fallback mode](google-d
 ## 5. Give the client to the plugin
 
 ```bash
-npx ccb login --client /path/to/client_secret.json
+ccb login --client /path/to/client_secret.json
 ```
 
-(Or set it once with `npx ccb config set google.clientFile /path/to/client_secret.json`, then run `npx ccb login`.)
+(Or set it once with `ccb config set google.clientFile /path/to/client_secret.json`, then run `ccb login`.)
 
 `ccb login` requests offline access (so Google returns a refresh token), receives the sign-in result on a local `http://127.0.0.1:<port>` address, and offers to install the background sync service. `ccb` copies the client ID and secret into its own config (`~/.claude-codex-buttons/google-client.json`, readable only by your user). For a desktop app Google does not treat the client secret as confidential, but the file is still kept out of the repository; `.gitignore` excludes `client_secret*.json`.
 
@@ -52,7 +52,7 @@ For personal use, either accept the weekly sign-in or publish the app. The 7-day
 
 ## Revoking access
 
-- `npx ccb logout` revokes the token and deletes it locally.
+- `ccb logout` revokes the token and deletes it locally.
 - You can also remove the app from your Google Account's **Third-party connections** page.
 
 ## Troubleshooting

@@ -17,7 +17,7 @@ This project is open-source software that runs on your own computers. It has no 
 ## What leaves your computer
 
 - **Google Drive, only if you connect it.** Your synced data goes to your own Google Drive through Google's API, over HTTPS. The plugin asks only for the `drive.file` permission, so it can see and change only the files it created; it can't read the rest of your Drive. Google's handling of that data is covered by Google's own privacy policy and terms. You can disconnect at any time with `ccb logout`, which also revokes the sign-in, or under *Third-party connections* in your Google Account.
-- **The AI tool you use.** When you use a prompt, Regenerate a prompt, or ask the assistant to read a note, that text is sent to the model of the tool you're using (Claude in Claude Code or Claude Desktop, the Codex model in Codex), the same as anything you type there. That provider's policy applies.
+- **The AI tool you use.** When you use a prompt, Regenerate or translate text (including text you select while instant translation is on in Claude Code), or ask the assistant to read a note, that text is sent to the model of the tool you're using (Claude in Claude Code or Claude Desktop, the Codex model in Codex), the same as anything you type there. That provider's policy applies.
 - **Nothing else.** No usage data, crash reports or identifiers are sent anywhere. Logs stay on your computer and never contain prompt or note text.
 
 ## Your control

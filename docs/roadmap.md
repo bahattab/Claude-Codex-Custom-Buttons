@@ -13,7 +13,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M6 | Codex plugin: skills, MCP config, generated `$ccb-<name>` skills | Done | M2, M5 |
 | M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Done | M2, M5 |
 | M9 | Translate: instant translation of selected text, Translate pane, `/tr`, Codex skill, Desktop prompt | Done | M4 |
-| M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7, M9 |
+| M8 | Hardening, documentation pass, release v0.1.0 | Done | M4, M6, M7, M9 |
 
 M5 can run in parallel with M3–M4 because both only depend on the server's tool interface, which is fixed in M2.
 
@@ -175,7 +175,7 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
   - the skill generator, auto-regeneration, and `ccb sync codex`.
 - The independent review found 1 critical, 1 major and 6 minor issues, all fixed:
   - **Critical:** Codex starts a plugin server in the project's folder unless `.mcp.json` sets `cwd`, so the server never started (fixed with `"cwd": "."`, X10 corrected; the test now starts it the way Codex resolves `cwd`);
-  - **Major:** the `drive-sync` skill told the agent to run `npx ccb`, which is an unrelated npm package;
+  - **Major:** the `drive-sync` skill told the agent to run `ccb`, which is an unrelated npm package;
   - **Minor:** `$1`/`$ARGUMENTS` aren't substituted by Codex (now named values); emoji split by shortening; `CODEX_HOME` not passed through; skills written without the Codex plugin; two libraries removing each other's skills; skill instructions missing tool arguments.
 
 ## M7: Claude Desktop Chat tab
@@ -212,6 +212,24 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - `marketplace.json`, release workflow, CHANGELOG entry, tagged release with `.mcpb`.
 
 **Done when:** a clean machine can follow the README from scratch on each platform.
+
+**Result (2026-11-11):** v0.1.0.
+- Release files:
+  - `ccb.mjs`, the `ccb` command in one file (86 KB, plain Node);
+  - `claude-codex-buttons.mcpb`.
+- Release workflow: pushing a `v*` tag runs every check, builds both files, checks the tag matches the version, and publishes a GitHub release with notes taken from the CHANGELOG.
+- The Prompt Bank **Settings** tab (moved here from M4), with new `settings_get` and `settings_set` tools. A value that isn't allowed is refused, and the setting keeps its old value.
+- Documentation pass:
+  - "planned" markers removed;
+  - `npx ccb` replaced, because that npm name belongs to an unrelated package;
+  - install steps for `ccb`;
+  - the privacy and security notes cover translation and Codex skills.
+- Security review: the independent reviews of M2–M9 covered the token handling, file permissions, validation of synced data and the commands the plugins run. Every critical and major finding was fixed.
+- **Hands-on checks still open** (they need your computers and accounts):
+  1. Claude Code and the Claude Desktop Code tab: install the plugin, then check the timer submit (C20), the panes and instant translation.
+  2. Two computers with a real Google account: a prompt and a note travel within 60 seconds, and an offline edit uploads after reconnecting (G6). Also check the OS credential stores (G7) and the background service on each OS.
+  3. Codex: run a skill in a signed-in session.
+  4. Claude Desktop: install the `.mcpb`, check the "+" menu (D5) and Node.js 22.12 (D7).
 
 ## Later (not committed)
 
