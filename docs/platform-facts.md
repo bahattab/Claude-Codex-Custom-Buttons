@@ -82,3 +82,5 @@ Last updated: 2026-11-10 (milestone M0).
 | D4 | Node.js ships with Claude Desktop, so a Node MCP server needs no separate install | **Confirmed** | MCPB README |
 | D5 | MCP prompts appear in the Chat tab's "+" menu | **Unconfirmed** (M7, hands-on) | — |
 | D6 | Mods do not run in the Chat tab | Inferred | Mods are a Claude Code feature (C2 lists Claude Code surfaces) |
+| D7 | The Node.js that Claude Desktop ships for extensions is 22.12 or newer (the bundled server needs it) | **Unconfirmed** (hands-on) | The manifest declares `runtimes.node: ">=22.12.0"` |
+| D8 | `mcpb validate` and `mcpb pack` (MCPB CLI 2.1.2) accept this manifest; the CLI recommends a 512×512 icon | **Confirmed** | `npm run build:desktop` (M7) |

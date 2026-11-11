@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5). and the Codex plugin with its skills, plus generated `$ccb-*` skills for your buttons and favourite prompts (M6). Not yet built: the Claude Desktop Chat-tab extension. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5). and the Codex plugin with its skills, plus generated `$ccb-*` skills for your buttons and favourite prompts (M6). and the Claude Desktop Chat-tab extension `.mcpb` (M7). Next: the v0.1.0 release (M8). Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
 
 ---
 
@@ -86,7 +86,7 @@ See [docs/platforms/codex.md](docs/platforms/codex.md).
 
 ### 3. Claude Desktop (Chat tab)
 
-Download `claude-codex-buttons.mcpb` from the Releases page and open it with Claude Desktop.
+Download `claude-codex-buttons.mcpb` from the Releases page (or build it with `npm run build:desktop`) and open it with Claude Desktop. See [docs/platforms/claude-desktop.md](docs/platforms/claude-desktop.md).
 
 ### 4. Connect Google Drive (once per computer)
 
@@ -147,6 +147,7 @@ More: [docs/security-and-privacy.md](docs/security-and-privacy.md) · [SECURITY.
 | [docs/data-model.md](docs/data-model.md) | Library and Drive file formats, field rules |
 | [docs/google-drive-sync.md](docs/google-drive-sync.md) | Automatic sync, merge and conflict rules, background service, fallback mode |
 | [docs/google-cloud-setup.md](docs/google-cloud-setup.md) | Step-by-step Google Cloud OAuth setup |
+| [docs/privacy-policy.md](docs/privacy-policy.md) | What is stored where, and what leaves your computer |
 | [docs/platforms/](docs/platforms/) | Claude Code, Claude Desktop and Codex integration details |
 | [docs/configuration.md](docs/configuration.md) | Every setting, path and environment variable |
 | [docs/security-and-privacy.md](docs/security-and-privacy.md) | Threat model and data handling |

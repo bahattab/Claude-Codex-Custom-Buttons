@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M7, the Claude Desktop extension `claude-codex-buttons.mcpb`: an MCPB 0.4 manifest, `npm run build:desktop` (validated and packed with the official `mcpb` tool, also in CI), a privacy policy, and a project icon also used by the Claude and Codex plugins.
 - Milestone M6, the Codex plugin `prompt-buttons-codex` (marketplace `ccb-codex`):
   - skills `continue`, `regenerate-prompt`, `prompt-bank`, `notes` and `drive-sync`, plus the bundled `ccb-mcp` server;
   - generated `$ccb-<name>` skills for buttons and favourite prompts, rewritten automatically, and `ccb sync codex`;

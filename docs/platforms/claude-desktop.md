@@ -21,20 +21,31 @@ Claude Desktop has two places this project reaches, in different ways.
 
 This project deliberately does **not** inject scripts into the Electron app to add buttons: such injection breaks with each app update and may conflict with the app's terms.
 
+## Install
+
+1. Download `claude-codex-buttons.mcpb` from the repository's Releases page, or build it yourself with `npm ci && npm run build && npm run build:plugin && npm run build:desktop`. The build writes `dist/claude-codex-buttons.mcpb`.
+2. Open the file with Claude Desktop (double-click, or drag it onto the window) and confirm the install.
+3. Optional: choose a **Data folder**. Leave it empty to share the usual library (`~/.claude-codex-buttons`) with Claude Code, Codex and `ccb`.
+4. To sync with your other computers, connect Google Drive once: ask Claude in the chat to "connect Google Drive" (the `sync_connect` tool), or run `npx ccb login`.
+
 ## Packaging
 
 ```
 desktop-extension/
-└── manifest.json      manifest_version, name, version, description, server entry (Node, runs ccb-mcp),
-                       prompts_generated: true (Prompt Bank entries become prompts at run time),
-                       user_config (sync mode, Drive folder path), privacy_policies (required because
-                       the extension talks to Google Drive), compatibility (platforms, Node)
+├── manifest.json      MCPB manifest_version 0.4: the server entry (Node, runs ccb-mcp), the tool list,
+│                      prompts_generated: true (Prompt Bank entries become prompts at run time),
+│                      user_config (optional data folder), privacy_policies, compatibility
+├── icon.png           512×512 icon
+└── .mcpbignore
 ```
 
-The release workflow builds `claude-codex-buttons.mcpb` and attaches it to each GitHub release. Users install it by opening the file with Claude Desktop.
+`npm run build:desktop` stages these files with the bundled `ccb-mcp` from the Claude plugin, validates the manifest, and packs `dist/claude-codex-buttons.mcpb` (about 215 KB) with the official `mcpb` tool. CI runs the same build on every pull request.
 
-The `.mcpb` format and these manifest fields were confirmed against the official MCPB specification in M0. Node.js ships with Claude Desktop, so no separate install is needed. Whether the Chat tab lists MCP prompts in its "+" menu is checked hands-on in milestone M7; see [platform-facts.md](../platform-facts.md#claude-desktop).
+- The bundle isn't signed yet (`mcpb sign` needs a certificate); Claude Desktop shows it as unsigned.
+- The privacy policy the manifest links to is [privacy-policy.md](../privacy-policy.md).
+- The manifest asks for Node.js 22.12 or newer. Claude Desktop runs extensions with the Node.js it ships (D4). Whether that version is new enough, and whether the Chat tab's "+" menu lists the generated prompts (D5), are checked hands-on; see [platform-facts.md](../platform-facts.md#claude-desktop).
+- If the optional data folder is left empty, the server uses the usual folder even if Claude Desktop passes the setting's placeholder through unfilled.
 
 ## Sign-in
 
-Run `npx ccb login` once on the computer; the extension's server uses the same token from the OS credential store.
+Run `npx ccb login` once on the computer, or ask Claude in the chat to connect Google Drive. The extension's server finds the same sign-in in the OS credential store.

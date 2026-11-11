@@ -22,9 +22,12 @@
     "ccb": "node packages/cli/dist/bin.js",
     "ccb-mcp": "node packages/mcp-server/dist/bin.js",
     "build:plugin": "node scripts/build-plugin.mjs",
-    "check:plugin": "node scripts/build-plugin.mjs --check"
+    "check:plugin": "node scripts/build-plugin.mjs --check",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "check:desktop": "node scripts/build-desktop.mjs --check"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.0",

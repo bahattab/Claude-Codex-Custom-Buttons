@@ -11,7 +11,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
 | M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Done | M2 |
 | M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Done | M2, M5 |
-| M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Planned | M2, M5 |
+| M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Done | M2, M5 |
 | M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7 |
 
 M5 can run in parallel with M3–M4 because both only depend on the server's tool interface, which is fixed in M2.
@@ -179,6 +179,12 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - A privacy policy page for the project, required by the MCPB manifest because the extension talks to Google Drive.
 
 **Done when:** installing the `.mcpb` shows Prompt Bank entries in the Chat tab's "+" menu, or the limitation is documented if Claude Desktop does not show them.
+
+**Result (2026-11-11):** built and validated; the install in Claude Desktop is the hands-on check that remains.
+- `desktop-extension/manifest.json` (MCPB 0.4) with every server tool listed, `prompts_generated`, an optional data folder, a privacy policy ([privacy-policy.md](privacy-policy.md)) and a 512×512 icon. The same icon now also serves the Claude and Codex plugins.
+- `npm run build:desktop` validates the manifest and packs `dist/claude-codex-buttons.mcpb` with the official `mcpb` 2.1.2 (215 KB, 3 files); CI runs it.
+- Tests check the manifest against the MCPB v0.4 schema, its tool list against the server, and the version against the server and both plugins.
+- **Still open, hands-on:** whether the Chat tab's "+" menu lists the generated prompts (D5), and whether Claude Desktop's built-in Node.js is 22.12 or newer (D7). Until then this is the documented limitation: if prompts don't appear, everything still works through the tools ("find my standup prompt").
 
 ## M8: Release v0.1.0
 
