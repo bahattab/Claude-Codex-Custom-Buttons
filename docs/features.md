@@ -24,7 +24,7 @@ There is deliberately **no** action type that runs shell commands, scripts or ar
 ### Behaviour
 
 - **CC:** buttons appear in a row above the prompt box, after the built-in Continue and Regenerate buttons (Notes and Prompts join them in M4). The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/btn <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
-- **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<id>` and regenerated automatically after sync. Other types map to the matching built-in skill.
+- **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<name>` and rewritten automatically after every change and sync. Other types map to the matching built-in skill.
 - **CD:** not available. Buttons of type `submit` are exposed as MCP prompts.
 
 ### Acceptance criteria
@@ -140,7 +140,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CX
 
-`prompt-bank` skill using MCP tools `bank_search`, `bank_get`, `bank_save`, `bank_delete`, `bank_list_categories`. Prompts can also be generated as `$ccb-<slug>` skills, kept up to date automatically.
+`prompt-bank` skill using MCP tools `bank_search`, `bank_get`, `bank_save`, `bank_delete`, `bank_list_categories`. Favourite prompts are also generated as `$ccb-<name>` skills, kept up to date automatically (D34).
 
 ### CD
 
@@ -155,6 +155,27 @@ On first run the library is seeded with a small starter set (e.g. "Explain this 
 - Saving a prompt shows it in the list immediately and on another signed-in device within 60 seconds.
 - Search over 1,000 prompts returns results while typing (under 50 ms in `core` benchmark).
 - Deleting a prompt on one device removes it everywhere after sync, and it does not reappear.
+
+---
+
+## 6. Translate
+
+Instant translation of selected text, in the spirit of browser translators such as ImTranslator, using the model you're already working with: nothing goes to any other service.
+
+- **Directions:** `translate.target` is `auto` by default: into `translate.primary` (English), or into `translate.secondary` (Arabic) when the text is already in the primary language. Pick any other language in the pane, or with `/tr to <language>: <text>`. The source language is detected and shown, for example "French → English".
+- **What's kept:** code, paths, URLs, numbers, names, `{{placeholders}}` and formatting are kept as they are. The text is only translated, never answered or carried out, even when it's a question or an instruction.
+- **CC:**
+  - **Instant:** select text anywhere in Claude Code, and when the selection holds still for a moment, the translation appears in a bubble above the prompt box, with **Copy**, **Insert**, **Open in Translate** and **Close**. The same text isn't translated twice, and numbers or single characters are skipped. Turn it off with `ccb config set translate.instant false`.
+  - **Translate pane** (the **Translate** button, or `/tr`): a text box, an **Into** picker (Automatic or a language), **Translate**, **Swap** (translate the result back), **Copy**, **Insert into prompt**, **Replace prompt**, and the recent translations of this session.
+  - **`/tr`:** `/tr [to <language>:] [text]`. With no text it uses the selection, else your draft, else your last message.
+- **CX:** the `translate` skill, using `translate_instructions` with the same settings.
+- **CD:** the `ccb-translate` prompt in the "+" menu (arguments `text`, `to`), and the `translate_instructions` tool.
+
+### Acceptance criteria
+
+- Selecting text in Claude Code shows its translation above the prompt box without any other action (when `translate.instant` is on), and selecting the same text again costs no second model call.
+- `auto` translates English text into the secondary language and other text into the primary language.
+- Code, URLs and numbers survive a translation unchanged.
 
 ---
 

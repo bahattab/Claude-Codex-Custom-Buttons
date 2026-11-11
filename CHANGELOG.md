@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M9, Translate: instant translation of selected text in Claude Code (a bubble above the prompt box), a Translate pane with a language picker, Swap, Copy, Insert and recent translations, the Translate button and `/tr`; the Codex `translate` skill, the Claude Desktop `ccb-translate` prompt, the `translate_instructions` tool and `translate.*` settings.
+- Milestone M7, the Claude Desktop extension `claude-codex-buttons.mcpb`: an MCPB 0.4 manifest, `npm run build:desktop` (validated and packed with the official `mcpb` tool, also in CI), a privacy policy, and a project icon also used by the Claude and Codex plugins.
+- Milestone M6, the Codex plugin `prompt-buttons-codex` (marketplace `ccb-codex`):
+  - skills `continue`, `regenerate-prompt`, `prompt-bank`, `notes` and `drive-sync`, plus the bundled `ccb-mcp` server;
+  - generated `$ccb-<name>` skills for buttons and favourite prompts, rewritten automatically, and `ccb sync codex`;
+  - installed and checked with the real Codex CLI 0.167.1.
 - Milestone M5b:
   - the background sync service: `ccb sync --daemon`, `ccb service install|status|stop|uninstall`, offered by `ccb login`; `--home`;
   - in the Claude Code plugin: a sync button in the row, a Prompt Bank sync section with **Sync now** and **Connect Google Drive**, **Keep this / Keep other / Keep both** for conflict copies, a dot on notes not uploaded yet, `/pb sync`, and a pull when a pane opens;
@@ -26,6 +32,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - `ccb-mcp` `client_state` tool.
 - `ccb-mcp` bundled into the plugin as one file (`npm run build:plugin`, drift check `npm run check:plugin`).
 - Marketplace `ccb` at the repository root.
+
+### Fixed (from the independent M6 review)
+
+- The Codex plugin's server now starts: `.mcp.json` sets `"cwd": "."` (Codex otherwise used the project's folder) and passes `CODEX_HOME` and `CCB_HOME`.
+- Codex skills no longer tell the agent to run `npx ccb` (an unrelated npm package) and no longer rely on `$1`/`$ARGUMENTS`, which Codex doesn't substitute.
+- Generated Codex skills: written only when the Codex plugin is installed, emoji are no longer cut in half, and two libraries on one computer no longer remove each other's skills.
 
 ### Fixed (from the independent M5 review)
 

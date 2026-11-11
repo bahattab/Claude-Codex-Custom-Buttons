@@ -49,6 +49,17 @@ export {
   type RefineRequest,
 } from "./refine.js";
 export { MIGRATIONS, loadLibrary, type LoadResult } from "./migrate.js";
+export {
+  TRANSLATE_INSTRUCTIONS,
+  TRANSLATE_LANGUAGES,
+  TRANSLATE_MAX_CHARS,
+  buildTranslateRequest,
+  parseTranslation,
+  worthTranslating,
+  type TranslateOptions,
+  type TranslateRequest,
+  type Translation,
+} from "./translate.js";
 export { STARTER_CATEGORIES, STARTER_PROMPTS, STARTER_VARIABLES, seedStarterPack } from "./starter.js";
 export {
   RETENTION_DAYS,

@@ -2,7 +2,7 @@
 // Starts ccb-mcp over stdio, and automatic sync while it runs. Diagnostics go to stderr;
 // prompt and note text is never logged.
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { LibraryStore } from "@ccb/store";
+import { LibraryStore, writeCodexSkills } from "@ccb/store";
 import { createSyncEngine } from "@ccb/sync";
 import { createServer } from "./server.js";
 
@@ -17,6 +17,13 @@ const sync = createSyncEngine(store, {
     lastState = status.state;
     // Prompts may have arrived from another computer: let clients refresh their prompt list.
     if (merged && server?.isConnected()) server.sendPromptListChanged();
+    // ...and keep Codex's $ccb-* skills in step (codex.autoSync).
+    if (merged) {
+      void store
+        .read()
+        .then(({ library }) => (library?.settings.codex.autoSync ? writeCodexSkills(library, { onlyIfInstalled: true, owner: store.paths.home }) : undefined))
+        .catch(() => undefined);
+    }
   },
 });
 server = createServer(store, { sync });

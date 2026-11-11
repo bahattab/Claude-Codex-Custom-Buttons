@@ -1,0 +1,175 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/dist/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "claude-codex-buttons",
+  "display_name": "Prompt Buttons: Prompt Bank and Notes",
+  "version": "0.1.0",
+  "description": "Your Prompt Bank, prompt variables and Notes in the Claude Desktop chat, synced automatically with Claude Code, Codex and your other computers through Google Drive.",
+  "long_description": "Every saved prompt appears as a prompt you can insert from the chat, with {{?ask}} fields as arguments. Ask Claude to save a prompt, find one, or add to a note. Data is stored in ~/.claude-codex-buttons on this computer and, once you connect Google Drive, in your own Drive (drive.file permission only). See the privacy policy.",
+  "author": {
+    "name": "Claude Codex Custom Buttons contributors",
+    "url": "https://github.com/bahattab/Claude-Codex-Custom-Buttons"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bahattab/Claude-Codex-Custom-Buttons"
+  },
+  "homepage": "https://github.com/bahattab/Claude-Codex-Custom-Buttons",
+  "documentation": "https://github.com/bahattab/Claude-Codex-Custom-Buttons/blob/main/docs/platforms/claude-desktop.md",
+  "support": "https://github.com/bahattab/Claude-Codex-Custom-Buttons/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/ccb-mcp.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/ccb-mcp.mjs"
+      ],
+      "env": {
+        "CCB_HOME": "${user_config.data_folder}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "library_status",
+      "description": "Counts of prompts, categories, variables, buttons and notes"
+    },
+    {
+      "name": "bank_search",
+      "description": "Search saved prompts in the Prompt Bank"
+    },
+    {
+      "name": "bank_get",
+      "description": "Get one saved prompt, with {{variables}} filled in"
+    },
+    {
+      "name": "bank_save",
+      "description": "Save a new prompt or edit one"
+    },
+    {
+      "name": "bank_delete",
+      "description": "Delete a saved prompt"
+    },
+    {
+      "name": "bank_list_categories",
+      "description": "List Prompt Bank categories"
+    },
+    {
+      "name": "categories_save",
+      "description": "Create or rename a category"
+    },
+    {
+      "name": "categories_delete",
+      "description": "Delete a category"
+    },
+    {
+      "name": "variables_list",
+      "description": "List prompt variables"
+    },
+    {
+      "name": "variables_set",
+      "description": "Set a prompt variable"
+    },
+    {
+      "name": "variables_delete",
+      "description": "Delete a prompt variable"
+    },
+    {
+      "name": "buttons_list",
+      "description": "List custom buttons"
+    },
+    {
+      "name": "buttons_save",
+      "description": "Create or edit a custom button"
+    },
+    {
+      "name": "buttons_delete",
+      "description": "Delete a custom button"
+    },
+    {
+      "name": "notes_list",
+      "description": "List synced notes"
+    },
+    {
+      "name": "notes_read",
+      "description": "Read a note"
+    },
+    {
+      "name": "notes_write",
+      "description": "Create or replace a note"
+    },
+    {
+      "name": "notes_append",
+      "description": "Add text to a note"
+    },
+    {
+      "name": "notes_delete",
+      "description": "Delete a note"
+    },
+    {
+      "name": "settings_set_shared",
+      "description": "Change the Regenerate instructions or Continue message for every device"
+    },
+    {
+      "name": "refine_instructions",
+      "description": "Instructions for rewriting a prompt more clearly"
+    },
+    {
+      "name": "translate_instructions",
+      "description": "The request for translating text with Claude"
+    },
+    {
+      "name": "conflict_resolve",
+      "description": "Settle a conflict copy of a prompt or note"
+    },
+    {
+      "name": "sync_status",
+      "description": "Google Drive sync status"
+    },
+    {
+      "name": "sync_now",
+      "description": "Sync with Google Drive now"
+    },
+    {
+      "name": "sync_connect",
+      "description": "Connect Google Drive (opens the browser to sign in)"
+    },
+    {
+      "name": "client_state",
+      "description": "Buttons, variables and settings for a client's button row"
+    }
+  ],
+  "tools_generated": false,
+  "prompts_generated": true,
+  "keywords": [
+    "prompts",
+    "prompt bank",
+    "notes",
+    "google drive",
+    "productivity"
+  ],
+  "license": "MIT",
+  "privacy_policies": [
+    "https://github.com/bahattab/Claude-Codex-Custom-Buttons/blob/main/docs/privacy-policy.md"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=22.12.0"
+    }
+  },
+  "user_config": {
+    "data_folder": {
+      "type": "directory",
+      "title": "Data folder",
+      "description": "Where the library is kept. Leave empty for the usual folder (~/.claude-codex-buttons), shared with Claude Code, Codex and the ccb command.",
+      "required": false
+    }
+  }
+}

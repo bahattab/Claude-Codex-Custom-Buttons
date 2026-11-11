@@ -35,6 +35,8 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 | Prompt Bank sync section | The status and what's wrong. **Sync now**, and **Connect Google Drive** (or **Reconnect**) when signed out: it opens Google's sign-in in your browser and shows a link to it; sync starts once you finish. A conflict copy shows **Keep this**, **Keep other** and **Keep both** |
 | Notes sync | A dot marks notes changed here and not uploaded yet. A conflict copy shows the same three choices |
 | `/pb sync` | Sync now and say how it went |
+| **Instant translation** | Select text and its translation appears above the prompt box (from the language detected into English, or into Arabic when it's already English; see `translate.*` settings), with Copy, Insert, Open in Translate and Close |
+| **Translate** button, `/tr [to <language>:] [text]` | The Translate pane: pick a language, Translate, Swap, Copy, Insert into prompt, Replace prompt, recent translations |
 
 `insert-prompt` buttons open the Prompt Bank on their search or category; `open-pane` buttons open either pane. Opening either pane pulls other computers' changes at once. The Settings tab arrives in M8.
 
@@ -100,7 +102,7 @@ Claude Code starts it when the plugin is enabled. The mod asks `$.mcp.connect("c
 ```bash
 npm run build && npm run build:plugin     # compile packages, regenerate plugin files
 claude plugin validate plugins/claude     # manifest and hooks as the engine reads them
-claude plugin test plugins/claude         # 69 tests against the engine's test kit
+claude plugin test plugins/claude         # 77 tests against the engine's test kit
 claude plugin validate .                  # the marketplace
 claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 ```

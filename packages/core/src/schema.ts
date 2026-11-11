@@ -64,6 +64,7 @@ export function defaultSettings(): LocalSettings {
       backgroundService: true,
     },
     codex: { autoSync: true },
+    translate: { target: "auto", primary: "English", secondary: "Arabic", instant: true },
     google: { clientFile: null, tokenStore: "os" },
   };
 }
@@ -446,6 +447,7 @@ function validateSettings(raw: unknown, errors: string[]): LocalSettings {
   const sync = group("sync");
   const codex = group("codex");
   const google = group("google");
+  const translate = group("translate");
   return {
     regenerate: {
       autoSubmit: regenerate.bool("autoSubmit", d.regenerate.autoSubmit),
@@ -469,6 +471,12 @@ function validateSettings(raw: unknown, errors: string[]): LocalSettings {
       backgroundService: sync.bool("backgroundService", d.sync.backgroundService),
     },
     codex: { autoSync: codex.bool("autoSync", d.codex.autoSync) },
+    translate: {
+      target: translate.text("target", { min: 1, max: 60, fallback: d.translate.target }),
+      primary: translate.text("primary", { min: 1, max: 60, fallback: d.translate.primary }),
+      secondary: translate.text("secondary", { min: 1, max: 60, fallback: d.translate.secondary }),
+      instant: translate.bool("instant", d.translate.instant),
+    },
     google: { clientFile: google.textOrNull("clientFile", 4096), tokenStore: google.oneOf("tokenStore", ["os", "file"] as const, d.google.tokenStore) },
   };
 }

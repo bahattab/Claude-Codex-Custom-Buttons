@@ -99,6 +99,7 @@ export interface LoginOptions {
   openBrowser?: (url: string) => void | Promise<void>;
   /** Called with the URL too, so the person can open it by hand. */
   onUrl?: (url: string) => void;
+
   timeoutMs?: number;
 }
 

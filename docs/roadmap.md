@@ -10,9 +10,10 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | **Done** (2026-11-10) | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
 | M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Done | M2 |
-| M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Planned | M2, M5 |
-| M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Planned | M2, M5 |
-| M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7 |
+| M6 | Codex plugin: skills, MCP config, generated `$ccb-<name>` skills | Done | M2, M5 |
+| M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Done | M2, M5 |
+| M9 | Translate: instant translation of selected text, Translate pane, `/tr`, Codex skill, Desktop prompt | Done | M4 |
+| M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7, M9 |
 
 M5 can run in parallel with M3–M4 because both only depend on the server's tool interface, which is fixed in M2.
 
@@ -160,12 +161,48 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 
 **Done when:** the plugin installs in Codex from this repository; each skill runs end to end against a local library; generated commands appear and work.
 
+**Result (2026-11-11):** done, except running the skills in a signed-in Codex session (that needs your Codex login).
+- `plugins/codex`: manifest, `.mcp.json`, the bundled server (kept identical to the Claude plugin's by `check:plugin`) and five skills: `continue`, `regenerate-prompt`, `prompt-bank`, `notes`, `drive-sync`. Marketplace `ccb-codex` in `.agents/plugins/marketplace.json`.
+- **Verified with the real Codex CLI 0.167.1:**
+  - `codex plugin marketplace add <this repo>` adds `ccb-codex`, so Codex prefers `.agents/plugins/marketplace.json` when both marketplace files exist (X8);
+  - `codex plugin add prompt-buttons-codex@ccb-codex` installs the plugin;
+  - `codex mcp list` shows `ccb`;
+  - `codex debug prompt-input` lists all five skills, and a generated `ccb-*` skill, among the model's available skills.
+- Generated `$ccb-<name>` skills, one per submit or fill button and one per favourite prompt (D34), rewritten after every change and every sync that brings changes; `ccb sync codex` writes them at once.
+- Tests:
+  - the plugin files follow Codex's rules (paths, names, descriptions, and the tool names the skills use exist);
+  - the server starts from a copy of the plugin folder, the way Codex starts it;
+  - the skill generator, auto-regeneration, and `ccb sync codex`.
+- The independent review found 1 critical, 1 major and 6 minor issues, all fixed:
+  - **Critical:** Codex starts a plugin server in the project's folder unless `.mcp.json` sets `cwd`, so the server never started (fixed with `"cwd": "."`, X10 corrected; the test now starts it the way Codex resolves `cwd`);
+  - **Major:** the `drive-sync` skill told the agent to run `npx ccb`, which is an unrelated npm package;
+  - **Minor:** `$1`/`$ARGUMENTS` aren't substituted by Codex (now named values); emoji split by shortening; `CODEX_HOME` not passed through; skills written without the Codex plugin; two libraries removing each other's skills; skill instructions missing tool arguments.
+
 ## M7: Claude Desktop Chat tab
 
 - `desktop-extension/manifest.json` (with `prompts_generated` and the required `privacy_policies` entry), release build of `.mcpb`.
 - A privacy policy page for the project, required by the MCPB manifest because the extension talks to Google Drive.
 
 **Done when:** installing the `.mcpb` shows Prompt Bank entries in the Chat tab's "+" menu, or the limitation is documented if Claude Desktop does not show them.
+
+**Result (2026-11-11):** built and validated; the install in Claude Desktop is the hands-on check that remains.
+- `desktop-extension/manifest.json` (MCPB 0.4) with every server tool listed, `prompts_generated`, an optional data folder, a privacy policy ([privacy-policy.md](privacy-policy.md)) and a 512×512 icon. The same icon now also serves the Claude and Codex plugins.
+- `npm run build:desktop` validates the manifest and packs `dist/claude-codex-buttons.mcpb` with the official `mcpb` 2.1.2 (215 KB, 3 files); CI runs it.
+- Tests check the manifest against the MCPB v0.4 schema, its tool list against the server, and the version against the server and both plugins.
+- **Still open, hands-on:** whether the Chat tab's "+" menu lists the generated prompts (D5), and whether Claude Desktop's built-in Node.js is 22.12 or newer (D7). Until then this is the documented limitation: if prompts don't appear, everything still works through the tools ("find my standup prompt").
+
+## M9: Translate (added 2026-11-11 at the project owner's request)
+
+- Instant translation of selected text, modelled on browser translators such as ImTranslator: the translation appears above the prompt box as soon as a selection holds still.
+- A Translate pane (language picker, Swap, Copy, Insert, Replace, recent translations), the **Translate** button and `/tr`.
+- Codex `translate` skill, Claude Desktop `ccb-translate` prompt, `translate_instructions` tool, `translate.*` settings.
+- *(A Google passkey option for sign-in was started and then dropped at the owner's request. Google's own sign-in page, which `ccb login` opens, already offers passkeys.)*
+
+**Result (2026-11-11):** done. Translation uses the session's own model (decision D35).
+- Tests:
+  - core: the request, the reply parsing and the filter for what's worth translating;
+  - server: the tool, the prompt and the settings;
+  - 8 plugin tests: the pane on terminal and desktop, language choice, Swap and history, `/tr` forms, the instant bubble with its stable-selection rule and cache, skipping numbers, instant off, and model failures.
 
 ## M8: Release v0.1.0
 

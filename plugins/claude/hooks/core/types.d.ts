@@ -109,6 +109,16 @@ export interface LocalSettings {
     codex: {
         autoSync: boolean;
     };
+    /**
+     * Translate: target "auto" translates into `primary`, or into `secondary` when the text
+     * is already in `primary`; `instant` translates text as soon as it is selected.
+     */
+    translate: {
+        target: string;
+        primary: string;
+        secondary: string;
+        instant: boolean;
+    };
     /** tokenStore: "os" keeps the sign-in in the OS credential store; "file" in a file only you can read. */
     google: {
         clientFile: string | null;

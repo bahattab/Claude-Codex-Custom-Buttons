@@ -30,6 +30,7 @@ export type ClientState = {
     continue: { highlightOnTruncation: boolean };
     buttons: { maxVisible: number; showBuiltIns: boolean };
     notes?: { autosaveMs: number };
+    translate?: TranslateSettings;
   };
   continueMessage: string;
   regenerateInstructions: string | null;
@@ -52,6 +53,26 @@ export type SyncSummary = {
 
 /** A Google sign-in started from the Prompt Bank (sync_connect). */
 export type ConnectView = { state: "waiting" | "done" | "failed"; url: string | null; message: string | null };
+
+export type TranslateSettings = { target: string; primary: string; secondary: string; instant: boolean };
+
+/** One translation shown in the pane, the bubble or the history. */
+export type TranslationView = { source: string; text: string; from: string | null; to: string | null };
+
+export type TranslateView = {
+  /** The text in the pane's source box. */
+  source: string;
+  /** "auto" or a language name: what the pane translates into. */
+  target: string;
+  result: TranslationView | null;
+  busy: boolean;
+  error: string | null;
+  /** Newest first, at most 20, for this session. */
+  history: TranslationView[];
+};
+
+/** The instant-translation bubble above the prompt box. */
+export type BubbleView = { state: "translating" | "done" | "failed"; source: string; result: TranslationView | null; error: string | null } | null;
 
 /** What Undo puts back after a Regenerate. */
 export type UndoState = { text: string; id: string };
@@ -145,6 +166,8 @@ declare module "claude-code" {
       bankView: BankView;
       bankData: BankData;
       notesView: NotesView;
+      translateView: TranslateView;
+      bubble: BubbleView;
     };
   }
 }

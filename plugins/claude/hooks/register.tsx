@@ -16,6 +16,7 @@ import {
 } from "./core/index.js";
 import { openBank, registerBank, saveDraftAsPrompt, syncNow } from "./bank.js";
 import { readClient, refreshClient } from "./client.js";
+import { openTranslate, registerTranslate, startInstant, translateBubble, translateCommand } from "./translate.js";
 import { builtIns as contextValues, callTool, lastUserMessage } from "./mcp.js";
 import { appendToNote, openNotes, refreshOpenNote, registerNotes } from "./notes.js";
 
@@ -230,11 +231,18 @@ export const COMMANDS = [
   { name: "btn", description: "Run one of your custom buttons.", argumentHint: "<button id>" },
   { name: "pb", description: "Open the Prompt Bank, search it, save the prompt box as a prompt, or sync now.", argumentHint: "[search | save <title> | sync]" },
   { name: "notes", description: "Open Notes, or add text to the open note.", argumentHint: "[text to add]" },
+  { name: "tr", description: "Translate the selection, your draft, or the text given.", argumentHint: "[to <language>:] [text]" },
 ] as const;
 
 export const register: Register = (on) => {
   registerBank(on);
   registerNotes(on);
+  registerTranslate(on);
+
+  on("command.run", { command: "tr" }, async ($, e) => {
+    const message = await translateCommand($, e.args);
+    return message ? { text: message } : {};
+  });
 
   on("command.run", { command: "pb" }, async ($, e) => {
     const args = e.args.trim();
@@ -269,6 +277,7 @@ export const register: Register = (on) => {
       }
     }
     await refreshClient($);
+    startInstant($); // instant translation watches the selection
     return result;
   });
 
@@ -333,7 +342,8 @@ export const register: Register = (on) => {
     const showBuiltIns = state?.settings.buttons.showBuiltIns ?? true;
     const maxVisible = state?.settings.buttons.maxVisible ?? 6;
     const users = state?.buttons ?? [];
-    if (!showBuiltIns && users.length === 0 && saved === null) return next(e);
+    const bubbleEl = await translateBubble($, e);
+    if (!showBuiltIns && users.length === 0 && saved === null && bubbleEl === null) return next(e);
 
     const visible = users.slice(0, maxVisible);
     const overflow = users.slice(maxVisible);
@@ -360,6 +370,7 @@ export const register: Register = (on) => {
           ) : null}
           {showBuiltIns ? <Button key="ccb-prompts" label="Prompts" onPress={() => openBank($)} /> : null}
           {showBuiltIns ? <Button key="ccb-notes" label="Notes" onPress={() => openNotes($)} /> : null}
+          {showBuiltIns ? <Button key="ccb-translate" label="Translate" onPress={() => openTranslate($)} /> : null}
           {showBuiltIns && state?.sync && state.sync.state !== "off" ? (
             <Button
               key="ccb-sync"
@@ -389,6 +400,7 @@ export const register: Register = (on) => {
             />
           ) : null}
         </Box>
+        {bubbleEl ?? null}
         {below ?? null}
       </Box>
     );

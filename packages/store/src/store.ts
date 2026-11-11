@@ -33,10 +33,14 @@ export interface StorePaths {
   mirrorState: string;
 }
 
-/** The data folder: $CCB_HOME if set, else ~/.claude-codex-buttons. */
+/**
+ * The data folder: $CCB_HOME if set, else ~/.claude-codex-buttons. An unfilled template
+ * such as "${user_config.data_folder}" (an optional Claude Desktop setting left empty)
+ * counts as unset.
+ */
 export function resolveHome(env: NodeJS.ProcessEnv = process.env): string {
   const fromEnv = env["CCB_HOME"]?.trim();
-  return fromEnv ? fromEnv : join(homedir(), DATA_DIR_NAME);
+  return fromEnv && !fromEnv.includes("${") ? fromEnv : join(homedir(), DATA_DIR_NAME);
 }
 
 export function storePaths(home: string): StorePaths {

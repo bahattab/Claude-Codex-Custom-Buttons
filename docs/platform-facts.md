@@ -40,6 +40,7 @@ Last updated: 2026-11-10 (milestone M0).
 | C23 | A `$.state` atom must be declared in the module that reads or updates it; `$` may not be passed to a stored callback, only to functions called directly | **Confirmed** | `claude plugin validate` errors (M4) |
 | C24 | A plugin opens its own side pane with `$.ui.open({ id, title, focus })` and draws it in a `ui.render` hook on `Pane` for that `requestId`; `Input` with `rows` is a multi-line editor raising `onInput` per edit and `onSubmit` on Enter | **Confirmed** | Types 2.1.322; plugin tests on terminal and desktop |
 | C25 | A `Link` element opens an `https:` URL on every surface; in the test kit's drawing a `Link` keeps no `key` (find it by type) | **Confirmed** (types 2.1.322; plugin test) | Used for the Google sign-in link |
+| C26 | There is no event for a change of selection; a mod reads it with `$.ui.selection()` and can poll it with `$.clock.every` | **Confirmed** | Types 2.1.322 (only `ui.selection` as a call); instant translation polls every 700 ms (M9) |
 
 ## Codex (0.167.0)
 
@@ -49,11 +50,14 @@ Last updated: 2026-11-10 (milestone M0).
 | X2 | Plugins can bundle `skills`, `mcpServers` (also a `.mcp.json` file; stdio or streamable HTTP), `hooks` (`hooks/hooks.json`), apps (`.app.json`), and an `interface` block (`displayName`, `defaultPrompt`, `brandColor`) | **Confirmed** (keys present) | Manifest structure names in the release |
 | X3 | Install flow: `codex plugin marketplace add owner/repo [--ref <ref>] [--sparse <path>]` (or a local path), then `codex plugin add <plugin>@<marketplace>`; also `codex plugin list [--available] [--json]`, `codex plugin remove`, `codex plugin marketplace upgrade` | **Changed** (was `codex plugins install`) | Usage lines in the release |
 | X4 | Marketplace manifests are read from `.agents/plugins/marketplace.json`, `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json` | **Confirmed** | Paths in the release |
-| X5 | The old custom-prompt commands (`~/.codex/prompts/`, `/prompts:<name>`) have been migrated into **skills**. Skills accept `$ARGUMENTS`, `$ARGUMENTS[N]` and `$N`. User skills live in `$CODEX_HOME/skills/<name>/` (default `~/.codex/skills`) and are invoked by mentioning them (`$name`) | **Changed** | No `.codex/prompts` strings; "migrated-command-skills"/command-migration identifiers; skills installer and argument help text in the release |
+| X5 | The old custom-prompt commands (`~/.codex/prompts/`, `/prompts:<name>`) have been migrated into **skills**. Codex's command migration marks `$ARGUMENTS` and `$N` as unsupported in skills: a skill's text reaches the model as written (corrected in M6), so skills describe their inputs in words. User skills live in `$CODEX_HOME/skills/<name>/` (default `~/.codex/skills`) and are invoked by mentioning them (`$name`) | **Changed** | No `.codex/prompts` strings; "migrated-command-skills"/command-migration identifiers; skills installer and argument help text in the release |
 | X6 | Hooks exist with events including `SessionStart`, `UserPromptSubmit` and `PreToolUse`; plugins can bundle hooks; admins can restrict to managed hooks | **Confirmed** (behaviour untested) | Hook schemas in the release; `docs/config.md` in `openai/codex` |
 | X7 | No API for plugins to add buttons or panes | Unchanged (nothing found) | No such identifiers found; `interface.defaultPrompt` is plugin metadata, not a button |
-| X8 | Which marketplace file Codex prefers when a repository has both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` | **Unconfirmed** (M6) | — |
+| X8 | Which marketplace file Codex prefers when a repository has both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` | **Confirmed: `.agents/plugins/marketplace.json`** | Codex 0.167.1: `codex plugin marketplace add` on this repository added `ccb-codex` (M6) |
 | X9 | Node.js requirement | Confirmed: the npm launcher declares Node ≥ 16; the program itself is native | npm metadata |
+| X10 | A plugin's stdio MCP server starts in the folder its `cwd` names, resolved against the plugin root; **without `cwd` it starts in the session's project folder**. Only environment variables on a short allowlist (HOME, PATH …) and those named in `env_vars` reach it | **Confirmed** (corrected after the M6 review) | `codex-rs/codex-mcp/src/plugin_config.rs` (relative `cwd` joined to the plugin root), `rmcp-client/src/utils.rs`; real Codex 0.167.1: without `cwd` the server failed with "Cannot find module <project>/server/ccb-mcp.mjs"; with `"cwd": "."` `codex mcp list` shows the plugin folder |
+| X11 | Plugin skills are listed to the model as `<plugin>:<skill>`; user skills in `$CODEX_HOME/skills/<name>/SKILL.md` by name. SKILL.md needs front matter with a `description`; `name` at most 64 characters, description at most 1024 | **Confirmed** | `codex debug prompt-input` with Codex 0.167.1; `codex-rs/skills/src/parser.rs` |
+| X12 | Marketplace file: `{"name": ..., "plugins": [{"name": ..., "source": {"source": "local", "path": "./..."}}]}`; plugin manifest `interface` fields include `displayName`, `shortDescription`, `developerName`, `category`, `websiteURL`, `defaultPrompt`, `brandColor` | **Confirmed** | Codex source (`core-plugins/src/manifest.rs`, app-server tests) and a working install |
 
 ## Google Drive and OAuth
 
@@ -79,3 +83,5 @@ Last updated: 2026-11-10 (milestone M0).
 | D4 | Node.js ships with Claude Desktop, so a Node MCP server needs no separate install | **Confirmed** | MCPB README |
 | D5 | MCP prompts appear in the Chat tab's "+" menu | **Unconfirmed** (M7, hands-on) | — |
 | D6 | Mods do not run in the Chat tab | Inferred | Mods are a Claude Code feature (C2 lists Claude Code surfaces) |
+| D7 | The Node.js that Claude Desktop ships for extensions is 22.12 or newer (the bundled server needs it) | **Unconfirmed** (hands-on) | The manifest declares `runtimes.node: ">=22.12.0"` |
+| D8 | `mcpb validate` and `mcpb pack` (MCPB CLI 2.1.2) accept this manifest; the CLI recommends a 512×512 icon | **Confirmed** | `npm run build:desktop` (M7) |
