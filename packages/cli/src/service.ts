@@ -2,8 +2,9 @@
 // per-user service manager, with no administrator rights (decision D14).
 //   Linux    a systemd --user service
 //   macOS    a launchd agent in ~/Library/LaunchAgents
-//   Windows  a Task Scheduler task at log-on, started hidden through a small VBScript
-import { mkdir, rm } from "node:fs/promises";
+//   Windows  a value under HKCU\...\Run (no administrator rights), started hidden through
+//            a small VBScript; stopped through the pid file the daemon writes
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { writeFileAtomic } from "@ccb/store";
@@ -12,6 +13,12 @@ import type { CommandRunner } from "@ccb/sync";
 export const SERVICE_NAME = "claude-codex-buttons-sync";
 export const LAUNCHD_LABEL = "com.claude-codex-buttons.sync";
 export const TASK_NAME = "ClaudeCodexButtonsSync";
+const RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+/** Where `ccb sync --daemon` records its process ID while it runs. */
+export function pidFile(dataHome: string): string {
+  return join(dataHome, "sync-daemon.pid");
+}
 
 export interface ServiceContext {
   platform: NodeJS.Platform;
@@ -34,9 +41,9 @@ interface Step {
 }
 
 export interface ServicePlan {
-  kind: "systemd" | "launchd" | "task-scheduler";
-  /** Files written on install and removed on uninstall. */
-  files: Array<{ path: string; content: string }>;
+  kind: "systemd" | "launchd" | "windows-run-key";
+  /** Files written on install and removed on uninstall (utf16: UTF-16LE with a BOM, for Windows Script Host). */
+  files: Array<{ path: string; content: string; utf16?: boolean }>;
   install: Step[];
   stop: Step[];
   uninstall: Step[];
@@ -48,9 +55,9 @@ function xmlEscape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** systemd quoting: double quotes, with backslashes and quotes escaped. */
+/** systemd quoting: double quotes, backslashes and quotes escaped, % and $ doubled (specifiers and variables). */
 function sdQuote(s: string): string {
-  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%").replace(/\$/g, "$$$$")}"`;
 }
 
 export function servicePlan(c: ServiceContext): ServicePlan {
@@ -111,16 +118,17 @@ ${[c.node, ...args].map((a) => `    <string>${xmlEscape(a)}</string>`).join("\n"
     // Windows paths can't contain quotes, so nothing else needs escaping.
     const line = [c.node, ...args].map((a) => `""${a}""`).join(" ");
     const content = `' Starts Claude Codex Buttons background sync without a console window.\r\nCreateObject("WScript.Shell").Run "${line}", 0, False\r\n`;
+    const launch = ["//B", "//NoLogo", path];
     return {
-      kind: "task-scheduler",
-      files: [{ path, content }],
+      kind: "windows-run-key",
+      files: [{ path, content, utf16: true }],
       install: [
-        { cmd: "schtasks", args: ["/Create", "/F", "/TN", TASK_NAME, "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", `wscript.exe //B //NoLogo "${path}"`] },
-        { cmd: "schtasks", args: ["/Run", "/TN", TASK_NAME] },
+        { cmd: "reg", args: ["add", RUN_KEY, "/v", TASK_NAME, "/t", "REG_SZ", "/d", `wscript.exe //B //NoLogo "${path}"`, "/f"] },
+        { cmd: "wscript.exe", args: launch },
       ],
-      stop: [{ cmd: "schtasks", args: ["/End", "/TN", TASK_NAME] }],
-      uninstall: [{ cmd: "schtasks", args: ["/Delete", "/F", "/TN", TASK_NAME], optional: true }],
-      status: { cmd: "schtasks", args: ["/Query", "/TN", TASK_NAME] },
+      stop: [],
+      uninstall: [{ cmd: "reg", args: ["delete", RUN_KEY, "/v", TASK_NAME, "/f"], optional: true }],
+      status: { cmd: "reg", args: ["query", RUN_KEY, "/v", TASK_NAME] },
     };
   }
   throw new Error(`The background sync service isn't supported on ${c.platform}. Sync still runs while Claude Code or Codex is open.`);
@@ -141,23 +149,56 @@ async function runSteps(steps: Step[], run: CommandRunner): Promise<void> {
   }
 }
 
+/** The running daemon's process ID, or null when none is running. */
+export async function runningDaemon(dataHome: string): Promise<number | null> {
+  const text = await readFile(pidFile(dataHome), "utf8").catch(() => "");
+  const pid = Number(text.trim());
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  try {
+    process.kill(pid, 0);
+    return pid;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM" ? pid : null;
+  }
+}
+
+/** Ends the daemon this computer runs (Windows has no service manager to ask). */
+async function killDaemon(c: ServiceContext, run: CommandRunner): Promise<void> {
+  const pid = await runningDaemon(c.dataHome);
+  if (pid === null) return;
+  if (c.platform === "win32") await runSteps([{ cmd: "taskkill", args: ["/PID", String(pid), "/F"], optional: true }], run);
+  else {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      // already gone
+    }
+  }
+  await rm(pidFile(c.dataHome), { force: true });
+}
+
 export async function installService(c: ServiceContext, run: CommandRunner): Promise<ServicePlan> {
   const plan = servicePlan(c);
   for (const f of plan.files) {
     await mkdir(dirname(f.path), { recursive: true });
-    await writeFileAtomic(f.path, f.content, 0o644);
+    if (f.utf16) await writeFile(f.path, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(f.content, "utf16le")]));
+    else await writeFileAtomic(f.path, f.content, 0o644);
   }
+  if (plan.kind === "windows-run-key") await killDaemon(c, run); // a reinstall replaces the running one
   await runSteps(plan.install, run);
   return plan;
 }
 
 export async function stopService(c: ServiceContext, run: CommandRunner): Promise<void> {
-  await runSteps(servicePlan(c).stop, run);
+  const plan = servicePlan(c);
+  await runSteps(plan.stop, run);
+  if (plan.kind === "windows-run-key") await killDaemon(c, run);
 }
 
 export async function uninstallService(c: ServiceContext, run: CommandRunner): Promise<void> {
   const plan = servicePlan(c);
   await runSteps(plan.uninstall, run);
+  if (plan.kind === "windows-run-key") await killDaemon(c, run);
   for (const f of plan.files) await rm(f.path, { force: true });
   if (plan.kind === "systemd") await runSteps([{ cmd: "systemctl", args: ["--user", "daemon-reload"], optional: true }], run);
 }
@@ -169,9 +210,14 @@ export async function serviceStatus(c: ServiceContext, run: CommandRunner): Prom
   } catch {
     return "unsupported";
   }
+  if (plan.kind === "windows-run-key") {
+    if ((await runningDaemon(c.dataHome)) !== null) return "running";
+    const r = await run(plan.status.cmd, plan.status.args).catch(() => null);
+    return r?.code === 0 ? "installed" : "not-installed";
+  }
   try {
     const r = await run(plan.status.cmd, plan.status.args);
-    if (r.code === 0) return plan.kind === "task-scheduler" && !/Running/i.test(r.stdout) ? "installed" : "running";
+    if (r.code === 0) return "running";
   } catch {
     return "not-installed";
   }

@@ -107,7 +107,7 @@ M5 can run in parallel with M3–M4 because both only depend on the server's too
 Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and tools) and **M5b** (background service and the plugin's sync interface).
 
 - Drive API mode: `ccb login`/`logout`, keychain storage, per-device files, automatic push with outbox and retry, automatic pull with the change feed, status reporting, **Connect/Reconnect Google Drive** from the panes.
-- Background sync service for Windows (Task Scheduler), macOS (launchd) and Linux (systemd user service): `ccb service status|stop|uninstall`.
+- Background sync service for Windows (per-user Run key), macOS (launchd) and Linux (systemd user service): `ccb service install|status|stop|uninstall`.
 - Drive-folder fallback mode using the same per-device layout.
 - Sync of prompts, categories, buttons, variables, notes and shared settings, with deterministic conflict copies and 180-day tombstones.
 - `sync_now`, `sync_status`, `ccb sync`, `ccb status`; doctor checks for Drive.
@@ -129,7 +129,7 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - **Not verified here (needs your computers):** a real Google account; the OS credential tools (G7); that two computers see each other's files with `drive.file` (G6). The two-computer check above covers these.
 
 **M5b result (2026-11-11):** done, except the hands-on checks.
-- Background service: `ccb sync --daemon`, `ccb service install|status|stop|uninstall` (systemd user unit, launchd agent, Task Scheduler with a hidden VBScript launcher), offered by `ccb login`; `--home`.
+- Background service: `ccb sync --daemon`, `ccb service install|status|stop|uninstall` (systemd user unit, launchd agent, Windows per-user Run key with a hidden VBScript launcher), offered by `ccb login`; `--home`.
 - Claude Code plugin:
   - a sync button in the row;
   - a Prompt Bank sync section with **Sync now** and **Connect Google Drive** (sign-in from the pane through the new `sync_connect` tool);
@@ -144,6 +144,12 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
   - **Major:** `ccb login` changed settings before sign-in succeeded.
 
   Most of the minor findings were fixed too: request timeouts, a missing Drive permission, uploads over 5 MB, the lock-timeout state, the weekly re-upload, and scrubbing the token from error messages.
+- A second independent review (of M5b and the fixes) found no data-loss case in the new deletion rule. It found 4 major problems, all fixed:
+  - "Keep other" when the original was already deleted left nothing; it's now refused;
+  - a device's file in the oldest folder could be ignored after a duplicate-folder start; it now triggers a full listing;
+  - on Windows the service couldn't be stopped, and a log-on task may need administrator rights. It's now a per-user Run value, stopped through the daemon's pid file, and the launcher is saved as UTF-16.
+
+  Smaller fixes: systemd `%`/`$` escaping; notes first in the pending list; one Connect at a time; refreshing the row after a note is saved.
 - Delivered in one pull request with M5a (D32).
 - **Hands-on still needed:** the service on each OS, and Connect from the Claude Desktop Code tab.
 

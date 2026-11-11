@@ -73,6 +73,16 @@ describe("resolveConflict", () => {
     expect(r.library.notes.find((n) => n.id === copyId)?.conflictOf).toBeNull();
   });
 
+  it("keep other is refused when the other version was deleted, so nothing is lost (review)", () => {
+    const { lib, id, copyId } = conflicted("notes");
+    const deleted = { ...lib, notes: lib.notes.map((n) => (n.id === id ? { ...n, deletedAt: ctx("dev_aaaaaa1", 9).now } : n)) };
+    const r = resolveConflict(deleted, "notes", copyId, "original", c);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join()).toMatch(/was deleted/);
+    const kept = ok(resolveConflict(deleted, "notes", copyId, "copy", c));
+    expect(live(kept.library.notes).map((n) => n.id)).toEqual([copyId]);
+  });
+
   it("refuses something that isn't a conflict copy", () => {
     const { lib, id } = conflicted("notes");
     expect(resolveConflict(lib, "notes", id, "original", c).ok).toBe(false);

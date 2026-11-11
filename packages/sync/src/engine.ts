@@ -435,7 +435,8 @@ export class SyncEngine {
       mode: library?.settings.sync.mode ?? "off",
       state: outcome.state,
       pending: library ? countPending(pickData(library), state.pushed) : 0,
-      pendingKeys: library ? pendingKeys(pickData(library), state.pushed).slice(0, 500) : [],
+      // Notes first, so a long list of pending prompts can't push notes past the cap.
+      pendingKeys: library ? pendingKeys(pickData(library), state.pushed).sort((a, b) => Number(b.startsWith("notes/")) - Number(a.startsWith("notes/"))).slice(0, 500) : [],
       conflicts: library ? countConflicts(library) : 0,
       lastPullAt: state.lastPullAt,
       lastPushAt: state.lastPushAt,

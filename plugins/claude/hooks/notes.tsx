@@ -191,6 +191,11 @@ async function saveNow($: $): Promise<boolean> {
           },
     );
     await loadList($);
+    // Show the "not uploaded yet" dot now, and the upload a few seconds later.
+    await refreshClient($);
+    $.clock.after(4000, async () => {
+      await refreshClient($);
+    });
     return true;
   } catch (error) {
     await setView($, (cur) => ({ ...cur, notice: `Not saved: ${errorText(error)}` }));

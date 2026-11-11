@@ -48,7 +48,7 @@
 | `plugins/codex` | The Codex plugin: skills and MCP server entry. `ccb-mcp` generates `$ccb-<id>` skills for buttons and prompts. | Inside Codex |
 | `desktop-extension` | Packages `ccb-mcp` as a Claude Desktop extension (`.mcpb`) for the Chat tab. | Claude Desktop |
 | `packages/cli` (`ccb`) | Google sign-in, status, config, import/export, forcing a sync or Codex skill generation, diagnostics, installing the background sync service. | User's terminal |
-| Background sync service (`ccb sync --daemon`) | Keeps automatic sync running when no Claude Code or Codex session is open. Same code as `ccb-mcp`'s sync engine. | A per-user login service (Task Scheduler, launchd, systemd user) |
+| Background sync service (`ccb sync --daemon`) | Keeps automatic sync running when no Claude Code or Codex session is open. Same code as `ccb-mcp`'s sync engine. | A per-user login service (Windows Run key, launchd, systemd user) |
 
 ### Why storage and sync sit behind the MCP server
 

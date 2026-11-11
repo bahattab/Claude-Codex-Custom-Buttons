@@ -54,12 +54,19 @@ describe("service plans", () => {
     expect(plan.install.at(-1)?.args).toEqual(["bootstrap", "gui/501", "/home/u/Library/LaunchAgents/com.claude-codex-buttons.sync.plist"]);
   });
 
-  it("Windows: a log-on task that starts the daemon hidden through VBScript, no admin rights", () => {
-    const plan = servicePlan({ ...ctx("win32"), node: "C:\\Program Files\\nodejs\\node.exe", script: "C:\\ccb\\bin.js", dataHome: "C:\\Users\\u\\.claude-codex-buttons" });
-    expect(plan.files[0]?.content).toContain('Run """C:\\Program Files\\nodejs\\node.exe"" ""C:\\ccb\\bin.js"" ""sync"" ""--daemon"" ""--home"" ""C:\\Users\\u\\.claude-codex-buttons""", 0, False');
-    const create = plan.install[0]?.args ?? [];
-    expect(create).toEqual(expect.arrayContaining(["/SC", "ONLOGON", "/RL", "LIMITED"]));
-    expect(create.at(-1)).toMatch(/^wscript\.exe \/\/B \/\/NoLogo ".*sync-service\.vbs"$/);
+  it("Windows: a per-user Run value that starts the daemon hidden through VBScript, no admin rights", () => {
+    const plan = servicePlan({ ...ctx("win32"), node: "C:\\Program Files\\nodejs\\node.exe", script: "C:\\ccb\\bin.js", dataHome: "C:\\Users\\José\\.claude-codex-buttons" });
+    expect(plan.files[0]?.utf16).toBe(true);
+    expect(plan.files[0]?.content).toContain('Run """C:\\Program Files\\nodejs\\node.exe"" ""C:\\ccb\\bin.js"" ""sync"" ""--daemon"" ""--home"" ""C:\\Users\\José\\.claude-codex-buttons""", 0, False');
+    const add = plan.install[0]?.args ?? [];
+    expect(add.slice(0, 2)).toEqual(["add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"]);
+    expect(add).toContain("ClaudeCodexButtonsSync");
+    expect(plan.install[1]?.cmd).toBe("wscript.exe");
+  });
+
+  it("systemd: % and $ in paths are escaped", () => {
+    const plan = servicePlan({ ...ctx("linux"), dataHome: "/home/u/100% $HOME" });
+    expect(plan.files[0]?.content).toContain('"/home/u/100%% $$HOME"');
   });
 
   it("other systems explain that sync still runs inside Claude Code and Codex", () => {
@@ -188,18 +195,21 @@ describe("service on macOS and Windows (commands only)", () => {
     expect(r.calls.filter((c) => c.startsWith("launchctl bootout"))).not.toHaveLength(0);
   });
 
-  it("installs the log-on task, and tells a running task from a ready one", async () => {
-    let running = true;
-    const r = recorder((cmd, args) => (args[0] === "/Query" ? { code: 0, stdout: running ? "ClaudeCodexButtonsSync  Running" : "ClaudeCodexButtonsSync  Ready" } : { code: 0 }));
+  it("Windows: installs the Run value and VBScript (UTF-16), status from the daemon's pid file, stop ends it", async () => {
+    const r = recorder((cmd, args) => (cmd === "reg" && args[0] === "query" ? { code: 0 } : { code: 0 }));
     const service = { platform: "win32" as const, userHome, run: r.runner };
-    expect((await ccb(["service", "install"], { service })).out).toMatch(/task-scheduler/);
-    expect(r.calls.some((c) => c.startsWith("schtasks /Run /TN ClaudeCodexButtonsSync"))).toBe(true);
-    expect((await ccb(["service", "status"], { service })).out).toMatch(/running/);
-    running = false;
+    expect((await ccb(["service", "install"], { service })).out).toMatch(/windows-run-key/);
+    const vbs = await readFile(join(dataHome, "sync-service.vbs"));
+    expect([vbs[0], vbs[1]]).toEqual([0xff, 0xfe]);
+    expect(r.calls.some((c) => c.startsWith("reg add HKCU"))).toBe(true);
     expect((await ccb(["service", "status"], { service })).out).toMatch(/: installed/);
+    // A running daemon (this test process stands in for it).
+    await writeFile(join(dataHome, "sync-daemon.pid"), `${process.pid}\n`);
+    expect((await ccb(["service", "status"], { service })).out).toMatch(/running/);
     await ccb(["service", "stop"], { service });
+    expect(r.calls).toContain(`taskkill /PID ${process.pid} /F`);
     await ccb(["service", "uninstall"], { service });
-    expect(r.calls).toContain("schtasks /Delete /F /TN ClaudeCodexButtonsSync");
+    expect(r.calls.some((c) => c.startsWith("reg delete HKCU"))).toBe(true);
   });
 
   it("a missing service manager is explained", async () => {

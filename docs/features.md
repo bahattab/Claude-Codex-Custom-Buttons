@@ -129,7 +129,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CC pane
 
-- **Header:** counts (prompts, favourites, notes, conflict copies), the sync status (sync is automatic; **Sync now** only forces an immediate pull), and **Connect Google Drive** until signed in.
+- **Header:** counts (prompts, favourites, notes, conflict copies), the sync status (sync is automatic; **Sync now** only makes it happen at once), and **Connect Google Drive** until signed in.
 - **Search box:** matches title, tags and body while you type (after a 150 ms pause); favourites and recently used rank first.
 - **Category filter** and **favourites only** toggle.
 - **Each prompt:** **Insert** (fill the prompt box), **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (with confirmation and undo).

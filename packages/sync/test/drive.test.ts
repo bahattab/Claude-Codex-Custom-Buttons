@@ -288,3 +288,24 @@ describe("review fixes (M5a)", () => {
     expect(uploads()).toBe(before + 1);
   });
 });
+
+describe("second review fixes", () => {
+  it("a device that moves to the oldest folder after a duplicate start keeps syncing (incremental pull lists again)", async () => {
+    const clock = new TestClock();
+    const drive = new FakeDrive();
+    const newer = drive.add({ name: FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" });
+    const newerDevices = drive.add({ name: "devices", mimeType: "application/vnd.google-apps.folder", parents: [newer] });
+    const a = await onDrive(clock, drive);
+    const b = await onDrive(clock, drive);
+    const bId = (await b.store.getDevice()).deviceId;
+    // B's first file landed in the newer folder, and A tracks it.
+    drive.add({ name: `${bId}.json`, parents: [newerDevices], content: JSON.stringify({ ...JSON.parse("{}") }) });
+    await a.engine.syncNow();
+    // Later the oldest folder appears (created first elsewhere) and B writes there.
+    await b.edit((lib, ctx) => setVariable(lib, "moved", "yes", ctx));
+    await b.engine.syncNow();
+    await a.engine.syncNow();
+    await a.engine.syncNow();
+    expect(live((await a.data()).variables).some((v) => v.id === "moved")).toBe(true);
+  });
+});

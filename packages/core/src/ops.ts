@@ -220,7 +220,10 @@ export function resolveConflict(
 ): OpResult<Prompt | Note> {
   const copy = find(library, collection, copyId) as Prompt | Note | undefined;
   if (!copy || copy.deletedAt !== null || !copy.conflictOf) return fail(`${collection}: ${copyId} is not a conflict copy`);
-  const original = find(library, collection, copy.conflictOf) as Prompt | Note | undefined;
+  const found = find(library, collection, copy.conflictOf) as Prompt | Note | undefined;
+  // A deleted original counts as gone: "keep the other version" would then leave nothing.
+  const original = found && found.deletedAt === null ? found : undefined;
+  if (keep === "original" && !original) return fail(`${collection}: the other version was deleted; keep this copy or keep both`);
   const title = copy.title.endsWith(CONFLICT_SUFFIX) ? copy.title.slice(0, -CONFLICT_SUFFIX.length) : copy.title;
 
   if (keep === "both" || (keep === "copy" && !original)) {

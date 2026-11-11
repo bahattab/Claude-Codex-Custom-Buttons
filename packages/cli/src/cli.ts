@@ -43,7 +43,7 @@ import {
   runCommand,
   type CommandRunner,
 } from "@ccb/sync";
-import { installService, serviceStatus, stopService, uninstallService, type ServiceContext } from "./service.js";
+import { installService, pidFile, serviceStatus, stopService, uninstallService, type ServiceContext } from "./service.js";
 
 export const CLI_VERSION = "0.1.0";
 export const EXPORT_FORMAT = "ccb-export/1";
@@ -432,7 +432,7 @@ async function serviceCmd(store: LibraryStore, args: string[], io: Io): Promise<
       return 0;
     case "stop":
       await stopService(ctx, run);
-      io.out("Background sync stopped until you next log in. ccb service uninstall removes it.");
+      io.out("Background sync stopped; it starts again the next time you log in (or the service manager restarts). ccb service uninstall removes it.");
       return 0;
     case "uninstall":
       await uninstallService(ctx, run);
@@ -457,6 +457,8 @@ async function daemon(store: LibraryStore, io: Io): Promise<number> {
       last = line;
     },
   });
+  // The pid file lets `ccb service stop` end this process on Windows, and shows it's running.
+  await writeFileAtomic(pidFile(store.paths.home), `${process.pid}\n`);
   engine.start();
   const keepAlive = setInterval(() => undefined, 60_000);
   await new Promise<void>((resolve) => {
@@ -468,6 +470,9 @@ async function daemon(store: LibraryStore, io: Io): Promise<number> {
   clearInterval(keepAlive);
   engine.stop();
   await engine.idle();
+  const { rm } = await import("node:fs/promises");
+  const mine = (await readText(pidFile(store.paths.home)))?.trim() === String(process.pid);
+  if (mine) await rm(pidFile(store.paths.home), { force: true });
   return 0;
 }
 

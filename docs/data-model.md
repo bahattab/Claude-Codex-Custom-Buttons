@@ -14,6 +14,7 @@ All persistent data lives in `~/.claude-codex-buttons/` on each computer. The sy
 ├── .lock               held while a process writes
 ├── .sync.lock          held while this computer syncs, so its processes take turns
 ├── sync-service.vbs    Windows only: starts the background service without a window
+├── sync-daemon.pid     the background service's process ID while it runs
 ├── sync-service.log    macOS only: the background service's messages
 ├── notes-mirror.json   what was last written to each note's Markdown file (to recognise edits made elsewhere)
 └── notes/

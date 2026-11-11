@@ -714,6 +714,7 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
 
   const syncUnavailable = (): ToolResult => failure("Sync isn't running in this server.");
   let connecting: Connecting | null = null;
+  let connectStarting: Promise<ToolResult> | null = null;
 
   mcp.registerTool(
     "sync_status",
@@ -751,7 +752,17 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
     },
     () =>
       guard(async () => {
+        // One sign-in at a time: a second press while one is starting or waiting reuses it.
+        if (connectStarting) return connectStarting;
         if (connecting?.state === "waiting" && connecting.url) return ok(connecting);
+        connectStarting = startConnect().finally(() => {
+          connectStarting = null;
+        });
+        return connectStarting;
+      }),
+  );
+
+  async function startConnect(): Promise<ToolResult> {
         const library = await read();
         const client = await loadClient(store.paths.home, library);
         if ("missing" in client) return failure(client.missing);
@@ -777,18 +788,19 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
               }
               attempt.state = "done";
               attempt.message = `Connected. The sign-in is kept in: ${tokens.name}.`;
-              await opts.sync?.syncNow();
+              // A sync problem now is reported by the sync status, not as a failed sign-in.
+              await opts.sync?.syncNow().catch(() => undefined);
             })
             .catch((error: unknown) => {
               attempt.state = "failed";
-              attempt.message = (error as Error).message;
+              const text = (error as Error).message;
+              attempt.message = /timed out/.test(text) ? "Sign-in timed out. Press Connect Google Drive to try again." : text;
               resolve();
             });
         });
         await gotUrl;
         return attempt.state === "failed" ? failure(attempt.message ?? "Sign-in failed.") : ok(attempt);
-      }),
-  );
+  }
 
   return mcp;
 }

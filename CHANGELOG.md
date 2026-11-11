@@ -34,6 +34,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - A trashed Drive folder or device file is re-created and uploaded again.
 - Note-file edits are synced even when nothing else changed.
 - `ccb login` changes settings only after sign-in succeeds.
+- "Keep other" on a conflict copy whose original was deleted is refused instead of leaving nothing.
+- After two computers created the Drive folder at once, a device's file in the oldest folder is no longer ignored.
+- The Windows background service uses the per-user Run key (no administrator rights) and can be stopped.
 - Request timeouts, a clear message when Drive access wasn't granted, resumable uploads for libraries over 4 MB, a weekly re-upload, and the token is never shown in error messages.
 
 ### Fixed (from the independent M4 review)

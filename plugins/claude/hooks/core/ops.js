@@ -141,7 +141,11 @@ export function resolveConflict(library, collection, copyId, keep, ctx) {
     const copy = find(library, collection, copyId);
     if (!copy || copy.deletedAt !== null || !copy.conflictOf)
         return fail(`${collection}: ${copyId} is not a conflict copy`);
-    const original = find(library, collection, copy.conflictOf);
+    const found = find(library, collection, copy.conflictOf);
+    // A deleted original counts as gone: "keep the other version" would then leave nothing.
+    const original = found && found.deletedAt === null ? found : undefined;
+    if (keep === "original" && !original)
+        return fail(`${collection}: the other version was deleted; keep this copy or keep both`);
     const title = copy.title.endsWith(CONFLICT_SUFFIX) ? copy.title.slice(0, -CONFLICT_SUFFIX.length) : copy.title;
     if (keep === "both" || (keep === "copy" && !original)) {
         return save(library, collection, copy, { ...copy, conflictOf: null, ...(keep === "copy" ? { title } : {}) }, ctx);

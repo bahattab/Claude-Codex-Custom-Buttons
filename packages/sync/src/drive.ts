@@ -138,10 +138,12 @@ export class DriveRemote implements Remote {
           continue;
         }
         if (c.file && inFolder && deviceIdFromName(c.file.name)) {
-          // A second file for a device already tracked (left in a duplicate folder) is ignored.
+          // A second file for a device already tracked (it moved to the oldest folder after a
+          // duplicate-folder start): list everything again, which picks the right one.
           const id = deviceIdFromName(c.file.name) as string;
           const tracked = Object.entries(cursor.files).find(([, d]) => d === id)?.[0];
-          if (tracked === undefined || tracked === c.fileId) changedIds.set(c.fileId, c.file);
+          if (tracked !== undefined && tracked !== c.fileId) return null;
+          changedIds.set(c.fileId, c.file);
         }
       }
       if (body.newStartPageToken) {

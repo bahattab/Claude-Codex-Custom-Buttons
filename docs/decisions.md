@@ -178,9 +178,15 @@ Each decision records the options considered, the choice and why. All were appro
 ## D31. Infer a deletion only from a device that dropped the record (2026-11-11, M5; revises D17's deletion rule)
 
 - **Choice:** a record that exists only on this computer, unchanged since the last sync, counts as deleted only when another device's file held it at the last merge and no longer does (its tombstone expired there). The merge remembers which records each device's file held (`SyncBase.devices`).
+- **Note:** a device whose sync state predates this rule infers no deletions on its first merge, so after 180 days offline it can bring back records whose tombstones expired elsewhere. Don't sync with devices running an older version.
 - **Why:** the first rule ("absent from every device file that synced after our last pull") compared one device's clock with another's. The independent M5 review showed that a new record was deleted everywhere when another computer's clock ran ahead, or when its upload raced with ours. Both cases now have tests.
 
 ## D32. Sync delivered in one pull request (2026-11-11, M5)
 
 - **Choice:** M5a and M5b went into one pull request.
 - **Why:** the independent review of M5a found data-loss bugs while M5b was under way in the same files (engine, server, CLI), and the project owner asked for the work to continue to the end without stopping. The milestone is still reported in two parts in the roadmap.
+
+## D33. On Windows, start the background service from the per-user Run key (2026-11-11, M5)
+
+- **Choice:** a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` runs a hidden VBScript launcher at log-on. `ccb service stop` and `uninstall` end the daemon through the pid file it writes.
+- **Why:** the independent review pointed out that `schtasks /Create /SC ONLOGON` is widely reported to need administrator rights, against D14, and that stopping the task couldn't stop the daemon the launcher had already started.

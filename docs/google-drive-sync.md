@@ -29,13 +29,13 @@ Inside Claude Code and Codex, `ccb-mcp` syncs while the session is open. So that
 
 | OS | How it runs |
 |---|---|
-| Windows | A per-user Task Scheduler task at log-on |
+| Windows | A value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (no administrator rights) that starts it hidden at log-on; `ccb service stop` ends it through its pid file |
 | macOS | A per-user `launchd` agent (`~/Library/LaunchAgents`) |
 | Linux | A `systemd --user` service |
 
 - It runs as you, with no administrator rights, and uses the same token and lock file as `ccb-mcp`, so only one process pushes at a time.
 - `ccb login` asks once ("Keep syncing in the background? [Y/n]", default yes; `--service` or `--no-service` answers in advance; without a terminal it only prints the command). `ccb service install`, `ccb service status`, `ccb service stop` and `ccb service uninstall` control it later.
-- The service runs `ccb sync --daemon --home <data folder>`. On Windows a small VBScript in the data folder starts it without a console window. Run `ccb` from a stable install (not a temporary `npx` cache) before installing the service, because the service remembers the path it was installed from.
+- The service runs `ccb sync --daemon --home <data folder>`. On Windows a small VBScript in the data folder (saved as UTF-16, so folder names with accents work) starts it without a console window. While it runs, it records its process ID in `sync-daemon.pid`. Run `ccb` from a stable install (not a temporary `npx` cache) before installing the service, because the service remembers the path it was installed from.
 - Without it, sync is still automatic whenever Claude Code, Codex or the Claude Desktop extension is running.
 
 ### First-time sign-in
