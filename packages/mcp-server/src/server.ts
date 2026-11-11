@@ -15,6 +15,7 @@ import {
   deleteCategory,
   deleteNote,
   deletePrompt,
+  resolveConflict,
   deleteVariable,
   expand,
   live,
@@ -36,7 +37,7 @@ import {
   type SharedSettingId,
 } from "@ccb/core";
 import { LibraryStore } from "@ccb/store";
-import type { SyncEngine } from "@ccb/sync";
+import { loadClient, login, statusLine, tokenStoreFor, type SetupOptions, type SyncEngine, type SyncStatus } from "@ccb/sync";
 
 export const SERVER_NAME = "ccb-mcp";
 export const SERVER_VERSION = "0.1.0";
@@ -85,6 +86,23 @@ function promptSummary(p: Prompt): Record<string, unknown> {
     favorite: p.favorite,
     conflictOf: p.conflictOf,
     preview: p.body.length > 160 ? `${p.body.slice(0, 157)}...` : p.body,
+  };
+}
+
+/** A status with its one-line summary ("Sync ✓ 12:04", "Sync offline · 2 pending" ...). */
+function withLine(status: SyncStatus): SyncStatus & { line: string } {
+  return { ...status, line: statusLine(status) };
+}
+
+/** What the Claude Code button row needs to draw the sync button and note markers. */
+function summary(status: SyncStatus): Record<string, unknown> {
+  return {
+    state: status.state,
+    line: statusLine(status),
+    pending: status.pending,
+    conflicts: status.conflicts,
+    message: status.message,
+    pendingKeys: status.pendingKeys.filter((k) => k.startsWith("notes/")),
   };
 }
 
@@ -143,6 +161,15 @@ export function promptNames(library: Library): Map<string, Prompt> {
 export interface ServerOptions {
   /** The sync engine to tell about changes and to run for sync_now / sync_status. */
   sync?: SyncEngine;
+  /** For tests: how sign-in reaches Google and the OS, and the browser. */
+  connect?: Omit<SetupOptions, "home"> & { openBrowser?: (url: string) => void | Promise<void> };
+}
+
+/** A Google sign-in started from a pane (sync_connect). */
+interface Connecting {
+  state: "waiting" | "done" | "failed";
+  url: string | null;
+  message: string | null;
 }
 
 export function createServer(store: LibraryStore, opts: ServerOptions = {}): McpServer {
@@ -248,6 +275,7 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
           },
           continueMessage: sharedSetting(library, "continue.message") ?? DEFAULT_CONTINUE_MESSAGE,
           regenerateInstructions: sharedSetting(library, "regenerate.instructions"),
+          sync: opts.sync ? summary(await opts.sync.status()) : null,
         });
       }),
   );
@@ -663,9 +691,29 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
     return { description: prompt.title, ...message(expanded.text) };
   });
 
+  // --- conflicts -----------------------------------------------------------------------
+
+  mcp.registerTool(
+    "conflict_resolve",
+    {
+      title: "Resolve a conflict copy",
+      description:
+        'Settle a conflict copy of a prompt or note (made when two devices edited it at once): keep "original" (delete the copy), "copy" (the copy\'s text replaces the original) or "both" (the copy becomes an ordinary prompt or note).',
+      inputSchema: { collection: z.enum(["prompts", "notes"]), copyId: z.string(), keep: z.enum(["original", "copy", "both"]) },
+      annotations: { ...edits, destructiveHint: true },
+    },
+    (args) =>
+      guard(async () => {
+        const record = await write((lib, ctx) => resolveConflict(lib, args.collection, args.copyId, args.keep, ctx));
+        if (args.collection === "prompts") promptsChanged();
+        return ok({ kept: { id: record.id, title: record.title } });
+      }),
+  );
+
   // --- sync ----------------------------------------------------------------------------
 
   const syncUnavailable = (): ToolResult => failure("Sync isn't running in this server.");
+  let connecting: Connecting | null = null;
 
   mcp.registerTool(
     "sync_status",
@@ -674,7 +722,7 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
       description: "Google Drive sync status: state (idle, syncing, offline, signed-out, not-set-up, off, error), pending changes, conflicts, last sync times and other devices. Sync is automatic.",
       annotations: readOnly,
     },
-    () => guard(async () => (opts.sync ? ok(await opts.sync.status()) : syncUnavailable())),
+    () => guard(async () => (opts.sync ? ok({ ...withLine(await opts.sync.status()), connect: connecting }) : syncUnavailable())),
   );
 
   mcp.registerTool(
@@ -689,7 +737,56 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
         if (!opts.sync) return syncUnavailable();
         const status = await opts.sync.syncNow();
         promptsChanged(); // a pull may have brought new prompts
-        return ok(status);
+        return ok({ ...withLine(status), connect: connecting });
+      }),
+  );
+
+  mcp.registerTool(
+    "sync_connect",
+    {
+      title: "Connect Google Drive",
+      description:
+        "Start the one-time Google sign-in for Drive sync. Opens the browser on this computer and returns the sign-in link; sync_status reports when it finishes. Needs the Google OAuth client to be set up first (docs/google-cloud-setup.md).",
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    () =>
+      guard(async () => {
+        if (connecting?.state === "waiting" && connecting.url) return ok(connecting);
+        const library = await read();
+        const client = await loadClient(store.paths.home, library);
+        if ("missing" in client) return failure(client.missing);
+        const setup: SetupOptions = { ...(opts.connect ?? {}), home: store.paths.home };
+        const tokens = await tokenStoreFor(setup, library);
+        if ("unavailable" in tokens) return failure(tokens.unavailable);
+        const attempt: Connecting = { state: "waiting", url: null, message: null };
+        connecting = attempt;
+        const gotUrl = new Promise<void>((resolve) => {
+          void login({
+            client,
+            store: tokens,
+            ...(opts.connect?.fetch ? { fetch: opts.connect.fetch } : {}),
+            ...(opts.connect?.openBrowser ? { openBrowser: opts.connect.openBrowser } : {}),
+            onUrl: (url) => {
+              attempt.url = url;
+              resolve();
+            },
+          })
+            .then(async () => {
+              if (library.settings.sync.mode !== "drive-api") {
+                await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, mode: "drive-api" } } }));
+              }
+              attempt.state = "done";
+              attempt.message = `Connected. The sign-in is kept in: ${tokens.name}.`;
+              await opts.sync?.syncNow();
+            })
+            .catch((error: unknown) => {
+              attempt.state = "failed";
+              attempt.message = (error as Error).message;
+              resolve();
+            });
+        });
+        await gotUrl;
+        return attempt.state === "failed" ? failure(attempt.message ?? "Sign-in failed.") : ok(attempt);
       }),
   );
 

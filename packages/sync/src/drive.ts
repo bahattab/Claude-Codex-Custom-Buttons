@@ -5,6 +5,10 @@
 import { AuthError, OfflineError, README_TEXT, deviceIdFromName, type PullResult, type Remote, type RemoteFile } from "./remote.js";
 
 const API = "https://www.googleapis.com/drive/v3";
+/** Uploads above this size use a resumable upload (simple and multipart ones stop at 5 MB). */
+const SIMPLE_UPLOAD_MAX = 4 * 1024 * 1024;
+/** A request that takes longer than this counts as offline. */
+const REQUEST_TIMEOUT_MS = 60_000;
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
 const FOLDER = "application/vnd.google-apps.folder";
 
@@ -44,12 +48,17 @@ export class DriveRemote implements Remote {
   private ownFileId: string | null = null;
   private target: string | null = null;
 
+  /**
+   * `account` tells sign-ins apart (setup passes a hash of the refresh token), so signing in
+   * to another Google account starts over instead of reusing the old account's sync state.
+   */
   constructor(
     private readonly auth: TokenSource,
     private readonly folderName: string,
     private readonly fetchImpl: Fetch = fetch,
+    account = "",
   ) {
-    this.location = `drive-api:${folderName}`;
+    this.location = `drive-api:${folderName}${account ? `:${account}` : ""}`;
   }
 
   async pull(cursorText: string | null, ownDeviceId: string): Promise<PullResult> {
@@ -69,11 +78,11 @@ export class DriveRemote implements Remote {
       this.ownFileId = found[0]?.id ?? null;
     }
     if (this.ownFileId !== null) {
-      const res = await this.call(`${UPLOAD}/files/${encodeURIComponent(this.ownFileId)}?uploadType=media&fields=id`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: text,
-      }, [404]);
+      const url = `${UPLOAD}/files/${encodeURIComponent(this.ownFileId)}`;
+      const res =
+        byteLength(text) > SIMPLE_UPLOAD_MAX
+          ? await this.resumable(url, "PATCH", {}, text, [404])
+          : await this.call(`${url}?uploadType=media&fields=id`, { method: "PATCH", headers: { "content-type": "application/json" }, body: text }, [404]);
       if (res.status !== 404) return;
       this.ownFileId = null; // deleted in Drive meanwhile: create it again
     }
@@ -105,7 +114,7 @@ export class DriveRemote implements Remote {
       changed.push({ deviceId, text: await this.download(f.id) });
     }
     const cursor: Cursor = { token: startPageToken, files: seen, folders: all };
-    return { changed, removed: [], cursor: JSON.stringify(cursor), full: true };
+    return { changed, removed: [], cursor: JSON.stringify(cursor), full: true, ownMissing: this.ownFileId === null };
   }
 
   /** Only what changed since the cursor, or null when a full pull is needed instead. */
@@ -128,7 +137,12 @@ export class DriveRemote implements Remote {
           if (known) removedIds.add(c.fileId);
           continue;
         }
-        if (c.file && inFolder && deviceIdFromName(c.file.name)) changedIds.set(c.fileId, c.file);
+        if (c.file && inFolder && deviceIdFromName(c.file.name)) {
+          // A second file for a device already tracked (left in a duplicate folder) is ignored.
+          const id = deviceIdFromName(c.file.name) as string;
+          const tracked = Object.entries(cursor.files).find(([, d]) => d === id)?.[0];
+          if (tracked === undefined || tracked === c.fileId) changedIds.set(c.fileId, c.file);
+        }
       }
       if (body.newStartPageToken) {
         token = body.newStartPageToken;
@@ -139,10 +153,15 @@ export class DriveRemote implements Remote {
     }
     const files = { ...cursor.files };
     const removed: string[] = [];
+    let ownMissing = false;
     for (const id of removedIds) {
       const deviceId = files[id];
       delete files[id];
-      if (deviceId && deviceId !== ownDeviceId) removed.push(deviceId);
+      if (deviceId === ownDeviceId) {
+        // Our own file was trashed or deleted: forget its ID and upload a new one.
+        if (this.ownFileId === id || this.ownFileId === null) this.ownFileId = null;
+        ownMissing = true;
+      } else if (deviceId) removed.push(deviceId);
     }
     const changed: RemoteFile[] = [];
     for (const [id, f] of changedIds) {
@@ -152,7 +171,7 @@ export class DriveRemote implements Remote {
       changed.push({ deviceId, text: await this.download(id) });
     }
     const next: Cursor = { token, files, folders: cursor.folders };
-    return { changed, removed, cursor: JSON.stringify(next), full: false };
+    return { changed, removed, cursor: JSON.stringify(next), full: false, ownMissing };
   }
 
   private async deviceFiles(folders: string[]): Promise<DriveFile[]> {
@@ -214,7 +233,9 @@ export class DriveRemote implements Remote {
   /** Creates a file or folder; returns its ID. */
   private async create(metadata: Record<string, unknown>, content?: string): Promise<string> {
     let res: Response;
-    if (content === undefined) {
+    if (content !== undefined && byteLength(content) > SIMPLE_UPLOAD_MAX) {
+      res = await this.resumable(`${UPLOAD}/files`, "POST", metadata, content);
+    } else if (content === undefined) {
       res = await this.call(`${API}/files?fields=id`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(metadata) });
     } else {
       const boundary = `ccb${Math.random().toString(36).slice(2)}`;
@@ -234,7 +255,11 @@ export class DriveRemote implements Remote {
       const token = await this.auth.accessToken(attempt > 0);
       let res: Response;
       try {
-        res = await this.fetchImpl(url, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), authorization: `Bearer ${token}` } });
+        res = await this.fetchImpl(url, {
+          ...init,
+          headers: { ...(init.headers as Record<string, string> | undefined), authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
       } catch (error) {
         throw new OfflineError(`Google Drive is unreachable (${(error as Error).message}).`);
       }
@@ -243,6 +268,9 @@ export class DriveRemote implements Remote {
       const text = await res.text().catch(() => "");
       const reason = driveReason(text);
       if (res.status === 401) throw new AuthError("Google rejected the sign-in. Run ccb login to reconnect Google Drive.");
+      if (res.status === 403 && /insufficient(Permissions|Scopes|FilePermissions)?|ACCESS_TOKEN_SCOPE_INSUFFICIENT/.test(text)) {
+        throw new AuthError("Google Drive access wasn't granted. Run ccb login again and allow access to the files this app creates.");
+      }
       if (res.status === 429 || res.status >= 500 || (res.status === 403 && /rateLimit|RateLimit/.test(reason))) {
         throw new OfflineError(`Google Drive is busy (HTTP ${res.status}${reason ? `, ${reason}` : ""}); retrying.`);
       }
@@ -252,6 +280,23 @@ export class DriveRemote implements Remote {
       throw new Error(`Google Drive refused a request (HTTP ${res.status}${reason ? `, ${reason}` : ""}).`);
     }
   }
+
+  /** A resumable upload: start a session with the metadata, then send the content. */
+  private async resumable(url: string, method: "POST" | "PATCH", metadata: Record<string, unknown>, content: string, allow: number[] = []): Promise<Response> {
+    const start = await this.call(`${url}?uploadType=resumable&fields=id`, {
+      method,
+      headers: { "content-type": "application/json; charset=UTF-8", "x-upload-content-type": "application/json" },
+      body: JSON.stringify(metadata),
+    }, allow);
+    if (allow.includes(start.status)) return start;
+    const session = start.headers.get("location");
+    if (!session) throw new Error("Google Drive didn't start the upload (no upload address).");
+    return this.call(session, { method: "PUT", headers: { "content-type": "application/json" }, body: content });
+  }
+}
+
+function byteLength(text: string): number {
+  return Buffer.byteLength(text, "utf8");
 }
 
 function driveReason(text: string): string {

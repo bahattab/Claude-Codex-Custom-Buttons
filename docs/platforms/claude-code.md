@@ -31,7 +31,12 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 | `/pb <search>`, `/pb save <title>` | Open the Prompt Bank searching; save the prompt box's text as a prompt |
 | `/notes <text>` | Add the text to the open note, or start a new note |
 
-`insert-prompt` buttons open the Prompt Bank on their search or category; `open-pane` buttons open either pane. The sync status line, **Sync now** and per-note sync indicators arrive with sync in M5; the Settings tab in M8.
+| **Sync** button in the row | `Sync ✓ 12:04`, `Sync · 2 pending`, `Sync offline · 2 pending`, `Sync ⚠ sign in`, `Sync ⚠ 1 conflict`. Pressing it syncs now, or opens the Prompt Bank when something needs your attention there. Hidden when sync is off |
+| Prompt Bank sync section | The status and what's wrong. **Sync now**, and **Connect Google Drive** (or **Reconnect**) when signed out: it opens Google's sign-in in your browser and shows a link to it; sync starts once you finish. A conflict copy shows **Keep this**, **Keep other** and **Keep both** |
+| Notes sync | A dot marks notes changed here and not uploaded yet. A conflict copy shows the same three choices |
+| `/pb sync` | Sync now and say how it went |
+
+`insert-prompt` buttons open the Prompt Bank on their search or category; `open-pane` buttons open either pane. Opening either pane pulls other computers' changes at once. The Settings tab arrives in M8.
 
 ### How slash commands send their message
 
@@ -95,7 +100,7 @@ Claude Code starts it when the plugin is enabled. The mod asks `$.mcp.connect("c
 ```bash
 npm run build && npm run build:plugin     # compile packages, regenerate plugin files
 claude plugin validate plugins/claude     # manifest and hooks as the engine reads them
-claude plugin test plugins/claude         # 59 tests against the engine's test kit
+claude plugin test plugins/claude         # 69 tests against the engine's test kit
 claude plugin validate .                  # the marketplace
 claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 ```

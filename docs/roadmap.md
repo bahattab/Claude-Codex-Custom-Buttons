@@ -9,7 +9,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M2 | `ccb-mcp` server with local storage (prompts, buttons, variables, notes), plus `ccb` basics | **Done** (2026-11-10) | M1 |
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | **Done** (2026-11-10) | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
-| M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | In progress (M5a done) | M2 |
+| M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Done | M2 |
 | M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Planned | M2, M5 |
 | M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Planned | M2, M5 |
 | M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7 |
@@ -127,6 +127,25 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
   - 401 refresh, sign-out, 429/5xx, a disabled API, a deleted own file and an expired feed position;
   - the sign-in flow and the token-store commands.
 - **Not verified here (needs your computers):** a real Google account; the OS credential tools (G7); that two computers see each other's files with `drive.file` (G6). The two-computer check above covers these.
+
+**M5b result (2026-11-11):** done, except the hands-on checks.
+- Background service: `ccb sync --daemon`, `ccb service install|status|stop|uninstall` (systemd user unit, launchd agent, Task Scheduler with a hidden VBScript launcher), offered by `ccb login`; `--home`.
+- Claude Code plugin:
+  - a sync button in the row;
+  - a Prompt Bank sync section with **Sync now** and **Connect Google Drive** (sign-in from the pane through the new `sync_connect` tool);
+  - **Keep this / Keep other / Keep both** for conflict copies (`conflict_resolve` tool, core `resolveConflict`);
+  - a dot on notes not uploaded yet, and `/pb sync`;
+  - a pull when a pane opens.
+- The independent review of M5a found 3 critical and 4 major problems, all fixed with regression tests (undoing each fix fails its test):
+  - **Critical:** a new record was lost when another computer's clock ran ahead, or when its upload raced (D31);
+  - **Critical:** switching Google account could delete local data;
+  - **Major:** a trashed folder or own file was never uploaded again;
+  - **Major:** note-file edits weren't synced by the background engine;
+  - **Major:** `ccb login` changed settings before sign-in succeeded.
+
+  Most of the minor findings were fixed too: request timeouts, a missing Drive permission, uploads over 5 MB, the lock-timeout state, the weekly re-upload, and scrubbing the token from error messages.
+- Delivered in one pull request with M5a (D32).
+- **Hands-on still needed:** the service on each OS, and Connect from the Claude Desktop Code tab.
 
 ## M6: Codex plugin
 

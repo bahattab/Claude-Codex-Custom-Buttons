@@ -9,8 +9,9 @@ type TestOn = Parameters<TestBody>[1];
 // and labels, empty bodies, unknown note IDs; variable names normalised), plus the engine
 // calls the panes make.
 
-interface Prompt { id: string; title: string; body: string; category: string | null; tags: string[]; favorite: boolean; deleted: boolean; used: number }
-interface Note { id: string; title: string; body: string; pinned: boolean; updatedAt: string; deleted: boolean }
+interface Prompt { id: string; title: string; body: string; category: string | null; tags: string[]; favorite: boolean; deleted: boolean; used: number; conflictOf?: string | null }
+interface Note { id: string; title: string; body: string; pinned: boolean; updatedAt: string; deleted: boolean; conflictOf?: string | null }
+interface SyncSummary { state: string; line: string; pending: number; conflicts: number; message: string | null; pendingKeys: string[] }
 interface Fake {
   prompts: Prompt[];
   categories: Array<{ id: string; name: string }>;
@@ -27,6 +28,9 @@ interface Fake {
   clientStateCalls: () => number;
   /** Tools whose next call fails, once each. */
   failNext: string[];
+  /** Sync as the server reports it; null when the server runs without sync. */
+  sync: SyncSummary | null;
+  connect: { state: string; url: string | null; message: string | null } | null;
 }
 
 let seq = 0;
@@ -61,9 +65,11 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
     draft: opts.draft ?? "",
     clientStateCalls: () => f.calls.filter((c) => c.tool === "client_state").length,
     failNext: [],
+    sync: null,
+    connect: null,
   };
   const live = <T extends { deleted: boolean }>(xs: T[]) => xs.filter((x) => !x.deleted);
-  const summary = (p: Prompt) => ({ id: p.id, title: p.title, category: p.category, tags: p.tags, favorite: p.favorite, conflictOf: null, preview: p.body });
+  const summary = (p: Prompt) => ({ id: p.id, title: p.title, category: p.category, tags: p.tags, favorite: p.favorite, conflictOf: p.conflictOf ?? null, preview: p.body });
   const expand = (body: string) => {
     const unanswered: string[] = [];
     const text = body.replace(/\{\{(\?)?(\w+)\}\}/g, (m, ask: string | undefined, name: string) => {
@@ -85,7 +91,28 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
           settings: { regenerate: { autoSubmit: false, source: "auto" }, continue: { highlightOnTruncation: true }, buttons: { maxVisible: 6, showBuiltIns: true }, notes: { autosaveMs: 500 } },
           continueMessage: "Continue.",
           regenerateInstructions: null,
+          sync: f.sync,
         };
+      case "sync_now":
+      case "sync_status":
+        if (!f.sync) throw new Error("Sync isn't running in this server.");
+        return { ...f.sync, connect: f.connect };
+      case "sync_connect":
+        f.connect = { state: "waiting", url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=x", message: null };
+        return f.connect;
+      case "conflict_resolve": {
+        const list = (a["collection"] === "notes" ? f.notes : f.prompts) as Array<{ id: string; title: string; body: string; deleted: boolean; conflictOf?: string | null }>;
+        const copy = list.find((x) => x.id === a["copyId"] && !x.deleted && x.conflictOf);
+        if (!copy) throw new Error("not a conflict copy");
+        const original = list.find((x) => x.id === copy.conflictOf);
+        if (a["keep"] === "both") {
+          copy.conflictOf = null;
+          return { kept: { id: copy.id, title: copy.title } };
+        }
+        if (a["keep"] === "copy" && original) original.body = copy.body;
+        copy.deleted = true;
+        return { kept: { id: original?.id ?? copy.id, title: original?.title ?? copy.title } };
+      }
       case "library_status":
         return { counts: { prompts: live(f.prompts).length, favorites: live(f.prompts).filter((p) => p.favorite).length, categories: 1, variables: 1, buttons: f.buttons.length, notes: live(f.notes).length, conflicts: 0 } };
       case "bank_search": {
@@ -155,7 +182,7 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
         return {
           notes: live(f.notes)
             .sort((x, y) => Number(y.pinned) - Number(x.pinned) || Date.parse(y.updatedAt) - Date.parse(x.updatedAt))
-            .map((n) => ({ id: n.id, title: n.title, pinned: n.pinned, updatedAt: n.updatedAt, conflictOf: null, length: n.body.length })),
+            .map((n) => ({ id: n.id, title: n.title, pinned: n.pinned, updatedAt: n.updatedAt, conflictOf: n.conflictOf ?? null, length: n.body.length })),
         };
       case "notes_read": {
         const n = live(f.notes).find((x) => x.id === a["id"]);
@@ -854,3 +881,155 @@ test("the variable notice shows the name as saved (review #10)", async ($, on) =
   expect(f.variables["my_var"]).toBe("x");
   expect(await ui.find({ type: "Text", text: "Saved {{my_var}}." })).toBeDefined();
 });
+
+// --- M5b: sync in the row, the Prompt Bank and Notes ------------------------------------
+
+const SYNCED = { state: "idle", line: "Sync ✓ 12:04", pending: 0, conflicts: 0, message: null, pendingKeys: [] };
+
+test("the row shows the sync status; pressing it syncs now when all is well", async ($, on) => {
+  const f = fake(on);
+  f.sync = { ...SYNCED };
+  await start($);
+  const row = await $.ui.mount(ABOVE);
+  expect((await row.find({ key: "ccb-sync" }))?.props?.["label"]).toBe("Sync ✓ 12:04");
+  await row.press({ key: "ccb-sync" });
+  expect(f.calls.some((c) => c.tool === "sync_now")).toBe(true);
+  expect(f.toasts.join()).toContain("Sync ✓ 12:04");
+});
+
+test("no sync button when the server has no sync or sync is off", async ($, on) => {
+  const f = fake(on);
+  await start($);
+  let row = await $.ui.mount(ABOVE);
+  expect(await row.find({ key: "ccb-sync" })).toBeUndefined();
+  await row.unmount();
+  f.sync = { ...SYNCED, state: "off", line: "Sync off" };
+  await $.turn.complete({ turnId: "t", answer: "a", durationMs: 1, isAborted: false, reason: "answer" } as never);
+  row = await $.ui.mount(ABOVE);
+  expect(await row.find({ key: "ccb-sync" })).toBeUndefined();
+});
+
+test("signed out: the sync button opens the Prompt Bank, where Connect starts the sign-in and shows the link", async ($, on) => {
+  const clock = mock.clock(on);
+  const f = fake(on);
+  f.sync = { ...SYNCED, state: "signed-out", line: "Sync ⚠ sign in", message: "Not signed in to Google Drive." };
+  await start($);
+  const row = await $.ui.mount(ABOVE);
+  await row.press({ key: "ccb-sync" });
+  expect(f.opened).toEqual(["ccb-bank"]);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  expect(await ui.find({ type: "Text", text: "Sync ⚠ sign in" })).toBeDefined();
+  expect(await ui.find({ key: "ccb-sync-now" })).toBeUndefined();
+  await ui.press({ key: "ccb-connect" });
+  const link = await ui.find({ type: "Link" } as never); // a Link keeps no key in the drawing
+  expect(link?.props?.["href"]).toMatch(/^https:\/\/accounts\.google\.com\//);
+  expect(await ui.find({ key: "ccb-connect" })).toBeUndefined(); // waiting: no second sign-in
+
+  // The sign-in finishes in the browser; the pane notices by itself.
+  f.connect = { state: "done", url: null, message: "Connected." };
+  f.sync = { ...SYNCED };
+  await clock.advance(3000);
+  await clock.settle();
+  expect(await ui.find({ type: "Link" } as never)).toBeUndefined();
+  expect(await ui.find({ type: "Text", text: "Connected." })).toBeDefined();
+  expect(await ui.find({ key: "ccb-sync-now" })).toBeDefined();
+});
+
+test("Sync now in the Prompt Bank, and /pb sync, report the outcome", async ($, on) => {
+  const f = fake(on);
+  f.sync = { ...SYNCED, state: "offline", line: "Sync offline · 2 pending", pending: 2, message: "Google Drive is unreachable." };
+  await start($);
+  await $.command.run({ command: "pb", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  expect(await ui.find({ type: "Text", text: "Google Drive is unreachable." })).toBeDefined();
+  await ui.press({ key: "ccb-sync-now" });
+  expect(await ui.find({ type: "Text", text: "Sync offline · 2 pending: Google Drive is unreachable." })).toBeDefined();
+  const r = await $.command.run({ command: "pb", args: "sync" } as never);
+  expect((r as { text?: string }).text).toBe("Sync offline · 2 pending: Google Drive is unreachable.");
+});
+
+test("/pb sync without sync running explains it", async ($, on) => {
+  fake(on);
+  await start($);
+  const r = await $.command.run({ command: "pb", args: "sync" } as never);
+  expect((r as { text?: string }).text).toMatch(/Couldn't sync: Sync isn't running/);
+});
+
+test("opening a pane pulls other computers' changes right away", async ($, on) => {
+  const clock = mock.clock(on);
+  const f = fake(on);
+  f.sync = { ...SYNCED };
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  await clock.settle();
+  expect(f.calls.filter((c) => c.tool === "sync_now")).toHaveLength(1);
+  await $.command.run({ command: "pb", args: "" } as never);
+  await clock.settle();
+  expect(f.calls.filter((c) => c.tool === "sync_now")).toHaveLength(2);
+});
+
+test("a conflict copy of a prompt offers Keep this, Keep other and Keep both", async ($, on) => {
+  const f = fake(on);
+  f.sync = { ...SYNCED, line: "Sync ⚠ 1 conflict", conflicts: 1 };
+  f.prompts.push({ id: "p_poem_c", title: "Write a poem (conflict)", body: "Write a long poem", category: null, tags: [], favorite: false, deleted: false, used: 0, conflictOf: "p_poem" });
+  await start($);
+  const row = await $.ui.mount(ABOVE);
+  expect((await row.find({ key: "ccb-sync" }))?.props?.["variant"]).toBe("primary");
+  await row.press({ key: "ccb-sync" }); // a conflict to resolve: opens the Prompt Bank
+  const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
+  expect(await ui.find({ key: "ccb-keep-copy-p_poem" })).toBeUndefined();
+  await ui.press({ key: "ccb-keep-copy-p_poem_c" });
+  expect(f.prompts.find((p) => p.id === "p_poem")?.body).toBe("Write a long poem");
+  expect(f.prompts.find((p) => p.id === "p_poem_c")?.deleted).toBe(true);
+  expect(await ui.find({ key: "ccb-keep-copy-p_poem_c" })).toBeUndefined();
+  expect(await ui.find({ type: "Text", text: 'Kept one version of "Write a poem".' })).toBeDefined();
+});
+
+test("a conflict copy of a note offers the same choice; Keep both makes it an ordinary note", async ($, on) => {
+  const f = fake(on);
+  f.sync = { ...SYNCED, conflicts: 1, line: "Sync ⚠ 1 conflict" };
+  f.notes.push({ id: "n_b_c", title: "Todo (conflict)", body: "Todo\nother", pinned: false, updatedAt: stamp(), deleted: false, conflictOf: "n_b" });
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  expect(await ui.find({ key: "ccb-note-keep-both" })).toBeUndefined(); // the original (pinned, open first) has no choice
+  await ui.press({ key: "ccb-note-n_b_c" });
+  expect((await ui.find({ key: "ccb-note-n_b_c" }))?.props?.["label"]).toBe("Todo (conflict)");
+  await ui.press({ key: "ccb-note-keep-both" });
+  expect(f.notes.find((n) => n.id === "n_b_c")?.conflictOf).toBeNull();
+  expect(await ui.find({ type: "Text", text: 'Kept both versions of "Todo (conflict)".' })).toBeDefined();
+});
+
+test("Keep other on a note copy keeps the original's text and opens it", async ($, on) => {
+  const f = fake(on);
+  f.sync = { ...SYNCED, conflicts: 1 };
+  f.notes.push({ id: "n_a_c", title: "Ideas (conflict)", body: "Ideas\nother", pinned: false, updatedAt: stamp(), deleted: false, conflictOf: "n_a" });
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  await ui.press({ key: "ccb-note-n_a_c" });
+  await ui.press({ key: "ccb-note-keep-original" });
+  expect(f.notes.find((n) => n.id === "n_a_c")?.deleted).toBe(true);
+  expect(f.notes.find((n) => n.id === "n_a")?.body).toBe("Ideas\nfirst idea");
+  expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Ideas\nfirst idea");
+});
+
+test("notes changed here and not uploaded yet are marked with a dot", async ($, on) => {
+  const f = fake(on);
+  f.sync = { ...SYNCED, state: "offline", line: "Sync offline · 1 pending", pending: 1, pendingKeys: ["notes/n_a"] };
+  await start($);
+  await $.command.run({ command: "notes", args: "" } as never);
+  for (const surface of ["terminal", "desktop"] as const) {
+    const ui = await $.ui.mount(PANE(surface, "ccb-notes"));
+    expect((await ui.find({ key: "ccb-note-n_a" }))?.props?.["label"]).toBe("• Ideas");
+    expect((await ui.find({ key: "ccb-note-n_b" }))?.props?.["label"]).toBe("* Todo");
+    expect(await ui.find({ type: "Text", text: "Sync offline · 1 pending · • not uploaded yet" })).toBeDefined();
+    await ui.unmount();
+  }
+  // Before sync is set up, nothing is marked.
+  f.sync = { ...SYNCED, state: "not-set-up", line: "Sync not set up", pendingKeys: ["notes/n_a"] };
+  await $.turn.complete({ turnId: "t", answer: "a", durationMs: 1, isAborted: false, reason: "answer" } as never);
+  const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
+  expect((await ui.find({ key: "ccb-note-n_a" }))?.props?.["label"]).toBe("Ideas");
+});
+

@@ -16,6 +16,8 @@ export interface PullResult {
   cursor: string | null;
   /** True when `changed` is every device file, so files not listed no longer exist. */
   full: boolean;
+  /** True when this device's own file isn't there (deleted, trashed, or its folder is new): upload it again. */
+  ownMissing?: boolean;
 }
 
 export interface Remote {

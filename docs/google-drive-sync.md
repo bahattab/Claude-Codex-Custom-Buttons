@@ -34,7 +34,8 @@ Inside Claude Code and Codex, `ccb-mcp` syncs while the session is open. So that
 | Linux | A `systemd --user` service |
 
 - It runs as you, with no administrator rights, and uses the same token and lock file as `ccb-mcp`, so only one process pushes at a time.
-- `ccb login` asks once ("Keep syncing in the background? [Y/n]", default yes). `ccb service status`, `ccb service stop` and `ccb service uninstall` control it later.
+- `ccb login` asks once ("Keep syncing in the background? [Y/n]", default yes; `--service` or `--no-service` answers in advance; without a terminal it only prints the command). `ccb service install`, `ccb service status`, `ccb service stop` and `ccb service uninstall` control it later.
+- The service runs `ccb sync --daemon --home <data folder>`. On Windows a small VBScript in the data folder starts it without a console window. Run `ccb` from a stable install (not a temporary `npx` cache) before installing the service, because the service remembers the path it was installed from.
 - Without it, sync is still automatic whenever Claude Code, Codex or the Claude Desktop extension is running.
 
 ### First-time sign-in
@@ -107,6 +108,13 @@ A pull happens:
 
 A pull uses Drive's change feed (`changes.list` from a saved start-page token) to find which device files changed and downloads only those into `sync-cache/`. The merge then uses **every** device file (the merge's tombstone rules need them all). If the merge changes the local library, this device's own file is pushed again so every device converges. A run (pull, merge, push) holds `.sync.lock`, so two processes on one computer never upload an older view after a newer one (decision D30).
 
+### Signing in to another account, or a folder that disappears
+
+- Each sign-in gets its own sync state. Signing in to another Google account starts over: nothing is inferred deleted, and this computer's data is uploaded to the new account.
+- If this computer's file, or the whole folder, is deleted or trashed in Drive, the next sync creates it again and uploads.
+- Libraries over 4 MB are uploaded with Drive's resumable upload.
+- A computer with no changes still uploads its file once a week, so other devices don't take it for gone after 180 days.
+
 ### Finding the folder
 
 With the `drive.file` scope the app sees only the files it created. It looks for `My Drive/Claude Codex Buttons/devices/` and creates it (with a README) if missing. If two computers sign in at the same moment and each creates the folder, every computer writes into the oldest folder and reads from all of them, so they still find each other; a change to these folders makes the next pull list everything again.
@@ -133,7 +141,7 @@ Versions that don't replace each other were edited **concurrently** (on two PCs 
 | Concurrent edits to a **category, variable, button or shared setting** | Latest `updatedAt` wins; no copy (these are small settings) |
 | A deletion and an edit made after it | The edit wins (the record comes back); nothing else is kept |
 | A deletion made after a concurrent edit | Deleted, and the edit is kept as a conflict copy so nothing is lost |
-| Record present locally, unchanged since this device's last sync, and absent from every device file that synced after that | Treated as deleted (its tombstone was already cleaned up elsewhere) |
+| Record present locally, unchanged since this device's last sync, and dropped from a device file that held it at the last sync | Treated as deleted (that device's tombstone was already cleaned up). Never inferred from clocks, so a new record can't be lost to a device whose clock runs ahead or whose upload raced with it (decision D31) |
 | `useCount`, `lastUsedAt` | Largest value wins; never a conflict |
 
 ### Conflict copies
@@ -142,7 +150,7 @@ When two devices edited the same prompt or note concurrently, the losing version
 
 - its ID is derived from the original ID plus the losing version's `updatedAt` and device, so every device creates the **same** copy and duplicates never multiply;
 - its title gets " (conflict)" and `conflictOf` points to the original;
-- the Prompt Bank or Notes pane shows a ⚠ badge with **Keep this**, **Keep other** and **Keep both**.
+- the Prompt Bank and the Notes pane show the copy with **Keep this** (its text replaces the original), **Keep other** (the copy goes) and **Keep both** (the copy becomes an ordinary prompt or note); the sync button shows `Sync ⚠ 1 conflict` until it's settled. The choice syncs to every device like any edit.
 
 For notes, this means two PCs editing the same note offline both keep their text: the newer one stays as the note and the other appears beside it as a conflict copy to merge.
 

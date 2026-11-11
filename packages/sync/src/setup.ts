@@ -2,7 +2,7 @@
 // ccb-mcp (which syncs while a session is open) and the ccb command.
 import { join } from "node:path";
 
-import type { Library } from "@ccb/core";
+import { hash, type Library } from "@ccb/core";
 import { readText, writeFileAtomic, type LibraryStore } from "@ccb/store";
 
 import { DriveRemote, type Fetch } from "./drive.js";
@@ -29,10 +29,10 @@ export async function saveClient(home: string, client: GoogleClient): Promise<vo
   await writeFileAtomic(clientPath(home), `${JSON.stringify(client, null, 2)}\n`, 0o600);
 }
 
-/** The Google client: the saved copy, else the file named by google.clientFile. */
+/** The Google client: the file named by google.clientFile when it can be read, else the copy ccb login saved. */
 export async function loadClient(home: string, library: Library): Promise<GoogleClient | { missing: string }> {
-  const saved = await readText(clientPath(home));
-  const text = saved ?? (library.settings.google.clientFile ? await readText(library.settings.google.clientFile) : null);
+  const named = library.settings.google.clientFile ? await readText(library.settings.google.clientFile) : null;
+  const text = named ?? (await readText(clientPath(home)));
   if (text === null) {
     return {
       missing: library.settings.google.clientFile
@@ -82,9 +82,11 @@ export function remoteProvider(opts: SetupOptions): RemoteProvider {
       return { state: "no-credential-store", reason: (error as Error).message };
     }
     if (!token) return { state: "signed-out", reason: "Not signed in to Google Drive. Run ccb login (or press Connect Google Drive)." };
-    const key = `drive:${client.clientId}:${s.driveFolderName}:${library.settings.google.tokenStore}`;
+    // A new sign-in (perhaps another Google account) gets a new remote and fresh sync state.
+    const account = hash(`${client.clientId}\n${token}`).slice(0, 12);
+    const key = `drive:${s.driveFolderName}:${library.settings.google.tokenStore}:${account}`;
     if (cached?.key !== key) {
-      cached = { key, remote: new DriveRemote(new GoogleAuth(client, store, opts.fetch ?? fetch), s.driveFolderName, opts.fetch ?? fetch) };
+      cached = { key, remote: new DriveRemote(new GoogleAuth(client, store, opts.fetch ?? fetch), s.driveFolderName, opts.fetch ?? fetch, account) };
     }
     return cached.remote;
   };

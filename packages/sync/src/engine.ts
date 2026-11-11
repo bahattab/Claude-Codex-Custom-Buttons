@@ -17,7 +17,7 @@ import {
   type SyncBase,
   type SyncedData,
 } from "@ccb/core";
-import { readText, withLock, writeFileAtomic, type LibraryStore } from "@ccb/store";
+import { LockTimeoutError, readText, withLock, writeFileAtomic, type LibraryStore } from "@ccb/store";
 
 import { AuthError, OfflineError, type Remote } from "./remote.js";
 
@@ -38,6 +38,8 @@ export interface SyncStatus {
   state: SyncState;
   /** Records changed here since the last upload. */
   pending: number;
+  /** Which records are pending, as "collection/id" (at most 500), for per-note indicators. */
+  pendingKeys: string[];
   /** Conflict copies waiting to be resolved. */
   conflicts: number;
   lastPullAt: Iso | null;
@@ -112,8 +114,10 @@ export interface EngineOptions {
   store: LibraryStore;
   remote: RemoteProvider;
   scheduler?: Scheduler;
-  /** Called after every run with the new status (for logs or a status line). */
-  onStatus?: (status: SyncStatus) => void;
+  /** How long to wait for another process's sync on this computer (default 2 minutes). */
+  lockTimeoutMs?: number;
+  /** Called after every run with the new status; `merged` is true when other devices' changes came in. */
+  onStatus?: (status: SyncStatus, info: { merged: boolean }) => void;
 }
 
 function pickData(library: SyncedData): SyncedData {
@@ -133,13 +137,17 @@ function hashes(data: SyncedData): Record<string, string> {
   return out;
 }
 
-function countPending(data: SyncedData, pushed: Record<string, string> | null): number {
+function pendingKeys(data: SyncedData, pushed: Record<string, string> | null): string[] {
   const now = hashes(data);
-  if (pushed === null) return Object.keys(now).length;
-  let n = 0;
-  for (const [k, h] of Object.entries(now)) if (pushed[k] !== h) n++;
-  for (const k of Object.keys(pushed)) if (!(k in now)) n++;
-  return n;
+  if (pushed === null) return Object.keys(now);
+  const out: string[] = [];
+  for (const [k, h] of Object.entries(now)) if (pushed[k] !== h) out.push(k);
+  for (const k of Object.keys(pushed)) if (!(k in now)) out.push(k);
+  return out;
+}
+
+function countPending(data: SyncedData, pushed: Record<string, string> | null): number {
+  return pendingKeys(data, pushed).length;
 }
 
 function countConflicts(data: SyncedData): number {
@@ -156,7 +164,9 @@ export class SyncEngine {
   private readonly store: LibraryStore;
   private readonly provider: RemoteProvider;
   private readonly clock: Scheduler;
-  private readonly onStatus: ((s: SyncStatus) => void) | undefined;
+  private readonly onStatus: ((s: SyncStatus, info: { merged: boolean }) => void) | undefined;
+  private merged = false;
+  private readonly lockTimeoutMs: number;
   private readonly statePath: string;
   private readonly cacheDir: string;
   private readonly lockPath: string;
@@ -175,6 +185,7 @@ export class SyncEngine {
     this.provider = opts.remote;
     this.clock = opts.scheduler ?? realScheduler;
     this.onStatus = opts.onStatus;
+    this.lockTimeoutMs = opts.lockTimeoutMs ?? 120_000;
     this.statePath = join(this.store.paths.home, "sync-state.json");
     this.cacheDir = join(this.store.paths.home, "sync-cache");
     this.lockPath = join(this.store.paths.home, ".sync.lock");
@@ -189,6 +200,7 @@ export class SyncEngine {
 
   stop(): void {
     this.started = false;
+    this.again = false; // no follow-up run after stopping
     for (const t of [this.pushTimer, this.pullTimer, this.retryTimer]) if (t !== null) this.clock.clearTimeout(t);
     this.pushTimer = this.pullTimer = this.retryTimer = null;
   }
@@ -248,13 +260,16 @@ export class SyncEngine {
   /** One pull-merge-push, holding the sync lock so this computer's processes take turns. */
   private async once(): Promise<SyncStatus> {
     let status: SyncStatus;
+    this.merged = false;
     try {
-      status = await withLock(this.lockPath, () => this.onceLocked(), { timeoutMs: 120_000 });
+      status = await withLock(this.lockPath, () => this.onceLocked(), { timeoutMs: this.lockTimeoutMs });
     } catch (error) {
-      status = await this.record({ state: "error", message: message(error) });
+      // Another process on this computer is still syncing: leave its state alone.
+      if (error instanceof LockTimeoutError) status = { ...(await this.status()), state: "syncing" };
+      else status = await this.record({ state: "error", message: message(error) });
     }
     this.schedule(status);
-    this.onStatus?.(status);
+    this.onStatus?.(status, { merged: this.merged });
     return status;
   }
 
@@ -262,6 +277,8 @@ export class SyncEngine {
     const { library } = await this.store.read();
     if (!library) return this.record({ state: "error", message: "The library is from a newer version; update the plugin." });
     this.noteDelays(library);
+    // Notes edited in their Markdown files (in another editor) sync like any other edit.
+    await this.store.importNoteEdits();
     const remote = await this.provider(library);
     if (!("pull" in remote)) return this.record({ state: remote.state, message: "reason" in remote ? remote.reason : null });
 
@@ -303,7 +320,12 @@ export class SyncEngine {
         if (!(error instanceof NoChange)) throw error;
       }
       const merged = result as ReturnType<typeof merge> | null;
-      if (merged) state.base = merged.base;
+      if (merged) {
+        state.base = merged.base;
+        this.merged = merged.changed;
+      }
+      // Our own file is gone (deleted or trashed in Drive, or the folder is new): upload it again.
+      if (pulled.ownMissing) state.pushed = null;
       state.cursor = pulled.cursor;
       state.lastPullAt = now;
       state.devices = remotes.map((r) => ({ deviceId: r.deviceId, deviceName: r.deviceName, syncedAt: r.syncedAt }));
@@ -315,7 +337,10 @@ export class SyncEngine {
       const after = (await this.store.read()).library ?? library;
       const data = pickData(after);
       const current = hashes(data);
-      const unchanged = state.pushed !== null && countPending(data, state.pushed) === 0;
+      // Re-upload at least weekly even with no changes, so other devices don't take this
+      // one for stale (unseen for 180 days) while it is still in use.
+      const recent = state.lastPushAt !== null && Date.parse(now) - Date.parse(state.lastPushAt) < 7 * 24 * 3600_000;
+      const unchanged = state.pushed !== null && countPending(data, state.pushed) === 0 && recent;
       if (!unchanged) {
         const file = toDeviceFile(data, { deviceId: device.deviceId, deviceName: device.deviceName.slice(0, 60) || "Computer", now });
         await remote.push(device.deviceId, `${JSON.stringify(file)}\n`);
@@ -410,6 +435,7 @@ export class SyncEngine {
       mode: library?.settings.sync.mode ?? "off",
       state: outcome.state,
       pending: library ? countPending(pickData(library), state.pushed) : 0,
+      pendingKeys: library ? pendingKeys(pickData(library), state.pushed).slice(0, 500) : [],
       conflicts: library ? countConflicts(library) : 0,
       lastPullAt: state.lastPullAt,
       lastPushAt: state.lastPushAt,

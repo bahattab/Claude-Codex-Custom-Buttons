@@ -2,6 +2,8 @@
 // run() is separate from bin.ts so tests can call it in-process.
 import { constants as fsConstants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
+import { homedir, userInfo } from "node:os";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
   COLLECTIONS,
@@ -26,6 +28,7 @@ import { LibraryStore, exists, lockIsHeld, noteFileName, readText, writeFileAtom
 import {
   SyncEngine,
   formatStatus,
+  statusLine as statusLineOf,
   loadClient,
   login,
   logout,
@@ -37,7 +40,10 @@ import {
   type Scheduler,
   type SetupOptions,
   type SyncStatus,
+  runCommand,
+  type CommandRunner,
 } from "@ccb/sync";
+import { installService, serviceStatus, stopService, uninstallService, type ServiceContext } from "./service.js";
 
 export const CLI_VERSION = "0.1.0";
 export const EXPORT_FORMAT = "ccb-export/1";
@@ -50,6 +56,12 @@ export interface Io {
   store?: StoreOptions;
   /** For tests: how sync reaches Google and the OS, and the browser. */
   sync?: Omit<SetupOptions, "home"> & { openBrowser?: (url: string) => void | Promise<void>; scheduler?: Scheduler };
+  /** For tests: the background service's platform, paths and command runner. */
+  service?: Partial<Omit<ServiceContext, "dataHome">> & { run?: CommandRunner };
+  /** Asks a yes/no question; absent when not interactive (no terminal). */
+  ask?: (question: string) => Promise<string>;
+  /** For tests: resolves to stop `sync --daemon`. */
+  daemonUntil?: Promise<void>;
 }
 
 const HELP = `ccb ${CLI_VERSION} — Claude Codex Custom Buttons
@@ -60,15 +72,18 @@ Usage:
   ccb config set <key> <value>    Change a setting (use "null" to clear)
   ccb export [file]               Export prompts, buttons, variables and notes as JSON
   ccb import <file>               Merge an export, a device file or a library.json
-  ccb login [--client <file>]     Sign in to Google Drive (opens the browser); --no-browser only prints the link
+  ccb login [--client <file>]     Sign in to Google Drive (opens the browser); --no-browser only prints the link;
+                                  --service / --no-service: keep syncing in the background (asked otherwise)
   ccb logout                      Sign out of Google Drive and revoke the sign-in
   ccb sync                        Sync now (sync is automatic; this only forces it)
-  ccb status                      Show the sync status
+  ccb sync --daemon               Keep syncing until stopped (what the background service runs)
+  ccb status                      Show the sync status and the background service
+  ccb service install|status|stop|uninstall
+                                  The background sync service that starts when you log in
   ccb doctor                      Check the local data folder and sync, repair what it safely can, and explain any problems
   ccb --version | --help
 
-Data folder: $CCB_HOME, or ~/.claude-codex-buttons
-The background sync service (ccb service) arrives in a later release.`;
+Data folder: --home <dir>, $CCB_HOME, or ~/.claude-codex-buttons`;
 
 class UsageError extends Error {}
 
@@ -323,7 +338,7 @@ function printStatus(status: SyncStatus, io: Io): void {
   for (const line of formatStatus(status)) io.out(line);
 }
 
-async function loginCmd(store: LibraryStore, values: { client?: string; "no-browser"?: boolean }, io: Io): Promise<number> {
+async function loginCmd(store: LibraryStore, values: { client?: string; "no-browser"?: boolean; service?: boolean; "no-service"?: boolean }, io: Io): Promise<number> {
   const library = await readLibrary(store);
   let client;
   if (values.client) {
@@ -340,11 +355,6 @@ async function loginCmd(store: LibraryStore, values: { client?: string; "no-brow
     io.err(tokens.unavailable);
     return 1;
   }
-  await saveClient(store.paths.home, client);
-  if (library.settings.sync.mode !== "drive-api") {
-    await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, mode: "drive-api" } } }));
-    io.out("Sync mode set to drive-api.");
-  }
   io.out("Opening Google sign-in in your browser. If it doesn't open, visit:");
   await login({
     client,
@@ -353,9 +363,111 @@ async function loginCmd(store: LibraryStore, values: { client?: string; "no-brow
     ...(values["no-browser"] ? { openBrowser: () => undefined } : io.sync?.openBrowser ? { openBrowser: io.sync.openBrowser } : {}),
     onUrl: (url) => io.out(url),
   });
+  // Only now that sign-in worked: keep the client and switch to Drive API sync.
+  await saveClient(store.paths.home, client);
+  if (library.settings.sync.mode !== "drive-api") {
+    await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, mode: "drive-api" } } }));
+    io.out("Sync mode set to drive-api.");
+  }
   io.out(`Signed in. The sign-in is kept in: ${tokens.name}.`);
   const status = await engineFor(store, io).syncNow();
   printStatus(status, io);
+  await offerService(store, values, io);
+  return 0;
+}
+
+// --- background service ---------------------------------------------------------------
+
+function serviceContext(store: LibraryStore, io: Io): ServiceContext {
+  const s = io.service ?? {};
+  return {
+    platform: s.platform ?? process.platform,
+    userHome: s.userHome ?? homedir(),
+    dataHome: store.paths.home,
+    node: s.node ?? process.execPath,
+    script: s.script ?? fileURLToPath(new URL("./bin.js", import.meta.url)),
+    uid: s.uid ?? (typeof process.getuid === "function" ? process.getuid() : userInfo().uid),
+  };
+}
+
+const serviceRun = (io: Io): CommandRunner => io.service?.run ?? runCommand;
+
+async function offerService(store: LibraryStore, values: { service?: boolean; "no-service"?: boolean }, io: Io): Promise<void> {
+  const library = await readLibrary(store);
+  if (values["no-service"] || (!values.service && !library.settings.sync.backgroundService)) return;
+  let yes = values.service === true;
+  if (!yes) {
+    if (!io.ask) {
+      io.out("To keep syncing when Claude Code and Codex are closed, run: ccb service install");
+      return;
+    }
+    const answer = (await io.ask("Keep syncing in the background, also when Claude Code and Codex are closed? [Y/n] ")).trim().toLowerCase();
+    yes = answer === "" || answer === "y" || answer === "yes";
+  }
+  if (!yes) {
+    await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, backgroundService: false } } }));
+    io.out("No background service. Sync still runs while Claude Code or Codex is open; ccb service install adds it later.");
+    return;
+  }
+  try {
+    const plan = await installService(serviceContext(store, io), serviceRun(io));
+    io.out(`Background sync installed (${plan.kind}); it starts when you log in.`);
+  } catch (error) {
+    io.err(`The background service wasn't installed: ${(error as Error).message}`);
+  }
+}
+
+async function serviceCmd(store: LibraryStore, args: string[], io: Io): Promise<number> {
+  const ctx = serviceContext(store, io);
+  const run = serviceRun(io);
+  switch (args[0]) {
+    case "install": {
+      const plan = await installService(ctx, run);
+      await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, backgroundService: true } } }));
+      io.out(`Background sync installed (${plan.kind}); it starts when you log in and is running now.`);
+      return 0;
+    }
+    case "status":
+      io.out(`Background sync service: ${await serviceStatus(ctx, run)}`);
+      return 0;
+    case "stop":
+      await stopService(ctx, run);
+      io.out("Background sync stopped until you next log in. ccb service uninstall removes it.");
+      return 0;
+    case "uninstall":
+      await uninstallService(ctx, run);
+      await store.update((lib) => ({ ...lib, settings: { ...lib.settings, sync: { ...lib.settings.sync, backgroundService: false } } }));
+      io.out("Background sync removed. Sync still runs while Claude Code or Codex is open.");
+      return 0;
+    default:
+      throw new UsageError("Usage: ccb service install|status|stop|uninstall");
+  }
+}
+
+/** Keeps syncing until stopped: what the background service runs. */
+async function daemon(store: LibraryStore, io: Io): Promise<number> {
+  let last = "";
+  const engine = new SyncEngine({
+    store,
+    remote: remoteProvider(setup(store, io)),
+    ...(io.sync?.scheduler ? { scheduler: io.sync.scheduler } : {}),
+    onStatus: (s) => {
+      const line = statusLineOf(s);
+      if (line !== last) io.err(`${new Date().toISOString()} ${line}${s.message ? ` (${s.message})` : ""}`);
+      last = line;
+    },
+  });
+  engine.start();
+  const keepAlive = setInterval(() => undefined, 60_000);
+  await new Promise<void>((resolve) => {
+    const stop = (): void => resolve();
+    process.once("SIGTERM", stop);
+    process.once("SIGINT", stop);
+    void io.daemonUntil?.then(stop);
+  });
+  clearInterval(keepAlive);
+  engine.stop();
+  await engine.idle();
   return 0;
 }
 
@@ -371,7 +483,8 @@ async function logoutCmd(store: LibraryStore, io: Io): Promise<number> {
   return 0;
 }
 
-async function syncCmd(store: LibraryStore, io: Io): Promise<number> {
+async function syncCmd(store: LibraryStore, values: { daemon?: boolean }, io: Io): Promise<number> {
+  if (values.daemon) return daemon(store, io);
   const status = await engineFor(store, io).syncNow();
   printStatus(status, io);
   return status.state === "idle" || status.state === "off" ? 0 : 1;
@@ -379,6 +492,7 @@ async function syncCmd(store: LibraryStore, io: Io): Promise<number> {
 
 async function statusCmd(store: LibraryStore, io: Io): Promise<number> {
   printStatus(await engineFor(store, io).status(), io);
+  io.out(`Background sync service: ${await serviceStatus(serviceContext(store, io), serviceRun(io))}`);
   return 0;
 }
 
@@ -420,7 +534,16 @@ export async function run(argv: string[], io: Io): Promise<number> {
       args: argv,
       allowPositionals: true,
       strict: true,
-      options: { help: { type: "boolean", short: "h" }, version: { type: "boolean", short: "v" }, client: { type: "string" }, "no-browser": { type: "boolean" } },
+      options: {
+        help: { type: "boolean", short: "h" },
+        version: { type: "boolean", short: "v" },
+        home: { type: "string" },
+        client: { type: "string" },
+        "no-browser": { type: "boolean" },
+        service: { type: "boolean" },
+        "no-service": { type: "boolean" },
+        daemon: { type: "boolean" },
+      },
     });
   } catch (error) {
     io.err((error as Error).message);
@@ -436,7 +559,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
     io.out(HELP);
     return 0;
   }
-  const store = new LibraryStore({ ...(io.env["CCB_HOME"] ? { home: io.env["CCB_HOME"] } : {}), ...io.store });
+  const home = parsed.values.home ?? io.env["CCB_HOME"];
+  const store = new LibraryStore({ ...(home ? { home } : {}), ...io.store });
   try {
     switch (command) {
       case "config":
@@ -452,7 +576,9 @@ export async function run(argv: string[], io: Io): Promise<number> {
       case "logout":
         return await logoutCmd(store, io);
       case "sync":
-        return await syncCmd(store, io);
+        return await syncCmd(store, parsed.values, io);
+      case "service":
+        return await serviceCmd(store, rest, io);
       case "status":
         return await statusCmd(store, io);
       default:

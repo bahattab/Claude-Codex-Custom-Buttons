@@ -145,3 +145,24 @@ describe("without a credential store", () => {
     expect((await ccb(["doctor"], broken)).out).toMatch(/keychain locked/);
   });
 });
+
+describe("a cancelled login changes nothing (review M4)", () => {
+  it("keeps the sync mode and saves no client when sign-in is refused", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "ccb-cli-keep-"));
+    try {
+      await ccb(["config", "set", "sync.mode", "drive-folder"]);
+      await ccb(["config", "set", "sync.folderPath", folder]);
+      await ccb(["config", "set", "google.tokenStore", "file"]);
+      const refuse = async (href: string): Promise<void> => {
+        const a = new URL(href);
+        await fetch(`${a.searchParams.get("redirect_uri")}/?error=access_denied&state=${a.searchParams.get("state")}`);
+      };
+      const res = await ccb(["login", "--client", clientFile], { openBrowser: refuse });
+      expect(res.code).toBe(1);
+      expect((await ccb(["config", "get", "sync.mode"])).out).toBe('"drive-folder"');
+      await expect(stat(join(home, "google-client.json"))).rejects.toThrow();
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+});

@@ -41,6 +41,14 @@ export declare function saveNote(library: Library, input: NoteInput, ctx: EditCo
 /** Appends text to a note on a new line. */
 export declare function appendNote(library: Library, id: string, text: string, ctx: EditContext, random: () => number): OpResult<Note>;
 export declare const deleteNote: (library: Library, id: string, ctx: EditContext) => OpResult<Note>;
+/**
+ * Settles a conflict copy (made when two devices edited a prompt or note at once):
+ *   "original"  keep the note or prompt as it is; the copy is deleted
+ *   "copy"      the copy's text replaces the original; the copy is deleted
+ *   "both"      keep both: the copy becomes an ordinary prompt or note
+ * Returns the record that remains (the original, or the copy for "both").
+ */
+export declare function resolveConflict(library: Library, collection: "prompts" | "notes", copyId: string, keep: "original" | "copy" | "both", ctx: EditContext): OpResult<Prompt | Note>;
 export declare function setSharedSetting(library: Library, id: SharedSettingId, value: string | null, ctx: EditContext): OpResult<SharedSetting>;
 /** The value of a shared setting, or null when it uses the built-in default. */
 export declare function sharedSetting(library: Library, id: SharedSettingId): string | null;

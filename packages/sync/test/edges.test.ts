@@ -38,6 +38,7 @@ const base: SyncStatus = {
   mode: "drive-api",
   state: "idle",
   pending: 0,
+  pendingKeys: [],
   conflicts: 0,
   lastPullAt: "2026-11-11T09:00:00.000Z",
   lastPushAt: null,
@@ -255,5 +256,65 @@ describe("Drive and sign-in edges", () => {
     const store = { name: "m", get: async () => "1//tokenvalue", set: async () => undefined, delete: async () => undefined };
     const auth = new GoogleAuth({ clientId: "a", clientSecret: "b" }, store, async () => new Response("not json", { status: 400 }));
     await expect(auth.accessToken()).rejects.toBeInstanceOf(AuthError);
+  });
+});
+
+describe("review fixes (M5a), continued", () => {
+  it("a tool error that echoes the token never shows it", async () => {
+    const echo: CommandRunner = async (_c, _a, opts) => ({ code: 1, stdout: "", stderr: `failed: ${opts?.input ?? ""}` });
+    const err = await new SecretToolStore(echo).set("1//secret-token-value").catch((e: Error) => e);
+    expect(String(err)).not.toContain("1//secret-token-value");
+    expect(String(err)).toContain("***");
+  });
+
+  it("login refuses a sign-in where Drive access wasn't ticked", async () => {
+    const { login, SCOPE } = await import("@ccb/sync");
+    void SCOPE;
+    let stored = false;
+    const store = { name: "m", get: async () => null, set: async () => void (stored = true), delete: async () => undefined };
+    await expect(
+      login({
+        client: { clientId: "a", clientSecret: "b" },
+        store,
+        fetch: async () => Response.json({ access_token: "x", refresh_token: "1//abcdefghij", scope: "openid email" }),
+        openBrowser: async (href) => {
+          const u = new URL(href);
+          await fetch(`${u.searchParams.get("redirect_uri")}/?code=c&state=${u.searchParams.get("state")}`);
+        },
+      }),
+    ).rejects.toThrow(/wasn't allowed/);
+    expect(stored).toBe(false);
+  });
+
+  it("after stop(), a run in progress does no follow-up run", async () => {
+    const clock = new TestClock();
+    const drive = new MemoryRemote();
+    const a = await computer(clock, async () => drive.for());
+    a.engine.start();
+    a.engine.notifyChanged();
+    void a.engine.syncNow(); // asks for a follow-up while the first run is going
+    a.engine.stop();
+    await a.engine.idle();
+    expect(drive.pushes.length).toBe(1);
+  });
+
+  it("when another process holds the sync lock too long, this one reports syncing and leaves the state alone", async () => {
+    const { withLock } = await import("@ccb/store");
+    const { readFile } = await import("node:fs/promises");
+    const { SyncEngine } = await import("@ccb/sync");
+    const clock = new TestClock();
+    const drive = new MemoryRemote();
+    const a = await computer(clock, async () => drive.for());
+    await a.engine.syncNow();
+    const before = await readFile(join(a.home, "sync-state.json"), "utf8");
+    const impatient = new SyncEngine({ store: a.store, remote: async () => drive.for(), scheduler: clock, lockTimeoutMs: 100 });
+    let release: () => void = () => undefined;
+    const held = withLock(join(a.home, ".sync.lock"), () => new Promise<void>((r) => (release = r)));
+    await new Promise((r) => setTimeout(r, 30));
+    const status = await impatient.syncNow();
+    release();
+    await held;
+    expect(status.state).toBe("syncing");
+    expect(await readFile(join(a.home, "sync-state.json"), "utf8")).toBe(before);
   });
 });

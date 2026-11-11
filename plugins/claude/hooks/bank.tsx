@@ -3,9 +3,9 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, On } from "claude-code";
 
-import type { BankData, BankView, ButtonDraft, ButtonView, PromptDraft, PromptSummary } from "../types";
+import type { BankData, BankView, ButtonDraft, ButtonView, ConnectView, PromptDraft, PromptSummary, SyncSummary } from "../types";
 import { dateBuiltIns, slugify } from "./core/index.js";
-import { refreshClient } from "./client.js";
+import { readClient, refreshClient } from "./client.js";
 import { builtIns, callTool, errorText } from "./mcp.js";
 
 type $ = EngineInterface;
@@ -24,6 +24,7 @@ const EMPTY_VIEW: BankView = {
   variableDraft: { name: "", value: "" },
   buttonDraft: null,
   notice: null,
+  connect: null,
 };
 const EMPTY_DATA: BankData = { results: [], categories: [], variables: {}, buttons: [], counts: null };
 
@@ -88,7 +89,79 @@ export async function openBank($: $, opts: { search?: string; category?: string 
   }));
   await $.ui.open({ id: BANK_PANE, title: "Prompt Bank", focus: true });
   await refreshBank($);
+  pullSoon($);
 }
+
+// --- sync --------------------------------------------------------------------------------
+
+/** Opening a pane pulls other computers' changes at once, without holding up the pane. */
+export function pullSoon($: $): void {
+  $.clock.after(0, async () => {
+    try {
+      await callTool($, "sync_now");
+      await refreshClient($);
+      await refreshBank($);
+    } catch {
+      // sync not available, or offline: the status shows why
+    }
+  });
+}
+
+/** Syncs now and says how it went. */
+export async function syncNow($: $): Promise<string> {
+  try {
+    const status = await callTool<{ line: string; message: string | null }>($, "sync_now");
+    await refreshClient($);
+    await refreshBank($);
+    return status.message ? `${status.line}: ${status.message}` : status.line;
+  } catch (error) {
+    return `Couldn't sync: ${errorText(error)}`;
+  }
+}
+
+const CONNECT_POLL_MS = 3000;
+
+/** Starts the Google sign-in and watches for it to finish. */
+async function connect($: $): Promise<void> {
+  try {
+    const started = await callTool<ConnectView>($, "sync_connect");
+    await setView($, (v) => ({ ...v, connect: started, notice: null }));
+    watchConnect($, 100);
+  } catch (error) {
+    await setView($, (v) => ({ ...v, connect: { state: "failed", url: null, message: errorText(error) } }));
+  }
+}
+
+function watchConnect($: $, triesLeft: number): void {
+  $.clock.after(CONNECT_POLL_MS, async () => {
+    try {
+      const status = await callTool<{ connect: ConnectView | null }>($, "sync_status");
+      const c = status.connect;
+      if (c) await setView($, (v) => ({ ...v, connect: c }));
+      if (c?.state === "waiting" && triesLeft > 1) watchConnect($, triesLeft - 1);
+      else {
+        await refreshClient($);
+        await refreshBank($);
+      }
+    } catch {
+      if (triesLeft > 1) watchConnect($, triesLeft - 1);
+    }
+  });
+}
+
+/** Settles a conflict copy: keep this copy's text, the other version, or both. */
+export async function resolveConflict($: $, collection: "prompts" | "notes", copyId: string, keep: "copy" | "original" | "both"): Promise<string> {
+  try {
+    const { kept } = await callTool<{ kept: { title: string } }>($, "conflict_resolve", { collection, copyId, keep });
+    await refreshClient($);
+    if (collection === "prompts") await loadPrompts($);
+    return keep === "both" ? `Kept both versions of "${kept.title}".` : `Kept one version of "${kept.title}".`;
+  } catch (error) {
+    return `Couldn't resolve the conflict: ${errorText(error)}`;
+  }
+}
+
+const SIGN_IN_STATES = new Set<SyncSummary["state"]>(["signed-out"]);
 
 // --- prompt actions -------------------------------------------------------------------
 
@@ -320,13 +393,37 @@ function describeAction(b: ButtonView): string {
 export function registerBank(on: On): void {
 
   on("ui.render", { component: "Pane", requestId: BANK_PANE }, async ($, e) => {
-    const { Box, Button, Input, Select, Text } = $.ui.resolve(e);
+    const { Box, Button, Input, Link, Select, Text } = $.ui.resolve(e);
     const view = await read($, bankView);
     const data = await read($, bankData);
     const tabButton = (tab: BankView["tab"], label: string) => (
       <Button key={`ccb-tab-${tab}`} label={label} {...(view.tab === tab ? { variant: "primary" as const } : {})} onPress={() => setView($, (v) => ({ ...v, tab, notice: null }))} />
     );
     const counts = data.counts;
+    const sync = (await readClient($))?.sync ?? null;
+    const c = view.connect;
+    const syncSection =
+      sync && sync.state !== "off" ? (
+        <Box flexDirection="column">
+          <Box flexDirection="row" gap={1}>
+            <Text {...(sync.state === "idle" && !sync.conflicts ? { dimColor: true } : {})}>{sync.line}</Text>
+            {sync.state !== "not-set-up" && sync.state !== "no-credential-store" && !SIGN_IN_STATES.has(sync.state) ? (
+              <Button key="ccb-sync-now" label="Sync now" onPress={() => syncNow($).then((msg) => notice($, msg))} />
+            ) : null}
+            {SIGN_IN_STATES.has(sync.state) && c?.state !== "waiting" ? (
+              <Button key="ccb-connect" label={sync.message?.includes("expired") ? "Reconnect Google Drive" : "Connect Google Drive"} variant="primary" onPress={() => connect($)} />
+            ) : null}
+          </Box>
+          {sync.message && sync.state !== "idle" ? <Text dimColor>{sync.message}</Text> : null}
+          {c?.state === "waiting" && c.url ? (
+            <Box flexDirection="row" gap={1}>
+              <Text>Finish signing in in your browser; sync starts by itself.</Text>
+              <Link key="ccb-connect-link" href={c.url} label="Open Google sign-in" />
+            </Box>
+          ) : null}
+          {c && c.state !== "waiting" && c.message ? <Text>{c.message}</Text> : null}
+        </Box>
+      ) : null;
 
     let body;
     if (view.tab === "prompts" && view.editing) {
@@ -392,6 +489,14 @@ export function registerBank(on: On): void {
                 {p.conflictOf ? "  (conflict copy)" : ""}
               </Text>
               <Text dimColor>{p.preview}</Text>
+              {p.conflictOf ? (
+                <Box flexDirection="row" gap={1}>
+                  <Text>Changed on two computers at once:</Text>
+                  <Button key={`ccb-keep-copy-${p.id}`} label="Keep this" onPress={() => resolveConflict($, "prompts", p.id, "copy").then((m) => notice($, m))} />
+                  <Button key={`ccb-keep-original-${p.id}`} label="Keep other" onPress={() => resolveConflict($, "prompts", p.id, "original").then((m) => notice($, m))} />
+                  <Button key={`ccb-keep-both-${p.id}`} label="Keep both" onPress={() => resolveConflict($, "prompts", p.id, "both").then((m) => notice($, m))} />
+                </Box>
+              ) : null}
               <Box flexDirection="row" gap={1}>
                 <Button key={`ccb-insert-${p.id}`} label="Insert" onPress={() => usePrompt($, p.id, "insert")} />
                 <Button key={`ccb-send-${p.id}`} label="Send" onPress={() => usePrompt($, p.id, "send")} />
@@ -545,6 +650,7 @@ export function registerBank(on: On): void {
             </Text>
           ) : null}
         </Box>
+        {syncSection}
         {view.notice ? <Text>{view.notice}</Text> : null}
         {body}
       </Box>

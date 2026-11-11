@@ -42,7 +42,8 @@ export class FolderRemote implements Remote {
       if (text !== null) changed.push({ deviceId, text });
     }
     const removed = seen === null ? [] : Object.keys(seen).filter((id) => !(id in stamps));
-    return { changed, removed, cursor: JSON.stringify(stamps), full: seen === null };
+    const ownMissing = !(await exists(join(this.devices, `${ownDeviceId}.json`)));
+    return { changed, removed, cursor: JSON.stringify(stamps), full: seen === null, ownMissing };
   }
 
   async push(deviceId: string, text: string): Promise<void> {

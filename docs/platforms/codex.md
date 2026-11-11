@@ -59,8 +59,9 @@ Built in M2 (`packages/mcp-server/src/server.ts`). Tool names use only letters, 
 | `notes_list` / `notes_read` / `notes_write` / `notes_append` / `notes_delete` | Synced notes; reads pick up edits made to the Markdown files |
 | `settings_set_shared` | Regenerate instructions and Continue message for every device |
 | `refine_instructions` | The Regenerate instructions, or a full request for the client's own model; `ccb-mcp` never calls a model |
-
-Planned for M5: `sync_now` and `sync_status`.
+| `sync_status` / `sync_now` | Google Drive sync status (pending changes, conflicts, other devices), and an immediate sync; sync runs by itself |
+| `sync_connect` | Start the one-time Google sign-in from the chat (opens the browser) |
+| `conflict_resolve` | Settle a conflict copy: keep the original, the copy, or both |
 
 The server also offers **MCP prompts**: `ccb-continue`, `ccb-regenerate` (arguments `text`, `extra`) and one `ccb-<title>` prompt per Prompt Bank entry, whose `{{?ask}}` fields become prompt arguments. The list updates as prompts are saved.
 

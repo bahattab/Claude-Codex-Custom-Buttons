@@ -8,14 +8,18 @@ import { createServer } from "./server.js";
 
 const store = new LibraryStore();
 let lastState = "";
+// eslint-disable-next-line prefer-const -- assigned below; onStatus needs it later
+let server: ReturnType<typeof createServer> | undefined;
 const sync = createSyncEngine(store, {
-  onStatus: (status) => {
+  onStatus: (status, { merged }) => {
     // One line per change of state, without data.
     if (status.state !== lastState) process.stderr.write(`ccb-mcp sync: ${status.state}${status.message ? ` (${status.message})` : ""}\n`);
     lastState = status.state;
+    // Prompts may have arrived from another computer: let clients refresh their prompt list.
+    if (merged && server?.isConnected()) server.sendPromptListChanged();
   },
 });
-const server = createServer(store, { sync });
+server = createServer(store, { sync });
 server
   .connect(new StdioServerTransport())
   .then(() => sync.start())

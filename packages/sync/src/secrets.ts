@@ -40,6 +40,7 @@ export const runCommand: CommandRunner = (command, args, opts = {}) =>
     child.stderr.setEncoding("utf8").on("data", (d: string) => (stderr += d));
     child.on("error", reject);
     child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    child.stdin.on("error", () => undefined); // a tool that exits early mustn't crash this process
     child.stdin.end(opts.input ?? "");
   });
 
@@ -52,6 +53,12 @@ const TOKEN_RE = /^[A-Za-z0-9._/+=-]{10,2048}$/;
 
 function checkToken(token: string): void {
   if (!TOKEN_RE.test(token)) throw new TokenStoreError("The sign-in token has unexpected characters; it was not stored.");
+}
+
+/** A tool's error output, with the token removed in case the tool echoed its input. */
+function said(r: RunResult, token?: string): string {
+  const text = (r.stderr || "").trim() || `exit ${r.code}`;
+  return token ? text.split(token).join("***") : text;
 }
 
 export class MacKeychainStore implements TokenStore {
@@ -70,7 +77,7 @@ export class MacKeychainStore implements TokenStore {
     // `security -i` reads commands from standard input, so the token isn't on a command line.
     // Every word here is free of spaces and quotes, so no quoting rules come into play.
     const r = await this.run("security", ["-i"], { input: `add-generic-password -U -s ${SERVICE} -a ${ACCOUNT} -l ${SERVICE} -w ${token}\n` });
-    if (r.code !== 0 || /error/i.test(r.stderr)) throw new TokenStoreError(`The Keychain refused the token: ${r.stderr.trim() || `exit ${r.code}`}`);
+    if (r.code !== 0 || /error/i.test(r.stderr)) throw new TokenStoreError(`The Keychain refused the token: ${said(r, token)}`);
   }
 
   async delete(): Promise<void> {
@@ -93,7 +100,7 @@ export class SecretToolStore implements TokenStore {
   async set(token: string): Promise<void> {
     checkToken(token);
     const r = await this.run("secret-tool", ["store", "--label=Claude Codex Buttons (Google Drive)", "service", SERVICE, "account", ACCOUNT], { input: token });
-    if (r.code !== 0) throw new TokenStoreError(`The Secret Service refused the token: ${r.stderr.trim() || `exit ${r.code}`}`);
+    if (r.code !== 0) throw new TokenStoreError(`The Secret Service refused the token: ${said(r, token)}`);
   }
 
   async delete(): Promise<void> {
@@ -128,7 +135,7 @@ export class WindowsDpapiStore implements TokenStore {
   async set(token: string): Promise<void> {
     checkToken(token);
     const r = await this.run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", PS_PROTECT], { input: token, env: { CCB_TOKEN_FILE: this.path } });
-    if (r.code !== 0) throw new TokenStoreError(`The sign-in couldn't be encrypted: ${r.stderr.trim() || `exit ${r.code}`}`);
+    if (r.code !== 0) throw new TokenStoreError(`The sign-in couldn't be encrypted: ${said(r, token)}`);
   }
 
   async delete(): Promise<void> {

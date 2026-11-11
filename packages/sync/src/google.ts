@@ -42,7 +42,12 @@ function base64url(buf: Buffer): string {
 
 async function postForm(fetchImpl: Fetch, url: string, form: Record<string, string>): Promise<Response> {
   try {
-    return await fetchImpl(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(form).toString() });
+    return await fetchImpl(url, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(form).toString(),
+      signal: AbortSignal.timeout(60_000),
+    });
   } catch (error) {
     throw new OfflineError(`Google sign-in is unreachable (${(error as Error).message}).`);
   }
@@ -182,7 +187,10 @@ export async function login(opts: LoginOptions): Promise<void> {
       client_id: opts.client.clientId,
       client_secret: opts.client.clientSecret,
     });
-    const body = (await res.json().catch(() => ({}))) as { refresh_token?: string; error?: string; error_description?: string };
+    const body = (await res.json().catch(() => ({}))) as { refresh_token?: string; scope?: string; error?: string; error_description?: string };
+    if (res.ok && typeof body.scope === "string" && !body.scope.split(/\s+/).includes(SCOPE)) {
+      throw new Error("Access to Google Drive wasn't allowed. Run ccb login again and tick the Google Drive permission.");
+    }
     if (!res.ok) throw new Error(`Google refused the sign-in code (${body.error ?? `HTTP ${res.status}`}${body.error_description ? `: ${body.error_description}` : ""}).`);
     if (!body.refresh_token) throw new Error("Google didn't return a refresh token. Remove the app's access in your Google Account (Third-party connections), then run ccb login again.");
     await opts.store.set(body.refresh_token);

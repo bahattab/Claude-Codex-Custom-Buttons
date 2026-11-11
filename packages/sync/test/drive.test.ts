@@ -197,3 +197,94 @@ describe("DriveRemote against a fake Google Drive", () => {
     await expect(remote.pull(null, "dev_abcdef1")).rejects.toBeInstanceOf(OfflineError);
   });
 });
+
+describe("review fixes (M5a)", () => {
+  it("signing in to another Google account starts over and never deletes local data (C2)", async () => {
+    const clock = new TestClock();
+    const first = new FakeDrive();
+    const second = new FakeDrive();
+    let remote = new DriveRemote(tokens(first), FOLDER_NAME, first.fetch, "acct1");
+    const a = await computer(clock, async () => remote);
+    for (let i = 0; i < 4; i++) await a.edit((lib, ctx, rnd) => saveNote(lib, { body: `Note ${i}` }, ctx, rnd));
+    await a.engine.syncNow();
+    await a.engine.syncNow();
+    // A colleague's device already uses the second account.
+    const b = await onDrive(clock, second);
+    await b.engine.syncNow();
+    remote = new DriveRemote(tokens(second), FOLDER_NAME, second.fetch, "acct2");
+    await a.engine.syncNow();
+    await a.engine.syncNow();
+    expect(live((await a.data()).notes).filter((n) => n.body.startsWith("Note "))).toHaveLength(4);
+    const aName = `${(await a.store.getDevice()).deviceId}.json`;
+    expect([...second.files.values()].some((f) => f.name === aName)).toBe(true); // uploaded to the new account
+  });
+
+  it("a trashed Drive folder is re-created and every computer uploads again (M1)", async () => {
+    const clock = new TestClock();
+    const drive = new FakeDrive();
+    const a = await onDrive(clock, drive);
+    const b = await onDrive(clock, drive);
+    await round(a, b);
+    for (const f of drive.folderNamed(FOLDER_NAME)) drive.trash(f.id);
+    await round(a, b);
+    const devices = drive.folderNamed("devices");
+    expect(devices).toHaveLength(1);
+    const live = [...drive.files.values()].filter((f) => f.parents.includes(devices[0]?.id ?? "") && !f.trashed);
+    expect(live).toHaveLength(2);
+  });
+
+  it("this computer's own file trashed in Drive comes back (M2)", async () => {
+    const clock = new TestClock();
+    const drive = new FakeDrive();
+    const a = await onDrive(clock, drive);
+    await a.engine.syncNow();
+    await a.engine.syncNow();
+    const name = `${(await a.store.getDevice()).deviceId}.json`;
+    drive.trash([...drive.files.values()].find((f) => f.name === name)?.id ?? "");
+    await a.engine.syncNow();
+    expect([...drive.files.values()].filter((f) => f.name === name && !f.trashed)).toHaveLength(1);
+  });
+
+  it("a library over 4 MB is uploaded with a resumable upload", async () => {
+    const clock = new TestClock();
+    const drive = new FakeDrive();
+    const a = await onDrive(clock, drive);
+    for (let i = 0; i < 25; i++) await a.edit((lib, ctx, rnd) => saveNote(lib, { body: `${i} ${"x".repeat(190_000)}` }, ctx, rnd));
+    const first = await a.engine.syncNow();
+    expect(first.message).toBeNull();
+    expect(first.state).toBe("idle");
+    expect(drive.resumableUploads).toBe(1);
+    await a.edit((lib, ctx, rnd) => saveNote(lib, { body: "one more" }, ctx, rnd));
+    expect((await a.engine.syncNow()).state).toBe("idle");
+    expect(drive.resumableUploads).toBe(2); // the update too
+    const b = await onDrive(clock, drive);
+    await b.engine.syncNow();
+    expect(live((await b.data()).notes).length).toBeGreaterThanOrEqual(26);
+  });
+
+  it("Drive access not granted is signed-out with what to do", async () => {
+    const clock = new TestClock();
+    const drive = new FakeDrive();
+    const a = await onDrive(clock, drive);
+    drive.failNext.push({ status: 403, body: { error: { code: 403, message: "Request had insufficient authentication scopes.", errors: [{ reason: "insufficientPermissions" }] } } });
+    const s = await a.engine.syncNow();
+    expect(s.state).toBe("signed-out");
+    expect(s.message).toMatch(/allow access/);
+  });
+
+  it("a computer with no changes still uploads weekly, so others don't think it's gone", async () => {
+    const clock = new TestClock();
+    const drive = new FakeDrive();
+    const a = await onDrive(clock, drive);
+    await a.engine.syncNow();
+    await a.engine.syncNow();
+    const uploads = () => drive.requests.filter((r) => r.method === "PATCH" || (r.method === "POST" && r.url.includes("/upload/"))).length;
+    const before = uploads();
+    clock.tick(24 * 3600_000);
+    await a.engine.syncNow();
+    expect(uploads()).toBe(before);
+    clock.tick(7 * 24 * 3600_000);
+    await a.engine.syncNow();
+    expect(uploads()).toBe(before + 1);
+  });
+});

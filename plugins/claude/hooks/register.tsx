@@ -14,7 +14,7 @@ import {
   expand,
   missingFragments,
 } from "./core/index.js";
-import { openBank, registerBank, saveDraftAsPrompt } from "./bank.js";
+import { openBank, registerBank, saveDraftAsPrompt, syncNow } from "./bank.js";
 import { readClient, refreshClient } from "./client.js";
 import { builtIns as contextValues, callTool, lastUserMessage } from "./mcp.js";
 import { appendToNote, openNotes, refreshOpenNote, registerNotes } from "./notes.js";
@@ -73,6 +73,15 @@ const sendAfterCommand =
   };
 
 // --- actions --------------------------------------------------------------------------
+
+/** The sync button: opens the Prompt Bank when something needs doing there, else syncs now. */
+async function syncPressed($: $, state: string, conflicts: number): Promise<void> {
+  if (conflicts > 0 || state === "signed-out" || state === "not-set-up" || state === "no-credential-store" || state === "error") {
+    await openBank($);
+    return;
+  }
+  $.ui.toast(await syncNow($));
+}
 
 export async function continueAction($: $, send: Send = sendNow($)): Promise<void> {
   const state = (await readClient($)) ?? (await refreshClient($));
@@ -219,7 +228,7 @@ export const COMMANDS = [
   { name: "cont", description: "Continue a reply that was cut off." },
   { name: "regen", description: "Rewrite your draft or selected text into a clearer prompt.", argumentHint: "[extra instruction | undo]" },
   { name: "btn", description: "Run one of your custom buttons.", argumentHint: "<button id>" },
-  { name: "pb", description: "Open the Prompt Bank, search it, or save the prompt box as a prompt.", argumentHint: "[search | save <title>]" },
+  { name: "pb", description: "Open the Prompt Bank, search it, save the prompt box as a prompt, or sync now.", argumentHint: "[search | save <title> | sync]" },
   { name: "notes", description: "Open Notes, or add text to the open note.", argumentHint: "[text to add]" },
 ] as const;
 
@@ -229,6 +238,7 @@ export const register: Register = (on) => {
 
   on("command.run", { command: "pb" }, async ($, e) => {
     const args = e.args.trim();
+    if (args === "sync") return { text: await syncNow($) };
     const save = /^save(?:\s+(.*))?$/s.exec(args);
     if (save) {
       const message = await saveDraftAsPrompt($, save[1]);
@@ -350,6 +360,14 @@ export const register: Register = (on) => {
           ) : null}
           {showBuiltIns ? <Button key="ccb-prompts" label="Prompts" onPress={() => openBank($)} /> : null}
           {showBuiltIns ? <Button key="ccb-notes" label="Notes" onPress={() => openNotes($)} /> : null}
+          {showBuiltIns && state?.sync && state.sync.state !== "off" ? (
+            <Button
+              key="ccb-sync"
+              label={state.sync.line}
+              {...(state.sync.conflicts || state.sync.state === "signed-out" || state.sync.state === "error" ? { variant: "primary" as const } : { dimColor: true })}
+              onPress={() => syncPressed($, state.sync?.state ?? "idle", state.sync?.conflicts ?? 0)}
+            />
+          ) : null}
           {saved !== null ? <Button key="ccb-undo" label="Undo regenerate" onPress={() => undoAction($)} /> : null}
           {visible.map((b) => (
             <Button

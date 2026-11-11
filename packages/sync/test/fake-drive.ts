@@ -26,6 +26,8 @@ export class FakeDrive {
   /** HTTP statuses to answer the next requests with, in order. */
   failNext: Array<{ status: number; body?: unknown }> = [];
   requests: Array<{ method: string; url: string }> = [];
+  resumableUploads = 0;
+  private sessions = new Map<string, { create?: Partial<FakeFile>; update?: string }>();
   private seq = 0;
   private ids = 0;
   private clock = Date.parse("2026-11-11T09:00:00.000Z");
@@ -45,14 +47,35 @@ export class FakeDrive {
     if (method === "GET" && path === "/drive/v3/changes") return this.listChanges(u);
     if (method === "GET" && path === "/drive/v3/files") return this.list(u);
     if (method === "POST" && path === "/drive/v3/files") return this.create(JSON.parse(String(init.body)) as Partial<FakeFile>, "");
+    if (method === "POST" && path === "/upload/drive/v3/files" && u.searchParams.get("uploadType") === "resumable") {
+      const meta = JSON.parse(String(init.body)) as Partial<FakeFile>;
+      return this.startSession({ create: meta });
+    }
     if (method === "POST" && path === "/upload/drive/v3/files") return this.createMultipart(String(init.body), (init.headers as Record<string, string>)["content-type"] ?? "");
     const media = /^\/upload\/drive\/v3\/files\/([^/]+)$/.exec(path);
     if (method === "PATCH" && media?.[1]) {
+      // Like Drive, a trashed file can still be updated (it stays in the trash).
       const f = this.files.get(decodeURIComponent(media[1]));
-      if (!f || f.trashed) return json(404, { error: { code: 404, message: "File not found" } });
+      if (!f) return json(404, { error: { code: 404, message: "File not found" } });
+      if (u.searchParams.get("uploadType") === "resumable") return this.startSession({ update: f.id });
       f.content = String(init.body);
       this.touch(f.id);
       return json(200, { id: f.id });
+    }
+    const session = /^\/upload\/session\/(\d+)$/.exec(path);
+    if (method === "PUT" && session?.[1]) {
+      const s = this.sessions.get(session[1]);
+      if (!s) return json(404, { error: { code: 404, message: "No such upload" } });
+      this.sessions.delete(session[1]);
+      this.resumableUploads++;
+      if (s.update) {
+        const f = this.files.get(s.update);
+        if (!f) return json(404, { error: { code: 404, message: "File not found" } });
+        f.content = String(init.body);
+        this.touch(f.id);
+        return json(200, { id: f.id });
+      }
+      return this.create(s.create ?? {}, String(init.body));
     }
     const get = /^\/drive\/v3\/files\/([^/]+)$/.exec(path);
     if (method === "GET" && get?.[1] && u.searchParams.get("alt") === "media") {
@@ -79,10 +102,13 @@ export class FakeDrive {
     return id;
   }
 
+  /** Trashes a file; like Drive, trashing a folder trashes everything inside it. */
   trash(id: string): void {
     const f = this.files.get(id);
-    if (f) f.trashed = true;
+    if (!f) return;
+    f.trashed = true;
     this.touch(id);
+    for (const child of this.files.values()) if (child.parents.includes(id) && !child.trashed) this.trash(child.id);
   }
 
   folderNamed(name: string): FakeFile[] {
@@ -91,6 +117,12 @@ export class FakeDrive {
 
   downloads(): number {
     return this.requests.filter((r) => r.url.includes("alt=media")).length;
+  }
+
+  private startSession(s: { create?: Partial<FakeFile>; update?: string }): Response {
+    const id = String(++this.ids);
+    this.sessions.set(id, s);
+    return new Response("", { status: 200, headers: { location: `https://www.googleapis.com/upload/session/${id}` } });
   }
 
   private touch(fileId: string): void {

@@ -69,7 +69,7 @@ export class MemoryRemote {
             this.reads++;
             return { deviceId, text: f.text };
           });
-        return { changed, removed: [], cursor: String(this.version), full: cursor === null };
+        return { changed, removed: [], cursor: String(this.version), full: cursor === null, ownMissing: !this.files.has(ownDeviceId) };
       },
       push: async (deviceId: string, text: string): Promise<void> => {
         if (this.offline) throw new OfflineError("offline");

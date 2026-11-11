@@ -57,6 +57,8 @@ const ALL_TOOLS = [
   "library_status",
   "sync_status",
   "sync_now",
+  "sync_connect",
+  "conflict_resolve",
   "client_state",
   "bank_search",
   "bank_get",

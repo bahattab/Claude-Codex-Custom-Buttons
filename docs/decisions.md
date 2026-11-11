@@ -174,3 +174,13 @@ Each decision records the options considered, the choice and why. All were appro
 
 - **Choice:** a sync run (pull, merge, push) holds `.sync.lock`, and the newest copy of every other device's file is kept in `sync-cache/`.
 - **Why:** two `ccb-mcp` processes on one computer (Claude Code and Codex open together) could otherwise upload an older view after a newer one. The change feed downloads only changed files, but the merge needs every device file (a record missing from every newer file counts as deleted), so the others come from the cache.
+
+## D31. Infer a deletion only from a device that dropped the record (2026-11-11, M5; revises D17's deletion rule)
+
+- **Choice:** a record that exists only on this computer, unchanged since the last sync, counts as deleted only when another device's file held it at the last merge and no longer does (its tombstone expired there). The merge remembers which records each device's file held (`SyncBase.devices`).
+- **Why:** the first rule ("absent from every device file that synced after our last pull") compared one device's clock with another's. The independent M5 review showed that a new record was deleted everywhere when another computer's clock ran ahead, or when its upload raced with ours. Both cases now have tests.
+
+## D32. Sync delivered in one pull request (2026-11-11, M5)
+
+- **Choice:** M5a and M5b went into one pull request.
+- **Why:** the independent review of M5a found data-loss bugs while M5b was under way in the same files (engine, server, CLI), and the project owner asked for the work to continue to the end without stopping. The milestone is still reported in two parts in the roadmap.
