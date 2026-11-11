@@ -39,6 +39,7 @@ Last updated: 2026-11-10 (milestone M0).
 | C22 | One-step install `/plugin install <plugin> --marketplace <owner/repo>` needs Claude Code 2.1.275+; otherwise `/plugin marketplace add` then `/plugin install <plugin>@<marketplace>` | **Confirmed** | code.claude.com install docs; `claude plugin validate .` |
 | C23 | A `$.state` atom must be declared in the module that reads or updates it; `$` may not be passed to a stored callback, only to functions called directly | **Confirmed** | `claude plugin validate` errors (M4) |
 | C24 | A plugin opens its own side pane with `$.ui.open({ id, title, focus })` and draws it in a `ui.render` hook on `Pane` for that `requestId`; `Input` with `rows` is a multi-line editor raising `onInput` per edit and `onSubmit` on Enter | **Confirmed** | Types 2.1.322; plugin tests on terminal and desktop |
+| C25 | A `Link` element opens an `https:` URL on every surface; in the test kit's drawing a `Link` keeps no `key` (find it by type) | **Confirmed** (types 2.1.322; plugin test) | Used for the Google sign-in link |
 
 ## Codex (0.167.0)
 
@@ -63,6 +64,10 @@ Last updated: 2026-11-10 (milestone M0).
 | G3 | Files have a `version` that "increases monotonically … reflects every change made to the file on the server", but `files.update` has **no conditional (only-if-unchanged) parameter** | **Changed** | Drive v3 discovery document. Consequence: one file per device (decision D12) |
 | G4 | Change feed: `changes.getStartPageToken`, `changes.list` (also `changes.watch`, which needs a public HTTPS endpoint and is not used) | **Confirmed** | Drive v3 discovery document |
 | G5 | Desktop OAuth with a local loopback redirect (`http://localhost:<port>`), `access_type: 'offline'` to get a refresh token, `prompt: 'consent'` to force a new one | **Confirmed** | `google-auth-library-nodejs` README |
+| G6 | With `drive.file`, files the app created can be listed and read by the same OAuth client signed in on another computer (same Google account), which is what lets devices see each other's files | **Unconfirmed** (inference from the scope's description: "files you use with this app") | To confirm with the two-computer hands-on test (roadmap M5) |
+| G7 | macOS `security -i` reads `add-generic-password ... -w <token>` from standard input; `secret-tool store` reads the secret from standard input; PowerShell `ProtectedData` with `CurrentUser` scope is available in Windows PowerShell 5.1 after `Add-Type -AssemblyName System.Security` | **Unconfirmed** in this project (not runnable in the Linux build container) | Commands tested with a stand-in runner; confirm hands-on on each OS |
+| G8 | Trashing a folder in Drive trashes the files in it; `files.update` on a trashed file succeeds and leaves it trashed | **Unconfirmed** (from the Drive documentation, per the independent review) | The fake Drive does the same; the engine re-creates a missing or trashed own file either way |
+| G9 | Simple and multipart uploads are limited to 5 MB; larger files need a resumable upload (`uploadType=resumable`, then a PUT to the returned address) | **Confirmed** (Drive v3 upload documentation) | Used above 4 MB |
 
 ## Claude Desktop
 

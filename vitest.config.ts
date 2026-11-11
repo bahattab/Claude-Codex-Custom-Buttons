@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       "@ccb/core": src("core"),
       "@ccb/store": src("store"),
+      "@ccb/sync": src("sync"),
       "@ccb/mcp-server": src("mcp-server"),
       "@ccb/cli": src("cli"),
     },

@@ -11,4 +11,4 @@ export { DEFAULT_CONTINUE_MESSAGE, REFINE_INSTRUCTIONS, buildRefineRequest, clea
 export { MIGRATIONS, loadLibrary, type LoadResult } from "./migrate.js";
 export { STARTER_CATEGORIES, STARTER_PROMPTS, STARTER_VARIABLES, seedStarterPack } from "./starter.js";
 export { RETENTION_DAYS, emptyBase, merge, needsPush, sameData, toDeviceFile, type ConflictCopy, type MergeInput, type MergeResult, type SyncBase, } from "./sync/merge.js";
-export { appendNote, deleteButton, deleteCategory, deleteNote, deletePrompt, deleteVariable, saveButton, saveCategory, saveNote, savePrompt, setSharedSetting, setVariable, sharedSetting, type ButtonInput, type NoteInput, type OpResult, type PromptInput, } from "./ops.js";
+export { appendNote, resolveConflict, deleteButton, deleteCategory, deleteNote, deletePrompt, deleteVariable, saveButton, saveCategory, saveNote, savePrompt, setSharedSetting, setVariable, sharedSetting, type ButtonInput, type NoteInput, type OpResult, type PromptInput, } from "./ops.js";

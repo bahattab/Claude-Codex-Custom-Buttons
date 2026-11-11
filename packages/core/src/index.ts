@@ -64,6 +64,7 @@ export {
 } from "./sync/merge.js";
 export {
   appendNote,
+  resolveConflict,
   deleteButton,
   deleteCategory,
   deleteNote,

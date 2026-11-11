@@ -1,11 +1,29 @@
 #!/usr/bin/env node
-// Starts ccb-mcp over stdio. Diagnostics go to stderr; prompt and note text is never logged.
+// Starts ccb-mcp over stdio, and automatic sync while it runs. Diagnostics go to stderr;
+// prompt and note text is never logged.
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { LibraryStore } from "@ccb/store";
+import { createSyncEngine } from "@ccb/sync";
 import { createServer } from "./server.js";
 
-const server = createServer(new LibraryStore());
-server.connect(new StdioServerTransport()).catch((error: unknown) => {
-  process.stderr.write(`ccb-mcp failed to start: ${(error as Error).message}\n`);
-  process.exit(1);
+const store = new LibraryStore();
+let lastState = "";
+// eslint-disable-next-line prefer-const -- assigned below; onStatus needs it later
+let server: ReturnType<typeof createServer> | undefined;
+const sync = createSyncEngine(store, {
+  onStatus: (status, { merged }) => {
+    // One line per change of state, without data.
+    if (status.state !== lastState) process.stderr.write(`ccb-mcp sync: ${status.state}${status.message ? ` (${status.message})` : ""}\n`);
+    lastState = status.state;
+    // Prompts may have arrived from another computer: let clients refresh their prompt list.
+    if (merged && server?.isConnected()) server.sendPromptListChanged();
+  },
 });
+server = createServer(store, { sync });
+server
+  .connect(new StdioServerTransport())
+  .then(() => sync.start())
+  .catch((error: unknown) => {
+    process.stderr.write(`ccb-mcp failed to start: ${(error as Error).message}\n`);
+    process.exit(1);
+  });

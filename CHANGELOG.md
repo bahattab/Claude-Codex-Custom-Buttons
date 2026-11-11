@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M5b:
+  - the background sync service: `ccb sync --daemon`, `ccb service install|status|stop|uninstall`, offered by `ccb login`; `--home`;
+  - in the Claude Code plugin: a sync button in the row, a Prompt Bank sync section with **Sync now** and **Connect Google Drive**, **Keep this / Keep other / Keep both** for conflict copies, a dot on notes not uploaded yet, `/pb sync`, and a pull when a pane opens;
+  - `conflict_resolve` and `sync_connect` tools.
+- Milestone M5a, automatic Google Drive sync:
+  - the sync engine in a new package `@ccb/sync`: uploads 2 seconds after a change, pulls every 60 seconds and at start, and retries offline changes with backoff (2 s to 5 min);
+  - Drive API mode (a small `fetch` client using the change feed and the `drive.file` scope) and Drive for desktop folder mode;
+  - Google sign-in with PKCE; the sign-in is kept by the OS (macOS Keychain, Linux Secret Service, Windows DPAPI), or in a private file with `google.tokenStore = "file"`;
+  - `ccb login`, `ccb logout`, `ccb sync`, `ccb status`, and Drive checks in `ccb doctor`;
+  - `sync_now` and `sync_status` tools.
 - Milestone M4, the Claude Code plugin's panes:
   - **Prompt Bank** pane: search while typing, category and favourites filters, Insert, Send, Copy, Edit, Duplicate, Delete with Undo, New and Save draft; a Variables tab and a Buttons tab for making and deleting custom buttons;
   - **Notes** pane: pinned-first picker, editor with autosave, Rename, Pin, Copy, Insert into prompt, Delete; Keep mine / Load theirs when a note changed elsewhere while you had unsaved text;
@@ -16,6 +26,18 @@ All notable changes to this project are documented here. The format follows [Kee
 - `ccb-mcp` `client_state` tool.
 - `ccb-mcp` bundled into the plugin as one file (`npm run build:plugin`, drift check `npm run check:plugin`).
 - Marketplace `ccb` at the repository root.
+
+### Fixed (from the independent M5 review)
+
+- A new prompt or note could be deleted everywhere when another computer's clock ran ahead or its upload raced with this one. Deletions are now inferred only from a device that dropped the record (D31).
+- Signing in to another Google account could delete local data; each sign-in now has its own sync state.
+- A trashed Drive folder or device file is re-created and uploaded again.
+- Note-file edits are synced even when nothing else changed.
+- `ccb login` changes settings only after sign-in succeeds.
+- "Keep other" on a conflict copy whose original was deleted is refused instead of leaving nothing.
+- After two computers created the Drive folder at once, a device's file in the oldest folder is no longer ignored.
+- The Windows background service uses the per-user Run key (no administrator rights) and can be stopped.
+- Request timeouts, a clear message when Drive access wasn't granted, resumable uploads for libraries over 4 MB, a weekly re-upload, and the token is never shown in error messages.
 
 ### Fixed (from the independent M4 review)
 

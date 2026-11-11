@@ -27,6 +27,12 @@ export interface SyncBase {
   lastPullAt: Iso | null;
   /** Content hash of each record as of the last sync, keyed "collection/id". */
   hashes: Record<string, string>;
+  /**
+   * The records ("collection/id") each other device's file held at the last merge. A
+   * record missing from a device's file now, but present before, had its tombstone
+   * cleaned up there: that is the only time a deletion is inferred (never from clocks).
+   */
+  devices?: Record<string, string[]>;
 }
 
 export interface MergeInput {
@@ -180,8 +186,9 @@ export function merge(input: MergeInput): MergeResult {
   const remotes = input.remotes.filter((r) => r.deviceId !== input.deviceId);
   const fresh = remotes.filter((r) => nowMs - Date.parse(r.syncedAt) <= RETENTION_MS);
   const staleDevices = remotes.filter((r) => !fresh.includes(r)).map((r) => r.deviceId);
-  const lastPull = input.base.lastPullAt === null ? -Infinity : Date.parse(input.base.lastPullAt);
-  const anyNewerRemote = fresh.some((r) => Date.parse(r.syncedAt) > lastPull);
+  const before = new Map(Object.entries(input.base.devices ?? {}).map(([id, keys]) => [id, new Set(keys)]));
+  /** Fresh devices whose file held `k` at the last merge (they all lack it now if the record is only local). */
+  const droppedBySomeone = (k: string): boolean => fresh.some((r) => before.get(r.deviceId)?.has(k) ?? false);
 
   const data = {} as Record<CollectionName, SyncMeta[]>;
   const hashes: Record<string, string> = {};
@@ -202,9 +209,9 @@ export function merge(input: MergeInput): MergeResult {
     for (const [id, versions] of versionsById) {
       const local = localById.get(id);
       const onlyLocal = local !== undefined && versions.length === 1;
-      if (onlyLocal && anyNewerRemote) {
-        // Known at the last sync, unchanged here, and now gone from every newer device
-        // file: another device deleted it and its tombstone has since been cleaned up.
+      if (onlyLocal && droppedBySomeone(key(collection, id))) {
+        // Unchanged here since the last sync, and dropped from a device file that held it
+        // before: that device deleted it and its tombstone has since been cleaned up.
         const baseHash = input.base.hashes[key(collection, id)];
         if (baseHash !== undefined && baseHash === contentHash(local)) continue;
       }
@@ -231,9 +238,15 @@ export function merge(input: MergeInput): MergeResult {
   }
 
   const merged = data as unknown as SyncedData;
+  // Remember what each device's file holds; a stale device keeps what was known of it.
+  const devices: Record<string, string[]> = {};
+  for (const r of remotes) {
+    if (fresh.includes(r)) devices[r.deviceId] = COLLECTIONS.flatMap((c) => (r[c] as SyncMeta[]).map((rec) => key(c, rec.id)));
+    else if (input.base.devices?.[r.deviceId]) devices[r.deviceId] = input.base.devices[r.deviceId] as string[];
+  }
   return {
     data: merged,
-    base: { lastPullAt: fresh.length > 0 ? input.now : input.base.lastPullAt, hashes },
+    base: { lastPullAt: fresh.length > 0 ? input.now : input.base.lastPullAt, hashes, devices },
     conflicts,
     changed: !sameData(merged, input.local),
     staleDevices,

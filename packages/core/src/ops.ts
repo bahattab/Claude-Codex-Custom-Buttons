@@ -200,6 +200,52 @@ export function appendNote(library: Library, id: string, text: string, ctx: Edit
 export const deleteNote = (library: Library, id: string, ctx: EditContext): OpResult<Note> =>
   remove(library, "notes", id, ctx);
 
+// --- conflict copies ------------------------------------------------------------------
+
+const CONFLICT_SUFFIX = " (conflict)";
+
+/**
+ * Settles a conflict copy (made when two devices edited a prompt or note at once):
+ *   "original"  keep the note or prompt as it is; the copy is deleted
+ *   "copy"      the copy's text replaces the original; the copy is deleted
+ *   "both"      keep both: the copy becomes an ordinary prompt or note
+ * Returns the record that remains (the original, or the copy for "both").
+ */
+export function resolveConflict(
+  library: Library,
+  collection: "prompts" | "notes",
+  copyId: string,
+  keep: "original" | "copy" | "both",
+  ctx: EditContext,
+): OpResult<Prompt | Note> {
+  const copy = find(library, collection, copyId) as Prompt | Note | undefined;
+  if (!copy || copy.deletedAt !== null || !copy.conflictOf) return fail(`${collection}: ${copyId} is not a conflict copy`);
+  const found = find(library, collection, copy.conflictOf) as Prompt | Note | undefined;
+  // A deleted original counts as gone: "keep the other version" would then leave nothing.
+  const original = found && found.deletedAt === null ? found : undefined;
+  if (keep === "original" && !original) return fail(`${collection}: the other version was deleted; keep this copy or keep both`);
+  const title = copy.title.endsWith(CONFLICT_SUFFIX) ? copy.title.slice(0, -CONFLICT_SUFFIX.length) : copy.title;
+
+  if (keep === "both" || (keep === "copy" && !original)) {
+    return save(library, collection, copy, { ...copy, conflictOf: null, ...(keep === "copy" ? { title } : {}) } as never, ctx) as OpResult<Prompt | Note>;
+  }
+  let lib = library;
+  let kept: Prompt | Note | undefined = original;
+  if (keep === "copy" && original) {
+    const content =
+      collection === "prompts"
+        ? { title, body: copy.body, category: (copy as Prompt).category, tags: (copy as Prompt).tags, favorite: (copy as Prompt).favorite }
+        : { title, body: copy.body, pinned: (copy as Note).pinned };
+    const saved = save(lib, collection, original, { ...original, ...content } as never, ctx) as OpResult<Prompt | Note>;
+    if (!saved.ok) return saved;
+    lib = saved.value.library;
+    kept = saved.value.record;
+  }
+  const removed = remove(lib, collection, copyId, ctx);
+  if (!removed.ok) return removed as OpResult<Prompt | Note>;
+  return { ok: true, value: { library: removed.value.library, record: (kept ?? removed.value.record) as Prompt | Note } };
+}
+
 // --- shared settings ------------------------------------------------------------------
 
 export function setSharedSetting(library: Library, id: SharedSettingId, value: string | null, ctx: EditContext): OpResult<SharedSetting> {

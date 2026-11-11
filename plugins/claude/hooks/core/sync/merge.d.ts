@@ -8,6 +8,12 @@ export interface SyncBase {
     lastPullAt: Iso | null;
     /** Content hash of each record as of the last sync, keyed "collection/id". */
     hashes: Record<string, string>;
+    /**
+     * The records ("collection/id") each other device's file held at the last merge. A
+     * record missing from a device's file now, but present before, had its tombstone
+     * cleaned up there: that is the only time a deletion is inferred (never from clocks).
+     */
+    devices?: Record<string, string[]>;
 }
 export interface MergeInput {
     local: SyncedData;

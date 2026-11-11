@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@ccb/core": "0.0.0",
-    "@ccb/store": "0.0.0"
+    "@ccb/store": "0.0.0",
+    "@ccb/sync": "0.0.0"
   }
 }

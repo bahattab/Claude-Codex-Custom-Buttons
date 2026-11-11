@@ -5,7 +5,7 @@ import { atom, read, update } from "claude-code";
 import type { EngineInterface, On } from "claude-code";
 
 import type { NoteSummary, NotesView } from "../types";
-import { autosaveMs } from "./client.js";
+import { autosaveMs, readClient, refreshClient } from "./client.js";
 import { callTool, errorText } from "./mcp.js";
 
 type $ = EngineInterface;
@@ -120,6 +120,34 @@ export async function refreshOpenNote($: $): Promise<void> {
 export async function openNotes($: $): Promise<void> {
   await $.ui.open({ id: NOTES_PANE, title: "Notes", focus: true });
   await refreshNotes($);
+  // Opening Notes pulls other computers' changes at once, without holding up the pane.
+  $.clock.after(0, async () => {
+    try {
+      await callTool($, "sync_now");
+      await refreshClient($);
+      await refreshNotes($);
+    } catch {
+      // sync not available, or offline: the status shows why
+    }
+  });
+}
+
+/** Settles the open conflict copy: keep its text, the other version, or both. */
+async function settle($: $, keep: "copy" | "original" | "both"): Promise<void> {
+  const v = await read($, notesView);
+  const copy = v.list.find((n) => n.id === v.selectedId);
+  if (!copy?.conflictOf) return;
+  if (hasUnsaved(v)) return void (await setView($, (cur) => ({ ...cur, notice: "Save or undo your changes to this copy first." })));
+  try {
+    const { kept } = await callTool<{ kept: { id: string; title: string } }>($, "conflict_resolve", { collection: "notes", copyId: copy.id, keep });
+    // Clear the editor first, so the version kept loads in place of the copy's text.
+    await setView($, (cur) => ({ ...cur, selectedId: null, draft: "", base: "", dirty: false, theirs: null, editor: cur.editor + 1, notice: keep === "both" ? `Kept both versions of "${kept.title}".` : `Kept one version of "${kept.title}".` }));
+    await loadList($);
+    await loadNote($, kept.id);
+    await refreshClient($);
+  } catch (error) {
+    await setView($, (cur) => ({ ...cur, notice: `Couldn't resolve the conflict: ${errorText(error)}` }));
+  }
 }
 
 // One save at a time: a second save waits for the first, so a new note is never created twice.
@@ -163,6 +191,11 @@ async function saveNow($: $): Promise<boolean> {
           },
     );
     await loadList($);
+    // Show the "not uploaded yet" dot now, and the upload a few seconds later.
+    await refreshClient($);
+    $.clock.after(4000, async () => {
+      await refreshClient($);
+    });
     return true;
   } catch (error) {
     await setView($, (cur) => ({ ...cur, notice: `Not saved: ${errorText(error)}` }));
@@ -270,6 +303,10 @@ export function registerNotes(on: On): void {
   on("ui.render", { component: "Pane", requestId: NOTES_PANE }, async ($, e) => {
     const { Box, Button, Input, Text } = $.ui.resolve(e);
     const v = await read($, notesView);
+    const sync = (await readClient($))?.sync ?? null;
+    // A dot marks notes changed here and not uploaded yet (only once sync is set up).
+    const tracking = sync !== null && (sync.state === "idle" || sync.state === "offline" || sync.state === "syncing");
+    const waiting = new Set(tracking ? sync.pendingKeys : []);
     const selected = v.list.find((n) => n.id === v.selectedId);
     const rows = Math.max(4, Math.min(20, (e.viewport?.rows ?? 24) - 12));
 
@@ -280,13 +317,22 @@ export function registerNotes(on: On): void {
           {v.list.map((n) => (
             <Button
               key={`ccb-note-${n.id}`}
-              label={`${n.pinned ? "* " : ""}${n.title}${n.conflictOf ? " (conflict)" : ""}`}
+              label={`${waiting.has(`notes/${n.id}`) ? "• " : ""}${n.pinned ? "* " : ""}${n.title}${n.conflictOf && !n.title.endsWith(" (conflict)") ? " (conflict)" : ""}`}
               {...(n.id === v.selectedId ? { variant: "primary" as const } : {})}
               onPress={() => select($, n.id)}
             />
           ))}
         </Box>
         {v.notice ? <Text>{v.notice}</Text> : null}
+        {selected?.conflictOf ? (
+          <Box flexDirection="row" gap={1}>
+            <Text>This copy was made because the note was changed on two computers at once.</Text>
+            <Button key="ccb-note-keep-copy" label="Keep this" onPress={() => settle($, "copy")} />
+            <Button key="ccb-note-keep-original" label="Keep other" onPress={() => settle($, "original")} />
+            <Button key="ccb-note-keep-both" label="Keep both" onPress={() => settle($, "both")} />
+          </Box>
+        ) : null}
+        {tracking ? <Text dimColor>{sync.line}{waiting.size ? " · • not uploaded yet" : ""}</Text> : null}
         {v.theirs !== null ? (
           <Box flexDirection="column">
             <Text>This note was changed elsewhere while you had unsaved edits.</Text>

@@ -153,3 +153,40 @@ Each decision records the options considered, the choice and why. All were appro
   - an atom imported from another module and read or updated there;
   - `$` handed to a stored callback (`hooks.onLibraryChanged($)`): "$ is always spelled $.noun.event(...) at the call site".
   A direct call to an imported function that takes `$` is accepted. The first design passed callbacks into each pane module; it was replaced.
+
+## D27. Keep the Google sign-in with the OS's own tools (2026-11-11, M5)
+
+- **Choice:** macOS Keychain through `security`, Linux Secret Service through `secret-tool`, Windows a DPAPI-encrypted file through PowerShell. A file readable only by you is used only when `google.tokenStore` is `"file"`. The token goes to these tools on standard input, never on a command line; a token with unexpected characters is refused rather than quoted.
+- **Why:** the plan named `@napi-rs/keyring`, a native module. The Claude plugin's server is one bundled JavaScript file run by plain Node with no `npm install` (D25), so it can't carry per-platform native binaries. The project owner chose this option (2026-11-11).
+- **Limits:** the commands are tested with a stand-in command runner only; they still need a hands-on check on each OS (platform-facts G7).
+
+## D28. A small fetch-based Drive and OAuth client (2026-11-11, M5)
+
+- **Choice:** call the documented Drive v3 endpoints (`files.list`, `files.create`, media upload and download, `changes.getStartPageToken`, `changes.list`) and Google's OAuth endpoints (authorise with PKCE, token, revoke) with Node's built-in `fetch`, instead of `@googleapis/drive` and `google-auth-library`.
+- **Why:** sync needs a handful of calls; the bundled server stays small (834 KB) and has no new dependencies; a fake Drive behind the same `fetch` tests every path. Chosen by the project owner (2026-11-11).
+
+## D29. "Pending" is derived from hashes, not an outbox log (2026-11-11, M5)
+
+- **Choice:** a record is pending while its content hash differs from the hash saved at the last successful upload (`sync-state.json`). There is no `outbox.json`.
+- **Why:** a log can drift from the library (a crash between writing the library and the log, edits by another process). Comparing hashes can't: after any crash, whatever differs from Drive is uploaded on the next run, once.
+
+## D30. One sync at a time per computer, with a cache of device files (2026-11-11, M5)
+
+- **Choice:** a sync run (pull, merge, push) holds `.sync.lock`, and the newest copy of every other device's file is kept in `sync-cache/`.
+- **Why:** two `ccb-mcp` processes on one computer (Claude Code and Codex open together) could otherwise upload an older view after a newer one. The change feed downloads only changed files, but the merge needs every device file (a record missing from every newer file counts as deleted), so the others come from the cache.
+
+## D31. Infer a deletion only from a device that dropped the record (2026-11-11, M5; revises D17's deletion rule)
+
+- **Choice:** a record that exists only on this computer, unchanged since the last sync, counts as deleted only when another device's file held it at the last merge and no longer does (its tombstone expired there). The merge remembers which records each device's file held (`SyncBase.devices`).
+- **Note:** a device whose sync state predates this rule infers no deletions on its first merge, so after 180 days offline it can bring back records whose tombstones expired elsewhere. Don't sync with devices running an older version.
+- **Why:** the first rule ("absent from every device file that synced after our last pull") compared one device's clock with another's. The independent M5 review showed that a new record was deleted everywhere when another computer's clock ran ahead, or when its upload raced with ours. Both cases now have tests.
+
+## D32. Sync delivered in one pull request (2026-11-11, M5)
+
+- **Choice:** M5a and M5b went into one pull request.
+- **Why:** the independent review of M5a found data-loss bugs while M5b was under way in the same files (engine, server, CLI), and the project owner asked for the work to continue to the end without stopping. The milestone is still reported in two parts in the roadmap.
+
+## D33. On Windows, start the background service from the per-user Run key (2026-11-11, M5)
+
+- **Choice:** a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` runs a hidden VBScript launcher at log-on. `ccb service stop` and `uninstall` end the daemon through the pid file it writes.
+- **Why:** the independent review pointed out that `schtasks /Create /SC ONLOGON` is widely reported to need administrator rights, against D14, and that stopping the task couldn't stop the daemon the launcher had already started.

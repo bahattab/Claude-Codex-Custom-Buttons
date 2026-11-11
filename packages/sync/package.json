@@ -1,0 +1,20 @@
+{
+  "name": "@ccb/sync",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Automatic Google Drive sync for Claude Codex Custom Buttons: sync engine, Drive API and Drive-folder modes, Google sign-in and token storage.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@ccb/core": "0.0.0",
+    "@ccb/store": "0.0.0"
+  }
+}

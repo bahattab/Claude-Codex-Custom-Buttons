@@ -33,7 +33,25 @@ export type ClientState = {
   };
   continueMessage: string;
   regenerateInstructions: string | null;
+  /** Google Drive sync, or null when the server runs without it. */
+  sync?: SyncSummary | null;
 };
+
+export type SyncState = "off" | "not-set-up" | "signed-out" | "no-credential-store" | "idle" | "syncing" | "offline" | "error";
+
+export type SyncSummary = {
+  state: SyncState;
+  /** "Sync ✓ 12:04", "Sync offline · 2 pending", "Sync ⚠ sign in" ... */
+  line: string;
+  pending: number;
+  conflicts: number;
+  message: string | null;
+  /** Notes changed here and not uploaded yet, as "notes/<id>". */
+  pendingKeys: string[];
+};
+
+/** A Google sign-in started from the Prompt Bank (sync_connect). */
+export type ConnectView = { state: "waiting" | "done" | "failed"; url: string | null; message: string | null };
 
 /** What Undo puts back after a Regenerate. */
 export type UndoState = { text: string; id: string };
@@ -84,6 +102,8 @@ export type BankView = {
   variableDraft: { name: string; value: string };
   buttonDraft: ButtonDraft | null;
   notice: string | null;
+  /** Set while a Google sign-in started here is in progress or just finished. */
+  connect: ConnectView | null;
 };
 
 export type BankData = {

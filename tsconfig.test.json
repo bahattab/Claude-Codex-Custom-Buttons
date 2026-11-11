@@ -8,6 +8,7 @@
     "paths": {
       "@ccb/core": ["./packages/core/src/index.ts"],
       "@ccb/store": ["./packages/store/src/index.ts"],
+      "@ccb/sync": ["./packages/sync/src/index.ts"],
       "@ccb/mcp-server": ["./packages/mcp-server/src/index.ts"],
       "@ccb/cli": ["./packages/cli/src/index.ts"]
     }

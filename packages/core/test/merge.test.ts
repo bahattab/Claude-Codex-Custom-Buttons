@@ -193,6 +193,32 @@ describe("merge: deletions", () => {
     expect(a.prompt(p.id)).toBeUndefined();
   });
 
+  it("a new record survives a device whose clock runs ahead and hasn't seen it yet (review C1)", () => {
+    const [a, b, , drive] = devices();
+    settle(drive, [a, b], 1);
+    const p = newPrompt(ctx(A, 5), "Fresh");
+    a.add("prompts", p);
+    a.sync(drive, 5); // A uploads; B hasn't pulled yet
+    // B syncs with its clock 10 minutes ahead, from data that doesn't have the prompt yet.
+    drive.set(B, toDeviceFile(b.data, { deviceId: B, deviceName: "B", now: at(16) }));
+    a.sync(drive, 6);
+    expect(a.prompt(p.id)).toBeDefined();
+    b.sync(drive, 17);
+    expect(b.prompt(p.id)).toBeDefined();
+  });
+
+  it("a new record survives another device's upload that raced with it (review C1)", () => {
+    const [a, b, , drive] = devices();
+    settle(drive, [a, b], 1);
+    const staleB = toDeviceFile(b.data, { deviceId: B, deviceName: "B", now: at(3) });
+    const p = newPrompt(ctx(A, 2), "Racing");
+    a.add("prompts", p);
+    a.sync(drive, 2);
+    drive.set(B, staleB); // B pulled before A's upload landed, and uploaded after it
+    a.sync(drive, 4);
+    expect(a.prompt(p.id)).toBeDefined();
+  });
+
   it("a record changed here but missing elsewhere is kept", () => {
     const [a, b, , drive] = devices();
     const p = newPrompt(ctx(A, 0), "Mine");

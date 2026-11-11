@@ -128,6 +128,45 @@ export function appendNote(library, id, text, ctx, random) {
     return saveNote(library, { id, body }, ctx, random);
 }
 export const deleteNote = (library, id, ctx) => remove(library, "notes", id, ctx);
+// --- conflict copies ------------------------------------------------------------------
+const CONFLICT_SUFFIX = " (conflict)";
+/**
+ * Settles a conflict copy (made when two devices edited a prompt or note at once):
+ *   "original"  keep the note or prompt as it is; the copy is deleted
+ *   "copy"      the copy's text replaces the original; the copy is deleted
+ *   "both"      keep both: the copy becomes an ordinary prompt or note
+ * Returns the record that remains (the original, or the copy for "both").
+ */
+export function resolveConflict(library, collection, copyId, keep, ctx) {
+    const copy = find(library, collection, copyId);
+    if (!copy || copy.deletedAt !== null || !copy.conflictOf)
+        return fail(`${collection}: ${copyId} is not a conflict copy`);
+    const found = find(library, collection, copy.conflictOf);
+    // A deleted original counts as gone: "keep the other version" would then leave nothing.
+    const original = found && found.deletedAt === null ? found : undefined;
+    if (keep === "original" && !original)
+        return fail(`${collection}: the other version was deleted; keep this copy or keep both`);
+    const title = copy.title.endsWith(CONFLICT_SUFFIX) ? copy.title.slice(0, -CONFLICT_SUFFIX.length) : copy.title;
+    if (keep === "both" || (keep === "copy" && !original)) {
+        return save(library, collection, copy, { ...copy, conflictOf: null, ...(keep === "copy" ? { title } : {}) }, ctx);
+    }
+    let lib = library;
+    let kept = original;
+    if (keep === "copy" && original) {
+        const content = collection === "prompts"
+            ? { title, body: copy.body, category: copy.category, tags: copy.tags, favorite: copy.favorite }
+            : { title, body: copy.body, pinned: copy.pinned };
+        const saved = save(lib, collection, original, { ...original, ...content }, ctx);
+        if (!saved.ok)
+            return saved;
+        lib = saved.value.library;
+        kept = saved.value.record;
+    }
+    const removed = remove(lib, collection, copyId, ctx);
+    if (!removed.ok)
+        return removed;
+    return { ok: true, value: { library: removed.value.library, record: (kept ?? removed.value.record) } };
+}
 // --- shared settings ------------------------------------------------------------------
 export function setSharedSetting(library, id, value, ctx) {
     const prev = find(library, "sharedSettings", id);
