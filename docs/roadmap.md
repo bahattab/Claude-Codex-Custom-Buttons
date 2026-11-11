@@ -217,7 +217,8 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - Release files:
   - `ccb.mjs`, the `ccb` command in one file (86 KB, plain Node);
   - `claude-codex-buttons.mcpb`.
-- Release workflow: pushing a `v*` tag runs every check, builds both files, checks the tag matches the version, and publishes a GitHub release with notes taken from the CHANGELOG.
+- Release workflow: pushing a `v*` tag, or **Actions → Release → Run workflow** on `main`, runs every check, builds both files, checks the tag against the version, and publishes the GitHub release with notes from the CHANGELOG. Running it from the Actions tab also creates the `v0.1.0` tag.
+- **Publishing v0.1.0 is the one step left for you:** this session isn't allowed to create tags or releases, so run the workflow from the Actions tab.
 - The Prompt Bank **Settings** tab (moved here from M4), with new `settings_get` and `settings_set` tools. A value that isn't allowed is refused, and the setting keeps its old value.
 - Documentation pass:
   - "planned" markers removed;
