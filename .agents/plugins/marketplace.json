@@ -1,0 +1,9 @@
+{
+  "name": "ccb-codex",
+  "plugins": [
+    {
+      "name": "prompt-buttons-codex",
+      "source": { "source": "local", "path": "./plugins/codex" }
+    }
+  ]
+}

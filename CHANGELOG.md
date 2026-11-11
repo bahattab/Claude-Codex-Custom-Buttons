@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Milestone M6, the Codex plugin `prompt-buttons-codex` (marketplace `ccb-codex`):
+  - skills `continue`, `regenerate-prompt`, `prompt-bank`, `notes` and `drive-sync`, plus the bundled `ccb-mcp` server;
+  - generated `$ccb-<name>` skills for buttons and favourite prompts, rewritten automatically, and `ccb sync codex`;
+  - installed and checked with the real Codex CLI 0.167.1.
 - Milestone M5b:
   - the background sync service: `ccb sync --daemon`, `ccb service install|status|stop|uninstall`, offered by `ccb login`; `--home`;
   - in the Claude Code plugin: a sync button in the row, a Prompt Bank sync section with **Sync now** and **Connect Google Drive**, **Keep this / Keep other / Keep both** for conflict copies, a dot on notes not uploaded yet, `/pb sync`, and a pull when a pane opens;

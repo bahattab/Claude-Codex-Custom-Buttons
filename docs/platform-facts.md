@@ -52,8 +52,11 @@ Last updated: 2026-11-10 (milestone M0).
 | X5 | The old custom-prompt commands (`~/.codex/prompts/`, `/prompts:<name>`) have been migrated into **skills**. Skills accept `$ARGUMENTS`, `$ARGUMENTS[N]` and `$N`. User skills live in `$CODEX_HOME/skills/<name>/` (default `~/.codex/skills`) and are invoked by mentioning them (`$name`) | **Changed** | No `.codex/prompts` strings; "migrated-command-skills"/command-migration identifiers; skills installer and argument help text in the release |
 | X6 | Hooks exist with events including `SessionStart`, `UserPromptSubmit` and `PreToolUse`; plugins can bundle hooks; admins can restrict to managed hooks | **Confirmed** (behaviour untested) | Hook schemas in the release; `docs/config.md` in `openai/codex` |
 | X7 | No API for plugins to add buttons or panes | Unchanged (nothing found) | No such identifiers found; `interface.defaultPrompt` is plugin metadata, not a button |
-| X8 | Which marketplace file Codex prefers when a repository has both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` | **Unconfirmed** (M6) | — |
+| X8 | Which marketplace file Codex prefers when a repository has both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` | **Confirmed: `.agents/plugins/marketplace.json`** | Codex 0.167.1: `codex plugin marketplace add` on this repository added `ccb-codex` (M6) |
 | X9 | Node.js requirement | Confirmed: the npm launcher declares Node ≥ 16; the program itself is native | npm metadata |
+| X10 | A plugin's stdio MCP server starts with the plugin folder as its working directory (a `cwd` in `.mcp.json` must stay inside the plugin) | **Confirmed** | `codex-rs/codex-mcp/src/plugin_config.rs` (`environment_cwd`) at openai/codex fe2f185; `codex mcp list` after install |
+| X11 | Plugin skills are listed to the model as `<plugin>:<skill>`; user skills in `$CODEX_HOME/skills/<name>/SKILL.md` by name. SKILL.md needs front matter with a `description`; `name` at most 64 characters, description at most 1024 | **Confirmed** | `codex debug prompt-input` with Codex 0.167.1; `codex-rs/skills/src/parser.rs` |
+| X12 | Marketplace file: `{"name": ..., "plugins": [{"name": ..., "source": {"source": "local", "path": "./..."}}]}`; plugin manifest `interface` fields include `displayName`, `shortDescription`, `developerName`, `category`, `websiteURL`, `defaultPrompt`, `brandColor` | **Confirmed** | Codex source (`core-plugins/src/manifest.rs`, app-server tests) and a working install |
 
 ## Google Drive and OAuth
 

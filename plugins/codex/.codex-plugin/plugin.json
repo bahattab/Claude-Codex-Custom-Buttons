@@ -1,0 +1,17 @@
+{
+  "name": "prompt-buttons-codex",
+  "version": "0.1.0",
+  "description": "Prompt Bank, Continue, Regenerate Prompt and Notes for Codex, synced automatically with Claude Code and your other computers through Google Drive.",
+  "keywords": ["prompts", "prompt bank", "notes", "google drive", "productivity"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Prompt Buttons",
+    "shortDescription": "Prompt Bank, Continue, Regenerate and synced Notes",
+    "developerName": "Claude Codex Custom Buttons",
+    "category": "Productivity",
+    "websiteURL": "https://github.com/bahattab/Claude-Codex-Custom-Buttons",
+    "defaultPrompt": "Show my Prompt Bank",
+    "brandColor": "#4F46E5"
+  }
+}

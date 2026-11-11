@@ -234,3 +234,24 @@ describe("sync tools without sync, and other error paths", () => {
     expect(status.connect.message).toMatch(/invalid_grant/);
   });
 });
+
+describe("Codex skills follow buttons and favourites", () => {
+  it("a button saved through a tool becomes a $ccb- skill in Codex's folder by itself", async () => {
+    const home = await tmp("ccb-mcp-codex-");
+    const codex = await tmp("ccb-codex-home-");
+    const store = new LibraryStore({ home });
+    const server = createServer(store, { codexHome: codex });
+    const [x, y] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "t", version: "0" });
+    clients.push(client);
+    await Promise.all([server.connect(x), client.connect(y)]);
+    await client.callTool({ name: "buttons_save", arguments: { id: "btn_ship", label: "Ship it", action: { type: "submit", text: "Ship {{?what}}" } } });
+    const { readFile } = await import("node:fs/promises");
+    let text: string | null = null;
+    for (let i = 0; i < 50 && text === null; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      text = await readFile(join(codex, "skills", "ccb-ship", "SKILL.md"), "utf8").catch(() => null);
+    }
+    expect(text).toContain("Ship $1");
+  });
+});

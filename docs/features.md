@@ -24,7 +24,7 @@ There is deliberately **no** action type that runs shell commands, scripts or ar
 ### Behaviour
 
 - **CC:** buttons appear in a row above the prompt box, after the built-in Continue and Regenerate buttons (Notes and Prompts join them in M4). The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/btn <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
-- **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<id>` and regenerated automatically after sync. Other types map to the matching built-in skill.
+- **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<name>` and rewritten automatically after every change and sync. Other types map to the matching built-in skill.
 - **CD:** not available. Buttons of type `submit` are exposed as MCP prompts.
 
 ### Acceptance criteria
@@ -140,7 +140,7 @@ Title, body (with `{{variables}}`), category, tags, favourite flag, usage count,
 
 ### CX
 
-`prompt-bank` skill using MCP tools `bank_search`, `bank_get`, `bank_save`, `bank_delete`, `bank_list_categories`. Prompts can also be generated as `$ccb-<slug>` skills, kept up to date automatically.
+`prompt-bank` skill using MCP tools `bank_search`, `bank_get`, `bank_save`, `bank_delete`, `bank_list_categories`. Favourite prompts are also generated as `$ccb-<name>` skills, kept up to date automatically (D34).
 
 ### CD
 

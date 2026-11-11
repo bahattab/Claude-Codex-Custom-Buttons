@@ -24,7 +24,7 @@ import {
   type SyncMeta,
   type SyncedData,
 } from "@ccb/core";
-import { LibraryStore, exists, lockIsHeld, noteFileName, readText, writeFileAtomic, type StoreOptions } from "@ccb/store";
+import { LibraryStore, codexHome, exists, lockIsHeld, noteFileName, readText, writeCodexSkills, writeFileAtomic, type StoreOptions } from "@ccb/store";
 import {
   SyncEngine,
   formatStatus,
@@ -77,6 +77,7 @@ Usage:
   ccb logout                      Sign out of Google Drive and revoke the sign-in
   ccb sync                        Sync now (sync is automatic; this only forces it)
   ccb sync --daemon               Keep syncing until stopped (what the background service runs)
+  ccb sync codex                  Write the $ccb-* Codex skills for your buttons and favourite prompts now
   ccb status                      Show the sync status and the background service
   ccb service install|status|stop|uninstall
                                   The background sync service that starts when you log in
@@ -451,7 +452,12 @@ async function daemon(store: LibraryStore, io: Io): Promise<number> {
     store,
     remote: remoteProvider(setup(store, io)),
     ...(io.sync?.scheduler ? { scheduler: io.sync.scheduler } : {}),
-    onStatus: (s) => {
+    onStatus: (s, { merged }) => {
+      if (merged) {
+        void readLibrary(store)
+          .then((lib) => (lib.settings.codex.autoSync ? writeCodexSkills(lib, { onlyIfInstalled: true, home: codexHome(io.env) }) : undefined))
+          .catch(() => undefined);
+      }
       const line = statusLineOf(s);
       if (line !== last) io.err(`${new Date().toISOString()} ${line}${s.message ? ` (${s.message})` : ""}`);
       last = line;
@@ -488,8 +494,16 @@ async function logoutCmd(store: LibraryStore, io: Io): Promise<number> {
   return 0;
 }
 
-async function syncCmd(store: LibraryStore, values: { daemon?: boolean }, io: Io): Promise<number> {
+async function syncCmd(store: LibraryStore, args: string[], values: { daemon?: boolean }, io: Io): Promise<number> {
   if (values.daemon) return daemon(store, io);
+  if (args[0] === "codex") {
+    const library = await readLibrary(store);
+    const home = codexHome(io.env);
+    const { written, removed } = await writeCodexSkills(library, { home });
+    io.out(`Codex skills in ${home}/skills: ${written.length} written, ${removed.length} removed (one per button and favourite prompt; use them as $ccb-<name>).`);
+    return 0;
+  }
+  if (args.length) throw new UsageError("Usage: ccb sync [codex] [--daemon]");
   const status = await engineFor(store, io).syncNow();
   printStatus(status, io);
   return status.state === "idle" || status.state === "off" ? 0 : 1;
@@ -581,7 +595,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
       case "logout":
         return await logoutCmd(store, io);
       case "sync":
-        return await syncCmd(store, parsed.values, io);
+        return await syncCmd(store, rest, parsed.values, io);
       case "service":
         return await serviceCmd(store, rest, io);
       case "status":

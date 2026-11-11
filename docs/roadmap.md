@@ -10,7 +10,7 @@ Each milestone delivers something usable and ends with checks that must pass bef
 | M3 | Claude mod, part 1: button row, Continue, Regenerate, slash commands | **Done** (2026-11-10) | M2 |
 | M4 | Claude mod, part 2: Prompt Bank pane, Notes pane, button editor | Done | M3 |
 | M5 | Automatic Google Drive sync: per-device files, Drive API and Drive-folder modes, `ccb login`, background sync service | Done | M2 |
-| M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Planned | M2, M5 |
+| M6 | Codex plugin: skills, MCP config, generated `$ccb-<id>` skills | Done | M2, M5 |
 | M7 | Claude Desktop Chat tab: `.mcpb` desktop extension | Planned | M2, M5 |
 | M8 | Hardening, documentation pass, release v0.1.0 | Planned | M4, M6, M7 |
 
@@ -159,6 +159,19 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - Generated `$ccb-<id>` skills for buttons and prompts, regenerated automatically after sync (`codex.autoSync`).
 
 **Done when:** the plugin installs in Codex from this repository; each skill runs end to end against a local library; generated commands appear and work.
+
+**Result (2026-11-11):** done, except running the skills in a signed-in Codex session (that needs your Codex login).
+- `plugins/codex`: manifest, `.mcp.json`, the bundled server (kept identical to the Claude plugin's by `check:plugin`) and five skills: `continue`, `regenerate-prompt`, `prompt-bank`, `notes`, `drive-sync`. Marketplace `ccb-codex` in `.agents/plugins/marketplace.json`.
+- **Verified with the real Codex CLI 0.167.1:**
+  - `codex plugin marketplace add <this repo>` adds `ccb-codex`, so Codex prefers `.agents/plugins/marketplace.json` when both marketplace files exist (X8);
+  - `codex plugin add prompt-buttons-codex@ccb-codex` installs the plugin;
+  - `codex mcp list` shows `ccb`;
+  - `codex debug prompt-input` lists all five skills, and a generated `ccb-*` skill, among the model's available skills.
+- Generated `$ccb-<name>` skills, one per submit or fill button and one per favourite prompt (D34), rewritten after every change and every sync that brings changes; `ccb sync codex` writes them at once.
+- Tests:
+  - the plugin files follow Codex's rules (paths, names, descriptions, and the tool names the skills use exist);
+  - the server starts from a copy of the plugin folder, the way Codex starts it;
+  - the skill generator, auto-regeneration, and `ccb sync codex`.
 
 ## M7: Claude Desktop Chat tab
 

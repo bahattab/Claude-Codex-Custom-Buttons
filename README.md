@@ -2,7 +2,7 @@
 
 **Reusable buttons and productivity widgets for Claude Code, Codex and Claude Desktop, with a Prompt Bank and Notes that sync automatically through Google Drive.**
 
-> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5). Not yet built: the Codex and Desktop packages. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
+> **Status: early development (v0.1).** Done: design, workspace (M0), shared core (M1), the local storage server `ccb-mcp` with the `ccb` command (M2), the Claude Code button row with Continue, Regenerate and custom buttons (M3), the Claude Code Prompt Bank and Notes panes (M4), and automatic Google Drive sync with `ccb login`, the background service, and the plugin's sync button, Connect and conflict choices (M5). and the Codex plugin with its skills, plus generated `$ccb-*` skills for your buttons and favourite prompts (M6). Not yet built: the Claude Desktop Chat-tab extension. Commands marked *(planned)* describe the intended interface and will work once the matching milestone in the [roadmap](docs/roadmap.md) ships.
 
 ---
 

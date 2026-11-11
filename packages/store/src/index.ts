@@ -12,3 +12,4 @@ export {
   type StorePaths,
 } from "./store.js";
 export { LockTimeoutError, exists, lockIsHeld, readText, secureRandom, withLock, writeFileAtomic, type LockOptions } from "./fsutil.js";
+export { CODEX_MARKER, codexHome, codexSkills, writeCodexSkills, type CodexSkill } from "./codex.js";

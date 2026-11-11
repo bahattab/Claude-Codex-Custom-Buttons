@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ccb": {
+      "command": "node",
+      "args": ["./server/ccb-mcp.mjs"]
+    }
+  }
+}

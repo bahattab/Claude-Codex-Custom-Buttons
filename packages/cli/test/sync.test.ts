@@ -166,3 +166,18 @@ describe("a cancelled login changes nothing (review M4)", () => {
     }
   });
 });
+
+describe("ccb sync codex", () => {
+  it("writes the Codex skills for buttons and favourites", async () => {
+    const codex = await mkdtemp(join(tmpdir(), "ccb-cli-codex-"));
+    try {
+      const out: string[] = [];
+      const code = await run(["sync", "codex"], { env: { CCB_HOME: home, CODEX_HOME: codex }, out: (t) => out.push(t), err: (t) => out.push(t) });
+      expect(code).toBe(0);
+      expect(out.join("\n")).toMatch(/Codex skills in .*: \d+ written/);
+      expect((await ccb(["sync", "bogus"])).code).toBe(2);
+    } finally {
+      await rm(codex, { recursive: true, force: true });
+    }
+  });
+});

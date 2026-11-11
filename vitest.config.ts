@@ -17,6 +17,8 @@ export default defineConfig({
     include: ["packages/*/test/**/*.test.ts"],
     globalSetup: ["./test/global-setup.ts"],
     testTimeout: 20_000,
+    // Tests never touch a real Codex folder: generated skills go only where a test says.
+    env: { CODEX_HOME: "/nonexistent/ccb-test-codex-home" },
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**/*.ts"],

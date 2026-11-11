@@ -36,7 +36,7 @@ import {
   type Prompt,
   type SharedSettingId,
 } from "@ccb/core";
-import { LibraryStore } from "@ccb/store";
+import { LibraryStore, writeCodexSkills } from "@ccb/store";
 import { loadClient, login, statusLine, tokenStoreFor, type SetupOptions, type SyncEngine, type SyncStatus } from "@ccb/sync";
 
 export const SERVER_NAME = "ccb-mcp";
@@ -161,6 +161,8 @@ export function promptNames(library: Library): Map<string, Prompt> {
 export interface ServerOptions {
   /** The sync engine to tell about changes and to run for sync_now / sync_status. */
   sync?: SyncEngine;
+  /** Where Codex keeps its skills ($CODEX_HOME); generated $ccb-* skills follow buttons and favourites. */
+  codexHome?: string;
   /** For tests: how sign-in reaches Google and the OS, and the browser. */
   connect?: Omit<SetupOptions, "home"> & { openBrowser?: (url: string) => void | Promise<void> };
 }
@@ -192,8 +194,27 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
     if (mcp.isConnected()) mcp.sendPromptListChanged();
   };
 
-  /** Something changed here: sync uploads it after sync.pushDelayMs. */
-  const changed = (): void => opts.sync?.notifyChanged();
+  /** Keeps Codex's $ccb-* skills in step with buttons and favourite prompts (codex.autoSync). */
+  let codexTimer: NodeJS.Timeout | null = null;
+  const refreshCodex = (): void => {
+    if (codexTimer) clearTimeout(codexTimer);
+    codexTimer = setTimeout(() => {
+      codexTimer = null;
+      void (async () => {
+        const { library } = await store.read();
+        if (library?.settings.codex.autoSync) {
+          await writeCodexSkills(library, { onlyIfInstalled: true, ...(opts.codexHome ? { home: opts.codexHome } : {}) });
+        }
+      })().catch(() => undefined);
+    }, 500);
+    codexTimer.unref?.();
+  };
+
+  /** Something changed here: sync uploads it after sync.pushDelayMs, and Codex skills follow. */
+  const changed = (): void => {
+    opts.sync?.notifyChanged();
+    refreshCodex();
+  };
 
   const write = async <T>(op: (lib: Library, ctx: Parameters<Parameters<LibraryStore["update"]>[0]>[1]) => OpResult<T>): Promise<T> => {
     let record: T | undefined;
@@ -738,6 +759,7 @@ export function createServer(store: LibraryStore, opts: ServerOptions = {}): Mcp
         if (!opts.sync) return syncUnavailable();
         const status = await opts.sync.syncNow();
         promptsChanged(); // a pull may have brought new prompts
+        refreshCodex();
         return ok({ ...withLine(status), connect: connecting });
       }),
   );

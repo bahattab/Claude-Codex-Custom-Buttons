@@ -190,3 +190,8 @@ Each decision records the options considered, the choice and why. All were appro
 
 - **Choice:** a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` runs a hidden VBScript launcher at log-on. `ccb service stop` and `uninstall` end the daemon through the pid file it writes.
 - **Why:** the independent review pointed out that `schtasks /Create /SC ONLOGON` is widely reported to need administrator rights, against D14, and that stopping the task couldn't stop the daemon the launcher had already started.
+
+## D34. Codex skills for buttons and favourite prompts only (2026-11-11, M6)
+
+- **Choice:** generated `$ccb-<name>` skills come from every `submit` or `fill` button and every favourite prompt, not from every prompt.
+- **Why:** Codex lists every skill to the model, so hundreds of prompts would crowd out other skills and use context. Marking a prompt as a favourite is the switch. Every prompt stays reachable through the `prompt-bank` skill.
