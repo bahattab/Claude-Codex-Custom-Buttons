@@ -47,7 +47,7 @@ describe("Codex plugin files", () => {
 
   it("every skill has front matter Codex accepts: name = folder (at most 64), a one-line description, tool names that exist", async () => {
     const names = (await readdir(join(plugin, "skills"))).sort();
-    expect(names).toEqual(["continue", "drive-sync", "notes", "prompt-bank", "regenerate-prompt", "translate"]);
+    expect(names).toEqual(["button", "continue", "drive-sync", "notes", "prompt-bank", "regenerate-prompt", "translate"]);
     for (const name of names) {
       const text = await readFile(join(plugin, "skills", name, "SKILL.md"), "utf8");
       // Codex doesn't substitute these in skills (X5), and agents must not run the unrelated npm "ccb".

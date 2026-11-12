@@ -45,7 +45,7 @@ import {
 } from "@ccb/sync";
 import { installService, pidFile, serviceStatus, stopService, uninstallService, type ServiceContext } from "./service.js";
 
-export const CLI_VERSION = "0.1.0";
+export const CLI_VERSION = "0.1.1";
 export const EXPORT_FORMAT = "ccb-export/1";
 
 export interface Io {

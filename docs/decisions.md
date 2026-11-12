@@ -204,3 +204,9 @@ Each decision records the options considered, the choice and why. All were appro
   - the text goes only where the user's chat already goes;
   - a language model keeps code, placeholders and formatting.
 - **Instant translation** polls the selection, because there's no selection event (C26), and translates a selection only once it has held still for one interval. Results are cached; numbers, single characters, code, paths, URLs and already-shown translations are skipped; and the bubble uses a smaller answer limit. So the model isn't called while text is still being selected, or when you select a translation to copy it. It can be turned off with `translate.instant`.
+
+## D36. `/` commands for cloud sessions (2026-11-12)
+
+- **Problem:** the Claude app doesn't show a plugin's button row in cloud sessions; it draws its own interface there (checked by the project owner on 2026-11-12).
+- **Options:** (a) give the Claude plugin skills, which appear as `/prompt-buttons:<skill>` commands in every session; (b) a browser extension that adds buttons to claude.ai; (c) a page pinned in the Claude sidebar.
+- **Choice:** (a) now: the Codex skills are copied into the Claude plugin at build time, so both plugins share one text and `npm run check:plugin` catches drift. A new `button` skill presses a custom button by its label. (b) is rejected for the same reason as D1(c). (c) is explored separately.
