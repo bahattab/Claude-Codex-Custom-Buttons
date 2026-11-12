@@ -10,7 +10,7 @@ The richest integration. One Claude Code plugin, **`prompt-buttons`**, works on 
 /plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-This one-step form needs Claude Code 2.1.275 or later. With an older version, add the marketplace first (`/plugin marketplace add bahattab/Claude-Codex-Custom-Buttons`), then `/plugin install prompt-buttons@ccb`. The repository is private, so your GitHub account needs access to it.
+This one-step form needs Claude Code 2.1.275 or later. With an older version, add the marketplace first (`/plugin marketplace add bahattab/Claude-Codex-Custom-Buttons`), then `/plugin install prompt-buttons@ccb`. The repository is public, so no GitHub sign-in is needed. For cloud sessions, see [Cloud sessions](#cloud-sessions).
 
 Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-mcp` server.
 
@@ -109,7 +109,9 @@ claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 
 ## Cloud sessions
 
-Claude Code sessions in the cloud (claude.ai/code) have no OS credential store, so Drive API sync can't keep a token there. Options:
+**Installing.** A cloud session starts on a fresh computer, so install the plugin from the cloud environment's setup script: see [Install: cloud sessions](../install.md#cloud-sessions). The Prompt Bank, Notes and Translate tools work there; whether the Claude app shows the button row for a cloud session is not yet confirmed.
+
+**Sync.** Claude Code sessions in the cloud (claude.ai/code) have no OS credential store, so Drive API sync can't keep a token there. Options:
 
 1. work locally only in that session (`sync.mode = "off"`); or
 2. use the **Claude Google Drive connector** if connected: the mod can call it through `$.mcp` with the engine's own credentials. This path is Claude-only and planned as an optional adapter, not the main sync path.

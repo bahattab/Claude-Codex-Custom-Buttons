@@ -73,7 +73,7 @@ Requirements: Node.js 22.12 or newer, and a Google account for sync.
 /plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is private, so your GitHub account needs access to it. You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/cont`, `/regen`, `/btn`, `/pb`, `/notes` and `/tr`.
+The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is public, so no GitHub sign-in is needed. To get the plugin in cloud sessions too, see [Cloud sessions](docs/install.md#cloud-sessions). You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/cont`, `/regen`, `/btn`, `/pb`, `/notes` and `/tr`.
 
 ### 2. Codex
 

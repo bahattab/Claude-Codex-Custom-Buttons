@@ -13,7 +13,7 @@ This guide installs Claude Codex Custom Buttons v0.1.0 step by step. Install onl
 ## Before you start
 
 - **Node.js 22.12 or newer** on every computer. Check with `node --version`; get it from [nodejs.org](https://nodejs.org/).
-- **GitHub access to the repository.** It is private, so Claude Code and Codex must be able to read `bahattab/Claude-Codex-Custom-Buttons` with your GitHub account (signed in with `gh auth login`, or Git credentials that can clone it).
+- **Nothing for GitHub.** The repository is public, so no GitHub account or sign-in is needed to install.
 - **For Google Drive sync:** a Google account, and either a Google Cloud OAuth client (once, see [step 5](#5-turn-on-google-drive-sync)) or Google Drive for desktop.
 
 Your data is kept in `~/.claude-codex-buttons/` on each computer (`C:\Users\<you>\.claude-codex-buttons\` on Windows). Every part uses that same folder.
@@ -48,6 +48,28 @@ Your data is kept in `~/.claude-codex-buttons/` on each computer (`C:\Users\<you
 The Code tab of Claude Desktop uses the same plugin: installing it once in Claude Code is enough on that computer.
 
 **Update or remove:** `/plugin marketplace update ccb` fetches the latest version; `/plugin uninstall prompt-buttons` removes it (your data folder stays).
+
+### Cloud sessions
+
+Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) start on a fresh computer every time, so a plugin installed on your own computer isn't there. Install it from the cloud environment's **setup script**, which runs at the start of every new session:
+
+1. Open a cloud session, click the environment name in the session's title bar, then **Edit**.
+2. Add these two lines at the end of **Setup script**:
+
+   ```bash
+   claude plugin marketplace add bahattab/Claude-Codex-Custom-Buttons || true
+   claude plugin install prompt-buttons@ccb || true
+   ```
+
+3. Save, then start a **new** cloud session (an open session doesn't run the script again).
+
+`|| true` keeps a session starting even if the install fails. Running the lines again is safe: they report "already installed".
+
+What works in a cloud session:
+
+- **Works:** the Prompt Bank, Notes, Translate and settings, by asking Claude ("show my prompt bank", "translate this to English").
+- **Not yet confirmed:** the button row above the prompt box. Claude Code draws it, but it hasn't been checked whether the Claude app shows it for cloud sessions.
+- **Starts empty:** each cloud session has its own new library, so your saved prompts and notes from your computer aren't there. Google Drive sync needs a saved sign-in, which a cloud session can't keep (see [Claude Code: cloud sessions](platforms/claude-code.md#cloud-sessions)).
 
 ## 2. Codex
 
@@ -210,6 +232,8 @@ Full list: [Configuration](configuration.md).
 
 | Problem | What to do |
 |---|---|
+| "Failed to add marketplace" | Check the computer can reach github.com; update Claude Desktop or Claude Code, then try again |
+| No buttons in a cloud session | Expected until the setup script installs the plugin; see [Cloud sessions](#cloud-sessions) |
 | No buttons in Claude Code | Restart Claude Code; run `/plugin` to check `prompt-buttons` is enabled; check `node --version` is 22.12 or newer |
 | "ccb-mcp is not connected" | Node.js missing or too old; install Node 22.12+ and restart |
 | `Sync not set up` | Do [step 5](#5-turn-on-google-drive-sync) |
