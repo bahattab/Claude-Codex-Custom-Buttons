@@ -43,7 +43,7 @@ import { LibraryStore, writeCodexSkills } from "@ccb/store";
 import { loadClient, login, statusLine, tokenStoreFor, type SetupOptions, type SyncEngine, type SyncStatus } from "@ccb/sync";
 
 export const SERVER_NAME = "ccb-mcp";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.1.1";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 

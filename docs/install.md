@@ -5,7 +5,7 @@ This guide installs Claude Codex Custom Buttons v0.1.0 step by step. Install onl
 | Part | What you get | Section |
 |---|---|---|
 | Claude Code plugin `prompt-buttons` | Button row, Prompt Bank, Notes and Translate panes, slash commands, instant translation. Works in the terminal, the Code tab of Claude Desktop, VS Code and mobile | [1](#1-claude-code-and-the-claude-desktop-code-tab) |
-| Codex plugin `prompt-buttons-codex` | Skills: continue, regenerate-prompt, prompt-bank, notes, translate, drive-sync, plus `$ccb-*` skills for your buttons and favourite prompts | [2](#2-codex) |
+| Codex plugin `prompt-buttons-codex` | Skills: continue, regenerate-prompt, prompt-bank, notes, translate, drive-sync, button, plus `$ccb-*` skills for your buttons and favourite prompts | [2](#2-codex) |
 | Claude Desktop extension `.mcpb` | Your saved prompts in the Chat tab, plus tools to save prompts and notes | [3](#3-claude-desktop-chat-tab) |
 | The `ccb` command | Google sign-in, settings, background sync, import/export, diagnostics | [4](#4-the-ccb-command) |
 | Google Drive sync | The same prompts, buttons, variables and notes on every computer | [5](#5-turn-on-google-drive-sync) |
@@ -67,8 +67,20 @@ Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) st
 
 What works in a cloud session:
 
-- **Works:** the Prompt Bank, Notes, Translate and settings, by asking Claude ("show my prompt bank", "translate this to English").
-- **Not yet confirmed:** the button row above the prompt box. Claude Code draws it, but it hasn't been checked whether the Claude app shows it for cloud sessions.
+- **Works:** the `/` commands below, and the Prompt Bank, Notes, Translate and settings by asking Claude ("show my prompt bank", "translate this to English").
+- **Doesn't show:** the button row above the prompt box. Claude Code draws it on your computer; for a cloud session the Claude app shows its own interface, which doesn't include it (checked 2026-11-12).
+
+Type `/` in the prompt box to find these commands. They work in local sessions too.
+
+| Command | Does what the button does |
+|---|---|
+| `/prompt-buttons:continue` | **Continue** the last answer |
+| `/prompt-buttons:regenerate-prompt [text]` | **Regenerate**: rewrite a prompt (yours, or your last message) and offer to send it |
+| `/prompt-buttons:button <label> [extra input]` | Press one of your custom buttons; with no label, lists them |
+| `/prompt-buttons:prompt-bank [search]` | **Prompts**: find, run or save a prompt |
+| `/prompt-buttons:notes [text]` | **Notes**: show notes, or take a note |
+| `/prompt-buttons:translate [to <language>:] text` | **Translate** |
+| `/prompt-buttons:drive-sync` | **Sync** status, sync now, connect Google Drive |
 - **Starts empty:** each cloud session has its own new library, so your saved prompts and notes from your computer aren't there. Google Drive sync needs a saved sign-in, which a cloud session can't keep (see [Claude Code: cloud sessions](platforms/claude-code.md#cloud-sessions)).
 
 ## 2. Codex

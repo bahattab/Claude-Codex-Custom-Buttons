@@ -99,12 +99,13 @@ If several tools run at the same time, each starts its own `ccb-mcp` process. Th
 │   │   ├── .claude-plugin/plugin.json (+ icon.png)
 │   │   ├── hooks/               the mod: register, bank, notes, translate, client, mcp (+ generated core/)
 │   │   ├── server/ccb-mcp.mjs   generated bundle
+│   │   ├── skills/              generated: copies of the Codex skills (/prompt-buttons:<skill>)
 │   │   ├── types/index.d.ts     $.state contract
 │   │   └── test/                plugin tests (claude plugin test)
 │   └── codex/                   Codex plugin prompt-buttons-codex
 │       ├── .codex-plugin/plugin.json · .mcp.json · icon.png
 │       ├── server/ccb-mcp.mjs   generated bundle (same as Claude's)
-│       └── skills/              continue, regenerate-prompt, prompt-bank, notes, drive-sync, translate
+│       └── skills/              continue, regenerate-prompt, prompt-bank, notes, drive-sync, translate, button
 ├── desktop-extension/           Claude Desktop MCPB manifest and icon
 ├── .claude-plugin/marketplace.json   Claude Code marketplace ccb
 ├── .agents/plugins/marketplace.json  Codex marketplace ccb-codex

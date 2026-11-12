@@ -109,7 +109,7 @@ claude --plugin-dir plugins/claude        # load locally; edits hot-reload
 
 ## Cloud sessions
 
-**Installing.** A cloud session starts on a fresh computer, so install the plugin from the cloud environment's setup script: see [Install: cloud sessions](../install.md#cloud-sessions). The Prompt Bank, Notes and Translate tools work there; whether the Claude app shows the button row for a cloud session is not yet confirmed.
+**Installing.** A cloud session starts on a fresh computer, so install the plugin from the cloud environment's setup script: see [Install: cloud sessions](../install.md#cloud-sessions). The Claude app doesn't show the button row for a cloud session (checked 2026-11-12), so the plugin also has `/prompt-buttons:<skill>` commands (`continue`, `regenerate-prompt`, `button`, `prompt-bank`, `notes`, `translate`, `drive-sync`) that do the same jobs in any session. They are the Codex plugin's skills, copied in by `npm run build:plugin`.
 
 **Sync.** Claude Code sessions in the cloud (claude.ai/code) have no OS credential store, so Drive API sync can't keep a token there. Options:
 
