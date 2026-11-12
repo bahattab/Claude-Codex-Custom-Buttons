@@ -22,7 +22,7 @@ Each decision records the options considered, the choice and why. All were appro
 
 ## D4. Repository visibility and name
 
-- **Choice:** private repository `bahattab/Claude-Codex-Custom-Buttons` (GitHub does not allow spaces in names).
+- **Choice:** repository `bahattab/Claude-Codex-Custom-Buttons` (GitHub does not allow spaces in names). Private at first; made public on 2026-11-12 so that installing needs no GitHub sign-in, including in cloud sessions. The history was checked for secrets before the change.
 
 ## D5. Codex integration depth
 
