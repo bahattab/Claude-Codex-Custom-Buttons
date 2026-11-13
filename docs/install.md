@@ -94,6 +94,8 @@ For buttons you can see next to any session (cloud, local or a chat), there is a
 
 To publish your own copy, ask Claude in any session to publish `extras/prompt-buttons-page.html` as an Artifact with the `db`, `user` and `sample` capabilities and pin it.
 
+A newly pinned page shows under **Pinned** only after the sidebar reloads: press `Ctrl+R` (`Cmd+R` on a Mac) in Claude Desktop, or reopen the app. Until then it is under **Artifacts**.
+
 ## 2. Codex
 
 1. Add the marketplace and the plugin:
@@ -256,6 +258,7 @@ Full list: [Configuration](configuration.md).
 | Problem | What to do |
 |---|---|
 | "Failed to add marketplace" | Check the computer can reach github.com; update Claude Desktop or Claude Code, then try again |
+| Prompt Buttons page not in the sidebar | Reload the sidebar (`Ctrl+R`, `Cmd+R` on a Mac) or reopen the app; it is also under **Artifacts** |
 | No buttons in a cloud session | Expected until the setup script installs the plugin; see [Cloud sessions](#cloud-sessions) |
 | No buttons in Claude Code | Restart Claude Code; run `/plugin` to check `prompt-buttons` is enabled; check `node --version` is 22.12 or newer |
 | "ccb-mcp is not connected" | Node.js missing or too old; install Node 22.12+ and restart |
