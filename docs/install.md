@@ -89,10 +89,31 @@ For buttons you can see next to any session (cloud, local or a chat), there is a
 
 - **Continue** and your own buttons copy their text; paste it into the prompt box. A page can't type into the prompt box itself.
 - **Regenerate** and **Translate** run inside the page, with Claude on your account, then copy the result.
-- **Prompt Bank**: search, copy, star, add and delete prompts. It is stored in your claude.ai account, private to you, and separate from the plugin's library.
-- **Import**: run `ccb export library.json` on your computer and pick the file (or paste it) to bring over your prompts and your buttons that send or fill text.
+- **Prompt Bank**: search, copy, star, add and delete prompts.
+- **Google Drive** tab: sync with the plugin through a folder you choose anywhere in your Google Drive (below).
+- **Import and export** in the `ccb export` format, for moving data without Drive (`ccb import prompt-buttons.json` on your computer).
 
-To publish your own copy, ask Claude in any session to publish `extras/prompt-buttons-page.html` as an Artifact with the `db`, `user` and `sample` capabilities and pin it.
+The page is one more device in the plugin's sync: it uses the same folder layout (`<folder>/devices/<device>.json`) and the plugin's own merge code, bundled in by `npm run build:plugin` from [`extras/prompt-buttons-page.template.html`](../extras/prompt-buttons-page.template.html).
+
+**Sync the page with your computers through Google Drive:**
+
+1. The page uses the **Google Drive connector** of your claude.ai account (Settings, Connectors). Signing in to Claude with Google doesn't give it Drive access by itself; the connector does.
+2. In the page, open **Google Drive**, search for a folder and press **Sync with this folder**, or create a new one (in My Drive, or inside a folder you found). The page asks once to use Google Drive.
+3. On each computer, install **Google Drive for desktop** and point the plugin at the same folder:
+
+   ```bash
+   ccb config set sync.mode drive-folder
+   ```
+
+   ```bash
+   ccb config set sync.folderPath "<that folder's path in Google Drive on this computer>"
+   ```
+
+The page syncs when it opens, about 2 seconds after each change, every minute while it's visible, and when you press **Sync now**.
+
+With the plugin's Google Drive API mode instead of the folder mode, the page still reads the plugin's data, but the plugin doesn't see the page's changes: the plugin only asks Google for the `drive.file` permission, which shows it the files it created itself (decision D37).
+
+To publish your own copy, ask Claude in any session to publish `extras/prompt-buttons-page.html` as an Artifact with the `db`, `user`, `sample` and `downloads` capabilities and the Google Drive connector tools `search_files`, `download_file_content`, `create_file` and `trash_file`, and pin it.
 
 A newly pinned page shows under **Pinned** only after the sidebar reloads: press `Ctrl+R` (`Cmd+R` on a Mac) in Claude Desktop, or reopen the app. Until then it is under **Artifacts**.
 
