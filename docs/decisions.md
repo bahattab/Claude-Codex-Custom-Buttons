@@ -209,4 +209,4 @@ Each decision records the options considered, the choice and why. All were appro
 
 - **Problem:** the Claude app doesn't show a plugin's button row in cloud sessions; it draws its own interface there (checked by the project owner on 2026-11-12).
 - **Options:** (a) give the Claude plugin skills, which appear as `/prompt-buttons:<skill>` commands in every session; (b) a browser extension that adds buttons to claude.ai; (c) a page pinned in the Claude sidebar.
-- **Choice:** (a) now: the Codex skills are copied into the Claude plugin at build time, so both plugins share one text and `npm run check:plugin` catches drift. A new `button` skill presses a custom button by its label. (b) is rejected for the same reason as D1(c). (c) is explored separately.
+- **Choice:** (a) now: the Codex skills are copied into the Claude plugin at build time, so both plugins share one text and `npm run check:plugin` catches drift. A new `button` skill presses a custom button by its label. (b) is rejected for the same reason as D1(c). (c) is added as `extras/prompt-buttons-page.html` (see the install guide): it copies text rather than typing into the prompt box, which no page can do.

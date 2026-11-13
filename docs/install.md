@@ -83,6 +83,17 @@ Type `/` in the prompt box to find these commands. They work in local sessions t
 | `/prompt-buttons:drive-sync` | **Sync** status, sync now, connect Google Drive |
 - **Starts empty:** each cloud session has its own new library, so your saved prompts and notes from your computer aren't there. Google Drive sync needs a saved sign-in, which a cloud session can't keep (see [Claude Code: cloud sessions](platforms/claude-code.md#cloud-sessions)).
 
+### A Prompt Buttons page in the claude.ai sidebar
+
+For buttons you can see next to any session (cloud, local or a chat), there is also a page you can pin to the claude.ai sidebar: [`extras/prompt-buttons-page.html`](../extras/prompt-buttons-page.html), published as a private claude.ai Artifact.
+
+- **Continue** and your own buttons copy their text; paste it into the prompt box. A page can't type into the prompt box itself.
+- **Regenerate** and **Translate** run inside the page, with Claude on your account, then copy the result.
+- **Prompt Bank**: search, copy, star, add and delete prompts. It is stored in your claude.ai account, private to you, and separate from the plugin's library.
+- **Import**: run `ccb export library.json` on your computer and pick the file (or paste it) to bring over your prompts and your buttons that send or fill text.
+
+To publish your own copy, ask Claude in any session to publish `extras/prompt-buttons-page.html` as an Artifact with the `db`, `user` and `sample` capabilities and pin it.
+
 ## 2. Codex
 
 1. Add the marketplace and the plugin:
