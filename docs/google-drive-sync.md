@@ -57,6 +57,8 @@ My Drive/
         └── dev_c02e5d.json         written only by device dev_c02e5d (e.g. your desktop PC)
 ```
 
+The Prompt Buttons sidebar page can be one of these devices (`dev_page….json`), through the claude.ai Google Drive connector; see [Install: the sidebar page](install.md#a-prompt-buttons-page-in-the-claudeai-sidebar).
+
 Each device file holds that device's full, merged view of the synced data (see [data-model.md](data-model.md#device-file-in-drive)). The folder is visible in Drive (decision D7). Don't edit the device files by hand; use the plugin on any computer.
 
 ## What syncs

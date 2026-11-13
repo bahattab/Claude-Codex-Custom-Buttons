@@ -11,6 +11,8 @@ export default tseslint.config(
       "plugins/claude/hooks/core/**",
       "plugins/claude/server/**",
       "plugins/codex/server/**",
+      // a manual browser check (CommonJS, Playwright, browser globals); see docs/decisions.md D37
+      "extras/test-page-sync.cjs",
     ],
   },
   js.configs.recommended,
