@@ -77,7 +77,7 @@ export async function refreshBank($: $): Promise<void> {
 }
 
 /** Opens the Prompt Bank pane, optionally searching or filtering. */
-export async function openBank($: $, opts: { search?: string; category?: string | null } = {}): Promise<void> {
+export async function openBank($: $, opts: { search?: string; category?: string | null } = {}): Promise<boolean> {
   const searching = opts.search !== undefined || opts.category !== undefined;
   await setView($, (v) => ({
     ...v,
@@ -87,9 +87,36 @@ export async function openBank($: $, opts: { search?: string; category?: string 
     // The edit form hides the results; say so rather than dropping the edit.
     notice: searching && v.editing ? "Save or cancel the prompt you're editing to see the search results." : null,
   }));
-  await $.ui.open({ id: BANK_PANE, title: "Prompt Bank", focus: true });
+  const { isPlaced } = await $.ui.open({ id: BANK_PANE, title: "Prompt Bank", focus: true });
+  if (!isPlaced) return false;
   await refreshBank($);
   pullSoon($);
+  return true;
+}
+
+// --- the Prompt Bank as text, where the app shows no pane (cloud sessions) ---------------
+
+let listed: PromptSummary[] = [];
+
+/** The prompts matching `search` as a numbered list, for a command's output. */
+export async function bankText($: $, opts: { search?: string; category?: string | null } = {}): Promise<string> {
+  const { results } = await callTool<{ results: PromptSummary[] }>($, "bank_search", {
+    query: opts.search ?? "",
+    ...(opts.category !== undefined && opts.category !== null ? { category: opts.category } : {}),
+    limit: 20,
+  });
+  listed = results;
+  if (results.length === 0) {
+    return opts.search ? `No prompts match "${opts.search}".` : "Your Prompt Bank is empty. Save the prompt box as a prompt with `/pb save <title>`.";
+  }
+  const lines = results.map((p, i) => `${i + 1}. ${p.favorite ? "★ " : ""}${p.title}${p.category ? ` · ${p.category}` : ""}`);
+  return [...lines, "", "`/pb use <number>` puts one in the prompt box; `/pb send <number>` sends it."].join("\n");
+}
+
+/** A prompt id from a number in the last list, or the id itself. */
+export function listedPrompt(ref: string): string {
+  const n = Number(ref);
+  return Number.isInteger(n) && n >= 1 && n <= listed.length ? (listed[n - 1] as PromptSummary).id : ref;
 }
 
 // --- sync --------------------------------------------------------------------------------
@@ -171,20 +198,25 @@ interface Expanded {
 }
 
 /** Puts a saved prompt in the prompt box (insert) or sends it (send), with variables filled in. */
-export async function usePrompt($: $, id: string, how: "insert" | "send"): Promise<void> {
+export async function usePrompt($: $, id: string, how: "insert" | "send", send?: (text: string) => Promise<void>): Promise<string | null> {
   try {
     const values = await builtIns($, dateBuiltIns(new Date()));
     const { expanded } = await callTool<{ expanded: Expanded }>($, "bank_get", { id, expand: true, builtIns: values, markUsed: true });
     if (how === "send" && expanded.unanswered.length === 0) {
-      await $.prompt.submit({ text: expanded.text });
-      return;
+      await (send ? send(expanded.text) : $.prompt.submit({ text: expanded.text }));
+      return null;
     }
     await $.prompt.fill({ text: expanded.text, mode: how === "send" ? "replace" : "insert" });
     if (expanded.unanswered.length > 0) {
-      $.ui.toast(`Fill in ${expanded.unanswered.map((n) => `{{?${n}}}`).join(", ")}, then send.`);
+      const message = `Fill in ${expanded.unanswered.map((n) => `{{?${n}}}`).join(", ")}, then send.`;
+      $.ui.toast(message);
+      return message;
     }
+    return null;
   } catch (error) {
-    $.ui.toast(`Couldn't use that prompt: ${errorText(error)}`);
+    const message = `Couldn't use that prompt: ${errorText(error)}`;
+    $.ui.toast(message);
+    return message;
   }
 }
 
@@ -537,8 +569,8 @@ export function registerBank(on: On): void {
                 </Box>
               ) : null}
               <Box flexDirection="row" gap={1}>
-                <Button key={`ccb-insert-${p.id}`} label="Insert" onPress={() => usePrompt($, p.id, "insert")} />
-                <Button key={`ccb-send-${p.id}`} label="Send" onPress={() => usePrompt($, p.id, "send")} />
+                <Button key={`ccb-insert-${p.id}`} label="Insert" onPress={() => void usePrompt($, p.id, "insert")} />
+                <Button key={`ccb-send-${p.id}`} label="Send" onPress={() => void usePrompt($, p.id, "send")} />
                 <Button
                   key={`ccb-copy-${p.id}`}
                   label="Copy"

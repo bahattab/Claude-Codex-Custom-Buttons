@@ -65,6 +65,7 @@ function engine(on: TestOn, opts: { state?: unknown; draft?: string; selection?:
   on("model.complete", (_$, e) =>
     ({ value: opts.onModel ? opts.onModel(e as { prompt: string }) : { isAnswered: true, text: opts.rewrite ?? "A clearer prompt.", usage: {} } }) as never,
   );
+  on("ui.status", () => ({ value: undefined }) as never);
   on("ui.toast", (_$, e) => {
     rec.toasts.push(JSON.stringify(e));
     return { value: undefined } as never;
@@ -322,9 +323,12 @@ test("/btn runs a button, and explains unknown or missing ids", async ($, on) =>
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API"]);
   const unknown = (await $.command.run({ command: "btn", args: "btn_nope" } as never)) as { text?: string };
-  expect(unknown.text).toMatch(/No button "btn_nope".*btn_plan/);
+  expect(unknown.text).toMatch(/No button "btn_nope"\. Your buttons: `Plan`/);
   const usage = (await $.command.run({ command: "btn", args: "" } as never)) as { text?: string };
-  expect(usage.text).toMatch(/Usage: \/btn <id>/);
+  expect(usage.text).toMatch(/Run one with `\/btn <name>`/);
+  await $.command.run({ command: "btn", args: "plan" } as never);
+  await clock.settle();
+  expect(rec.submits).toEqual(["Plan my day for Billing API", "Plan my day for Billing API"]);
 });
 
 test("the buttons still work, with defaults, when ccb-mcp is unavailable", async ($, on) => {

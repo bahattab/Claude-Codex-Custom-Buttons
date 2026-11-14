@@ -43,7 +43,7 @@ function firstLine(body: string): string {
   return (body.split("\n").find((l) => l.trim() !== "") ?? "").replace(/^#+\s*/, "").trim().slice(0, 120) || "Untitled note";
 }
 
-function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fake {
+function fake(on: TestOn, opts: { draft?: string; failTool?: string; placed?: boolean } = {}): Fake {
   const f: Fake = {
     prompts: [
       { id: "p_plan", title: "Plan my day", body: "Plan my day for {{project}}", category: "c_work", tags: ["daily"], favorite: true, deleted: false, used: 3 },
@@ -271,8 +271,9 @@ function fake(on: TestOn, opts: { draft?: string; failTool?: string } = {}): Fak
   });
   on("ui.open", (_$, e) => {
     f.opened.push((e as { id: string }).id);
-    return { value: { isPlaced: true } } as never;
+    return { value: { isPlaced: opts.placed ?? true } } as never;
   });
+  on("ui.status", () => ({ value: undefined }) as never);
   on("ui.copy", (_$, e) => {
     f.copies.push((e as { text: string }).text);
     return { value: { isCopied: true } } as never;
@@ -1083,3 +1084,35 @@ test("the Settings tab changes this device's settings and the shared ones", asyn
   expect(f.calls.filter((c) => c.tool === "client_state").length).toBeGreaterThan(3); // the row picks the changes up
 });
 
+
+// --- cloud sessions: the app shows no pane, so the commands answer in text ----------------
+
+test("in a session with no panes, /pb lists prompts as text, and /pb use and /pb send take a number", async ($, on) => {
+  const clock = mock.clock(on);
+  const f = fake(on, { placed: false });
+  await start($);
+  const list = ((await $.command.run({ command: "pb", args: "" } as never)) as { text?: string }).text ?? "";
+  expect(list).toMatch(/1\. ★ Plan my day · /);
+  expect(list).toMatch(/Review code/);
+  expect(list).toMatch(/\/pb use <number>/);
+  const lines = list.split("\n");
+  const plan = lines.findIndex((l) => l.includes("Plan my day")) + 1;
+  const poem = lines.findIndex((l) => l.includes("Write a poem")) + 1;
+  await $.command.run({ command: "pb", args: `use ${plan}` } as never);
+  expect(f.fills.at(-1)?.text).toBe("Plan my day for Billing API");
+  await $.command.run({ command: "pb", args: `send ${poem}` } as never);
+  await clock.settle();
+  expect(f.submits.at(-1)).toBe("Write a short poem");
+  const none = ((await $.command.run({ command: "pb", args: "zzz" } as never)) as { text?: string }).text;
+  expect(none).toBe('No prompts match "zzz".');
+});
+
+test("in a session with no panes, /notes lists notes and /notes read shows one", async ($, on) => {
+  fake(on, { placed: false });
+  await start($);
+  const list = ((await $.command.run({ command: "notes", args: "" } as never)) as { text?: string }).text ?? "";
+  expect(list).toMatch(/1\. 📌 Todo/);
+  expect(list).toMatch(/2\. Ideas/);
+  const one = ((await $.command.run({ command: "notes", args: "read 1" } as never)) as { text?: string }).text;
+  expect(one).toBe("**Todo**\n\nTodo\nship M4");
+});

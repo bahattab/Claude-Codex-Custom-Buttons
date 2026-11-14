@@ -69,9 +69,21 @@ Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) st
 What works in a cloud session:
 
 - **Works:** the `/` commands below, and the Prompt Bank, Notes, Translate and settings by asking Claude ("show my prompt bank", "translate this to English").
-- **Doesn't show:** the button row above the prompt box. Claude Code draws it on your computer; for a cloud session the Claude app shows its own interface, which doesn't include it (checked 2026-11-12).
+- **Doesn't show:** the button row above the prompt box, or any of the plugin's panes. In a cloud session the Claude desktop app draws only the plugin's text: command output and the status line (checked 2026-11-14: a row above the prompt box, a pane, buttons in a command's output and buttons under a reply all stayed hidden).
+- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /cont · /regen · /tr · /pb · /notes · /btn`.
 
-Type `/` in the prompt box to find these commands. They work in local sessions too.
+The short commands run straight away, without Claude reading instructions first, and answer in text where a pane would open on your computer:
+
+| Command | Does what the button does |
+|---|---|
+| `/cont` | **Continue** the last answer |
+| `/regen [extra instruction]` | **Regenerate**: rewrite your draft into a clearer prompt; `/regen undo` puts it back |
+| `/tr [to <language>:] [text]` | **Translate** the text, your draft or your last message; the translation is the command's answer |
+| `/pb [search]` | **Prompts**: a numbered list of your prompts; `/pb use 2` puts number 2 in the prompt box, `/pb send 2` sends it, `/pb save <title>` saves the prompt box |
+| `/notes [read <n> \| text]` | **Notes**: a numbered list; `/notes read 1` shows one; `/notes <text>` adds to a note |
+| `/btn [name]` | Press one of your own buttons by its name; with no name, lists them |
+
+These longer commands do the same through Claude, and also work in local sessions:
 
 | Command | Does what the button does |
 |---|---|
@@ -310,7 +322,7 @@ Full list: [Configuration](configuration.md).
 | "Failed to add marketplace" | Check the computer can reach github.com; update Claude Desktop or Claude Code, then try again |
 | Prompt Buttons page not inside a session | Open its link with the globe icon in the session's top bar; the `⋯` menu has no entry for pages |
 | Prompt Buttons page not in the sidebar | Reload the sidebar (`Ctrl+R`, `Cmd+R` on a Mac) or reopen the app; it is also under **Artifacts** |
-| No buttons in a cloud session | Expected until the setup script installs the plugin; see [Cloud sessions](#cloud-sessions) |
+| No buttons in a cloud session | Expected: the desktop app shows no plugin buttons there. Use the short commands named in the status bar; see [Cloud sessions](#cloud-sessions) |
 | No buttons in Claude Code | Restart Claude Code; run `/plugin` to check `prompt-buttons` is enabled; check `node --version` is 22.12 or newer |
 | "ccb-mcp is not connected" | Node.js missing or too old; install Node 22.12+ and restart |
 | `Sync not set up` | Do [step 5](#5-turn-on-google-drive-sync) |

@@ -9,7 +9,7 @@
       "name": "prompt-buttons",
       "source": "./plugins/claude",
       "description": "Continue, Regenerate and your own custom buttons above the prompt box, backed by a Prompt Bank shared with Codex and Claude Desktop.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "license": "MIT"
     }
   ]

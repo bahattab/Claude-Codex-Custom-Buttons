@@ -14,11 +14,11 @@ import {
   expand,
   missingFragments,
 } from "./core/index.js";
-import { openBank, registerBank, saveDraftAsPrompt, syncNow } from "./bank.js";
+import { bankText, listedPrompt, openBank, registerBank, saveDraftAsPrompt, syncNow, usePrompt } from "./bank.js";
 import { readClient, refreshClient } from "./client.js";
 import { openTranslate, registerTranslate, startInstant, translateBubble, translateCommand } from "./translate.js";
 import { builtIns as contextValues, callTool, lastUserMessage } from "./mcp.js";
-import { appendToNote, openNotes, refreshOpenNote, registerNotes } from "./notes.js";
+import { appendToNote, noteText, notesText, openNotes, refreshOpenNote, registerNotes } from "./notes.js";
 
 export const PLUGIN = "prompt-buttons";
 const UNDO_MS = 30_000;
@@ -169,8 +169,9 @@ interface Expanded {
 
 export async function runButton($: $, id: string, send: Send = sendNow($)): Promise<string | undefined> {
   const state = await refreshClient($);
-  const button = state?.buttons.find((b) => b.id === id);
-  if (!button) return `No button "${id}". Buttons: ${state?.buttons.map((b) => b.id).join(", ") || "none yet"}.`;
+  const wanted = id.trim().toLowerCase();
+  const button = state?.buttons.find((b) => b.id === id) ?? state?.buttons.find((b) => b.label.trim().toLowerCase() === wanted);
+  if (!button) return `No button "${id}". ${buttonsText(state)}`;
   if (button.targetMissing) {
     $.ui.toast(`"${button.label}" uses a prompt that was deleted. Edit the button to choose another.`);
     return undefined;
@@ -183,12 +184,13 @@ export async function runButton($: $, id: string, send: Send = sendNow($)): Prom
     case "refine":
       await regenerateAction($, undefined, send);
       return undefined;
-    case "insert-prompt":
-      await openBank($, { ...(action.search !== null ? { search: action.search } : {}), category: action.category });
-      return undefined;
+    case "insert-prompt": {
+      const opts = { ...(action.search !== null ? { search: action.search } : {}), category: action.category };
+      return (await openBank($, opts)) ? undefined : bankText($, opts);
+    }
     case "open-pane":
-      await (action.pane === "notes" ? openNotes($) : openBank($));
-      return undefined;
+      if (action.pane === "notes") return (await openNotes($)) ? undefined : notesText($);
+      return (await openBank($)) ? undefined : bankText($);
     case "submit":
     case "fill": {
       const values = await contextValues($, dateBuiltIns(new Date()));
@@ -217,6 +219,16 @@ export async function runButton($: $, id: string, send: Send = sendNow($)): Prom
   }
 }
 
+/** The user's buttons, for a command's output. */
+function buttonsText(state: ClientState | null): string {
+  const buttons = state?.buttons ?? [];
+  if (buttons.length === 0) return "You have no buttons of your own yet.";
+  return `Your buttons: ${buttons.map((b) => `\`${b.label}\``).join(", ")}. Run one with \`/btn <name>\`.`;
+}
+
+/** What the status line says: the commands that stand in for the buttons where the app draws no row. */
+const STATUS_HINT = "Buttons: /cont · /regen · /tr · /pb · /notes · /btn";
+
 /** The label shown on a user button. */
 export function buttonLabel(b: ButtonView): string {
   return b.icon ? `${b.icon} ${b.label}` : b.label;
@@ -228,9 +240,9 @@ export function buttonLabel(b: ButtonView): string {
 export const COMMANDS = [
   { name: "cont", description: "Continue a reply that was cut off." },
   { name: "regen", description: "Rewrite your draft or selected text into a clearer prompt.", argumentHint: "[extra instruction | undo]" },
-  { name: "btn", description: "Run one of your custom buttons.", argumentHint: "<button id>" },
-  { name: "pb", description: "Open the Prompt Bank, search it, save the prompt box as a prompt, or sync now.", argumentHint: "[search | save <title> | sync]" },
-  { name: "notes", description: "Open Notes, or add text to the open note.", argumentHint: "[text to add]" },
+  { name: "btn", description: "Run one of your custom buttons, or list them.", argumentHint: "[button name]" },
+  { name: "pb", description: "Open the Prompt Bank, search it, use a prompt, save the prompt box as a prompt, or sync now.", argumentHint: "[search | use <n> | send <n> | save <title> | sync]" },
+  { name: "notes", description: "Open Notes, read one, or add text to the open note.", argumentHint: "[read <n> | text to add]" },
   { name: "tr", description: "Translate the selection, your draft, or the text given.", argumentHint: "[to <language>:] [text]" },
 ] as const;
 
@@ -252,16 +264,21 @@ export const register: Register = (on) => {
       const message = await saveDraftAsPrompt($, save[1]);
       return message ? { text: message } : {};
     }
-    await openBank($, args ? { search: args } : {});
-    return {};
+    const use = /^(use|send)\s+(\S+)$/.exec(args);
+    if (use) {
+      const message = await usePrompt($, listedPrompt(use[2] as string), use[1] === "send" ? "send" : "insert", sendAfterCommand($));
+      return message ? { text: message } : {};
+    }
+    const opts = args ? { search: args } : {};
+    if (await openBank($, opts)) return {};
+    return { text: await bankText($, opts) }; // no pane here (a cloud session)
   });
 
   on("command.run", { command: "notes" }, async ($, e) => {
     const text = e.args.trim();
-    if (!text) {
-      await openNotes($);
-      return {};
-    }
+    if (!text) return (await openNotes($)) ? {} : { text: await notesText($) };
+    const readOne = /^read\s+(\S+)$/.exec(text);
+    if (readOne) return { text: await noteText($, readOne[1] as string) };
     return { text: await appendToNote($, text) };
   });
 
@@ -277,6 +294,7 @@ export const register: Register = (on) => {
       }
     }
     await refreshClient($);
+    $.ui.status(STATUS_HINT); // where the app draws no button row (cloud sessions), the commands are the buttons
     startInstant($); // instant translation watches the selection
     return result;
   });
@@ -299,7 +317,7 @@ export const register: Register = (on) => {
     const id = e.args.trim();
     if (!id) {
       const state = await refreshClient($);
-      return { text: `Usage: /btn <id>. Buttons: ${state?.buttons.map((b) => b.id).join(", ") || "none yet"}.` };
+      return { text: buttonsText(state) };
     }
     const message = await runButton($, id, sendAfterCommand($));
     return message ? { text: message } : {};
