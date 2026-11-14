@@ -1,6 +1,6 @@
 {
   "name": "prompt-buttons-codex",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Prompt Bank, Continue, Regenerate Prompt and Notes for Codex, synced automatically with Claude Code and your other computers through Google Drive.",
   "keywords": [
     "prompts",

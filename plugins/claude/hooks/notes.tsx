@@ -117,8 +117,9 @@ export async function refreshOpenNote($: $): Promise<void> {
   }
 }
 
-export async function openNotes($: $): Promise<void> {
-  await $.ui.open({ id: NOTES_PANE, title: "Notes", focus: true });
+export async function openNotes($: $): Promise<boolean> {
+  const { isPlaced } = await $.ui.open({ id: NOTES_PANE, title: "Notes", focus: true });
+  if (!isPlaced) return false;
   await refreshNotes($);
   // Opening Notes pulls other computers' changes at once, without holding up the pane.
   $.clock.after(0, async () => {
@@ -130,6 +131,7 @@ export async function openNotes($: $): Promise<void> {
       // sync not available, or offline: the status shows why
     }
   });
+  return true;
 }
 
 /** Settles the open conflict copy: keep its text, the other version, or both. */
@@ -233,6 +235,31 @@ async function newNote($: $): Promise<void> {
 }
 
 /** Appends text to the open note, or starts a new note with it. Returns a message. */
+// --- notes as text, where the app shows no pane (cloud sessions) ---------------------------
+
+let listedNotes: NoteSummary[] = [];
+
+/** The notes as a numbered list, for a command's output. */
+export async function notesText($: $): Promise<string> {
+  const { notes } = await callTool<{ notes: NoteSummary[] }>($, "notes_list");
+  listedNotes = notes;
+  if (notes.length === 0) return "No notes yet. Start one with `/notes <text>`.";
+  const lines = notes.map((n, i) => `${i + 1}. ${n.pinned ? "📌 " : ""}${n.title}`);
+  return [...lines, "", "`/notes read <number>` shows one; `/notes <text>` adds to a note."].join("\n");
+}
+
+/** One note's title and text, by its number in the last list or its id. */
+export async function noteText($: $, ref: string): Promise<string> {
+  const n = Number(ref);
+  const id = Number.isInteger(n) && n >= 1 && n <= listedNotes.length ? (listedNotes[n - 1] as NoteSummary).id : ref;
+  try {
+    const { note } = await callTool<{ note: FullNote }>($, "notes_read", { id });
+    return `**${note.title}**\n\n${note.body}`;
+  } catch (error) {
+    return `Couldn't read that note: ${errorText(error)}`;
+  }
+}
+
 export async function appendToNote($: $, text: string): Promise<string> {
   const v = await read($, notesView);
   if (v.theirs !== null) return `Not added: ${CHOOSE_FIRST}`;

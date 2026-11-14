@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "claude-codex-buttons",
   "display_name": "Prompt Buttons: Prompt Bank and Notes",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Your Prompt Bank, prompt variables and Notes in the Claude Desktop chat, synced automatically with Claude Code, Codex and your other computers through Google Drive.",
   "long_description": "Every saved prompt appears as a prompt you can insert from the chat, with {{?ask}} fields as arguments. Ask Claude to save a prompt, find one, or add to a note. Data is stored in ~/.claude-codex-buttons on this computer and, once you connect Google Drive, in your own Drive (drive.file permission only). See the privacy policy.",
   "author": {

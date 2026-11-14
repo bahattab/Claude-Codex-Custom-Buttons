@@ -16,10 +16,11 @@ interface World {
   copies: string[];
   opened: string[];
   failModel: boolean;
+  placed: boolean;
 }
 
 function engine(on: TestOn, init: Partial<World> = {}): World {
-  const w: World = { selection: "", draft: "", instant: true, modelCalls: [], fills: [], copies: [], opened: [], failModel: false, ...init };
+  const w: World = { selection: "", draft: "", instant: true, modelCalls: [], fills: [], copies: [], opened: [], failModel: false, placed: true, ...init };
   on("command.register", () => ({ value: { command: "x" } }) as never);
   on("mcp.connect", (_$, e) => ({ value: { isConnected: true, server: `plugin:prompt-buttons:${(e as { server: string }).server}` } }) as never);
   on("mcp.call", (_$, e) => {
@@ -53,9 +54,10 @@ function engine(on: TestOn, init: Partial<World> = {}): World {
   });
   on("ui.open", (_$, e) => {
     w.opened.push((e as { id: string }).id);
-    return { value: { isPlaced: true } } as never;
+    return { value: { isPlaced: w.placed } } as never;
   });
   on("ui.toast", () => ({ value: undefined }) as never);
+  on("ui.status", () => ({ value: undefined }) as never);
   on("session.messages", () => ({ value: [{ role: "user", text: "Previous message" }] }) as never);
   on("session.model", () => ({ value: "claude-test" }) as never);
   on("model.complete", (_$, e) => {
@@ -129,6 +131,14 @@ test("/tr to <language>: <text>, and /tr with nothing to translate", async ($, o
   w.draft = "";
   const r = await $.command.run({ command: "tr", args: "" } as never);
   expect(r).toBeDefined(); // falls back to the last message, so there is something to translate
+});
+
+test("in a session with no panes, /tr answers with the translation itself", async ($, on) => {
+  const w = engine(on, { instant: false, placed: false });
+  await start($);
+  const r = (await $.command.run({ command: "tr", args: "to German: See you tomorrow" } as never)) as { text?: string };
+  expect(r.text).toBe("[German] See you tomorrow");
+  expect(w.modelCalls).toHaveLength(1);
 });
 
 test("/tr with no text uses the draft, then the last message", async ($, on) => {

@@ -89,12 +89,13 @@ async function defaultSource($: $): Promise<string> {
 }
 
 /** Opens the Translate pane and translates `text` (or the selection, draft or last message). */
-export async function openTranslate($: $, opts: { text?: string; target?: string } = {}): Promise<void> {
+export async function openTranslate($: $, opts: { text?: string; target?: string } = {}): Promise<boolean> {
   const source = opts.text && opts.text.trim() ? opts.text : await defaultSource($);
   const s = await settings($);
   await setView($, (v) => ({ ...v, source, target: opts.target ?? (v.target === "auto" ? s.target : v.target), error: null, result: null }));
-  await $.ui.open({ id: TRANSLATE_PANE, title: "Translate", focus: true });
-  if (source.trim()) await translatePane($);
+  const { isPlaced } = await $.ui.open({ id: TRANSLATE_PANE, title: "Translate", focus: true });
+  if (isPlaced && source.trim()) await translatePane($);
+  return isPlaced;
 }
 
 /** /tr [to <language>:] [text]: returns a message for the command, or "". */
@@ -103,8 +104,14 @@ export async function translateCommand($: $, args: string): Promise<string> {
   const target = m?.[1]?.trim();
   const text = m ? (m[2] ?? "") : args;
   if (!(text.trim() || (await defaultSource($)).trim())) return "Nothing to translate: select some text, type a draft, or write /tr <text>.";
-  await openTranslate($, { text, ...(target ? { target } : {}) });
-  return "";
+  if (await openTranslate($, { text, ...(target ? { target } : {}) })) return "";
+  // No pane here (a cloud session): the translation is the command's output.
+  const source = text.trim() ? text : await defaultSource($);
+  try {
+    return (await translateText($, source, target)).text;
+  } catch (error) {
+    return `Couldn't translate: ${errorText(error)}`;
+  }
 }
 
 /** Swap: translate the result back, from the language it's now in into the one it came from. */
