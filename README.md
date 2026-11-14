@@ -58,8 +58,10 @@ Full details: [architecture](docs/architecture.md) · [Drive sync](docs/google-d
 | Claude Code (terminal, VS Code, mobile) and the **Code tab of Claude Desktop** | A Claude Code plugin with a "mod" (UI hooks) and a bundled MCP server | **Yes** |
 | **Codex** (CLI, app, IDE extension) | A Codex plugin with skills and the MCP server | No, skills instead |
 | **Chat tab of Claude Desktop** | The MCP server packaged as a desktop extension (`.mcpb`); Prompt Bank entries appear as MCP prompts | No |
+| **claude.ai in Chrome, Edge or Brave** (chats and cloud sessions at claude.ai/code) | A Chrome extension that adds a button row above the prompt box | **Yes** |
+| **Any session** | The Prompt Buttons page pinned in the claude.ai sidebar; buttons copy their text | Copy buttons |
 
-Why the difference: only Claude Code exposes an API for adding buttons and panes. Codex and the Desktop chat do not offer one, and this project does not inject code into apps. See [docs/platforms/](docs/platforms/).
+Why the difference: only Claude Code exposes an API for adding buttons and panes. Codex and the Desktop apps do not offer one, and this project does not inject code into apps; on claude.ai in the browser, the Chrome extension adds the row instead (decision D38). See [docs/platforms/](docs/platforms/).
 
 ## Installation
 
@@ -90,6 +92,10 @@ See [docs/platforms/codex.md](docs/platforms/codex.md).
 ### 3. Claude Desktop (Chat tab)
 
 Download `claude-codex-buttons.mcpb` from the Releases page (or build it with `npm run build:desktop`) and open it with Claude Desktop. See [docs/platforms/claude-desktop.md](docs/platforms/claude-desktop.md).
+
+### Chrome extension (claude.ai in the browser)
+
+Load `extensions/chrome` with **Load unpacked** in `chrome://extensions` (Developer mode on). See [docs/install.md](docs/install.md#chrome-extension-claudeai-in-the-browser).
 
 ### 4. The `ccb` command (for sign-in, settings and the background service)
 
