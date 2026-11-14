@@ -1,5 +1,5 @@
 // Translate: instant translation of selected text (a bubble above the prompt box), a
-// Translate pane with a language picker, Swap, Copy, Insert and history, and /tr. The
+// Translate pane with a language picker, Swap, Copy, Insert and history, and /t. The
 // model is the one the session already uses; nothing is sent anywhere else.
 // This file owns its $.state atoms.
 import { atom, read, update } from "claude-code";
@@ -98,12 +98,12 @@ export async function openTranslate($: $, opts: { text?: string; target?: string
   return isPlaced;
 }
 
-/** /tr [to <language>:] [text]: returns a message for the command, or "". */
+/** /t [to <language>:] [text]: returns a message for the command, or "". */
 export async function translateCommand($: $, args: string): Promise<string> {
   const m = /^to\s+([^:]+?)\s*(?::\s*([\s\S]*))?$/i.exec(args.trim());
   const target = m?.[1]?.trim();
   const text = m ? (m[2] ?? "") : args;
-  if (!(text.trim() || (await defaultSource($)).trim())) return "Nothing to translate: select some text, type a draft, or write /tr <text>.";
+  if (!(text.trim() || (await defaultSource($)).trim())) return "Nothing to translate: select some text, type a draft, or write /t <text>.";
   if (await openTranslate($, { text, ...(target ? { target } : {}) })) return "";
   // No pane here (a cloud session): the translation is the command's output.
   const source = text.trim() ? text : await defaultSource($);

@@ -111,7 +111,7 @@ test("the Translate button translates the selection in the pane: language shown,
 test("picking a language translates into it; Swap translates the result back", async ($, on) => {
   const w = engine(on, { instant: false });
   await start($);
-  await $.command.run({ command: "tr", args: "Good morning" } as never);
+  await $.command.run({ command: "t", args: "Good morning" } as never);
   const ui = await $.ui.mount(PANE());
   await ui.select({ key: "ccb-tr-target", value: "Japanese" });
   expect(w.modelCalls.at(-1)?.prompt).toContain("Translate into Japanese.");
@@ -122,32 +122,32 @@ test("picking a language translates into it; Swap translates the result back", a
   expect(await ui.find({ key: "ccb-tr-history-0" })).toBeDefined(); // the earlier translation is in Recent
 });
 
-test("/tr to <language>: <text>, and /tr with nothing to translate", async ($, on) => {
+test("/t to <language>: <text>, and /t with nothing to translate", async ($, on) => {
   const w = engine(on, { instant: false });
   await start($);
-  await $.command.run({ command: "tr", args: "to German: See you tomorrow" } as never);
+  await $.command.run({ command: "t", args: "to German: See you tomorrow" } as never);
   expect(w.modelCalls.at(-1)?.prompt).toContain("Translate into German.");
   expect(w.modelCalls.at(-1)?.prompt).toContain("See you tomorrow");
   w.draft = "";
-  const r = await $.command.run({ command: "tr", args: "" } as never);
+  const r = await $.command.run({ command: "t", args: "" } as never);
   expect(r).toBeDefined(); // falls back to the last message, so there is something to translate
 });
 
-test("in a session with no panes, /tr answers with the translation itself", async ($, on) => {
+test("in a session with no panes, /t answers with the translation itself", async ($, on) => {
   const w = engine(on, { instant: false, placed: false });
   await start($);
-  const r = (await $.command.run({ command: "tr", args: "to German: See you tomorrow" } as never)) as { text?: string };
+  const r = (await $.command.run({ command: "t", args: "to German: See you tomorrow" } as never)) as { text?: string };
   expect(r.text).toBe("[German] See you tomorrow");
   expect(w.modelCalls).toHaveLength(1);
 });
 
-test("/tr with no text uses the draft, then the last message", async ($, on) => {
+test("/t with no text uses the draft, then the last message", async ($, on) => {
   const w = engine(on, { instant: false, draft: "My draft" });
   await start($);
-  await $.command.run({ command: "tr", args: "" } as never);
+  await $.command.run({ command: "t", args: "" } as never);
   expect(w.modelCalls.at(-1)?.prompt).toContain("My draft");
   w.draft = "";
-  await $.command.run({ command: "tr", args: "" } as never);
+  await $.command.run({ command: "t", args: "" } as never);
   expect(w.modelCalls.at(-1)?.prompt).toContain("Previous message");
 });
 
