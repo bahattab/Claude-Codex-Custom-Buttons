@@ -243,9 +243,9 @@ let listedNotes: NoteSummary[] = [];
 export async function notesText($: $): Promise<string> {
   const { notes } = await callTool<{ notes: NoteSummary[] }>($, "notes_list");
   listedNotes = notes;
-  if (notes.length === 0) return "No notes yet. Start one with `/notes <text>`.";
+  if (notes.length === 0) return "No notes yet. Start one with `/n <text>`.";
   const lines = notes.map((n, i) => `${i + 1}. ${n.pinned ? "📌 " : ""}${n.title}`);
-  return [...lines, "", "`/notes read <number>` shows one; `/notes <text>` adds to a note."].join("\n");
+  return [...lines, "", "`/n read <number>` shows one; `/n <text>` adds to a note."].join("\n");
 }
 
 /** One note's title and text, by its number in the last list or its id. */

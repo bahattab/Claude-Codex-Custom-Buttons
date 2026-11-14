@@ -95,7 +95,7 @@ test("two commands in one go both send, in order (review finding #5)", async ($,
   const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "btn", args: "btn_plan" } as never);
+  await $.command.run({ command: "b", args: "btn_plan" } as never);
   await $.command.run({ command: "c", args: "" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API", "Keep going."]);
@@ -196,7 +196,7 @@ test("Regenerate prefers the selection, then the draft, then the last message", 
     onModel: (e) => (prompts.push(String(e.prompt)), { isAnswered: true, text: "Rewritten.", usage: {} }),
   });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(prompts[0]).toContain("selected words");
   expect(rec.fills).toHaveLength(1);
 });
@@ -208,14 +208,14 @@ test("Regenerate falls back to the last user message, and says when there is not
     onModel: (e) => (prompts.push(String(e.prompt)), { isAnswered: true, text: "Rewritten.", usage: {} }),
   });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(prompts[0]).toContain("the last thing I asked");
 });
 
 test("Regenerate with nothing to work on explains why", async ($, on) => {
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.fills).toEqual([]);
   expect(rec.toasts.join()).toMatch(/Nothing to regenerate/);
 });
@@ -223,7 +223,7 @@ test("Regenerate with nothing to work on explains why", async ($, on) => {
 test("Regenerate warns when the rewrite dropped code, paths or numbers", async ($, on) => {
   const rec = engine(on, { draft: "fix src/api/users.ts to return 200", rewrite: "Fix the users endpoint." });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.toasts.join()).toMatch(/dropped .*src\/api\/users\.ts/);
 });
 
@@ -235,7 +235,7 @@ test("Regenerate submits after the command returns when autoSubmit is on, with n
     state: { ...STATE, settings: { ...STATE.settings, regenerate: { autoSubmit: true, source: "auto" } } },
   });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.fills).toEqual([]);
   await clock.settle();
   expect(rec.submits).toEqual(["Clear."]);
@@ -261,15 +261,15 @@ test("Undo regenerate disappears after 30 seconds (review finding #3)", async ($
 test("Regenerate reports a failed model call and leaves the prompt alone", async ($, on) => {
   const rec = engine(on, { draft: "rough", onModel: () => ({ isAnswered: false, reason: "api-error" }) });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.fills).toEqual([]);
   expect(rec.toasts.join()).toMatch(/Regenerate failed/);
 });
 
-test("/regen undo with nothing to undo says so", async ($, on) => {
+test("/r undo with nothing to undo says so", async ($, on) => {
   engine(on);
   await start($);
-  const result = (await $.command.run({ command: "regen", args: "undo" } as never)) as { text?: string };
+  const result = (await $.command.run({ command: "r", args: "undo" } as never)) as { text?: string };
   expect(result.text).toBe("Nothing to undo.");
 });
 
@@ -315,18 +315,18 @@ test("a button whose prompt was deleted explains instead of sending", async ($, 
   await ui.unmount();
 });
 
-test("/btn runs a button, and explains unknown or missing ids", async ($, on) => {
+test("/b runs a button, and explains unknown or missing ids", async ($, on) => {
   const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "btn", args: "btn_plan" } as never);
+  await $.command.run({ command: "b", args: "btn_plan" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API"]);
-  const unknown = (await $.command.run({ command: "btn", args: "btn_nope" } as never)) as { text?: string };
+  const unknown = (await $.command.run({ command: "b", args: "btn_nope" } as never)) as { text?: string };
   expect(unknown.text).toMatch(/No button "btn_nope"\. Your buttons: `Plan`/);
-  const usage = (await $.command.run({ command: "btn", args: "" } as never)) as { text?: string };
-  expect(usage.text).toMatch(/Run one with `\/btn <name>`/);
-  await $.command.run({ command: "btn", args: "plan" } as never);
+  const usage = (await $.command.run({ command: "b", args: "" } as never)) as { text?: string };
+  expect(usage.text).toMatch(/Run one with `\/b <name>`/);
+  await $.command.run({ command: "b", args: "plan" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API", "Plan my day for Billing API"]);
 });

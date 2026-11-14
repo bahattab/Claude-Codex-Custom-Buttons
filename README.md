@@ -10,11 +10,11 @@
 
 | Feature | What you get | Claude Code / Claude Desktop (Code tab) | Codex | Claude Desktop (Chat tab) |
 |---|---|---|---|---|
-| **Custom action buttons** | Define your own buttons once; each runs an action such as "send this prompt", "fill the prompt box" or "open a pane" | Clickable buttons in a row above the prompt box, plus `/btn <id>` | Generated skills, used as `$ccb-<id>` | Not available (no button API) |
-| **Regenerate Prompt** | Takes your selected text, your draft or your last message, rewrites it into a clearer prompt and puts it back in the prompt box for review (auto-submit optional) | Button + `/regen` | `regenerate-prompt` skill | Saved prompt via the "+" menu |
+| **Custom action buttons** | Define your own buttons once; each runs an action such as "send this prompt", "fill the prompt box" or "open a pane" | Clickable buttons in a row above the prompt box, plus `/b <id>` | Generated skills, used as `$ccb-<id>` | Not available (no button API) |
+| **Regenerate Prompt** | Takes your selected text, your draft or your last message, rewrites it into a clearer prompt and puts it back in the prompt box for review (auto-submit optional) | Button + `/r` | `regenerate-prompt` skill | Saved prompt via the "+" menu |
 | **Continue** | Sends a standard continuation message to finish a cut-off reply or workflow | Button + `/c` (highlighted when the last reply was cut off) | `continue` skill | Saved prompt via the "+" menu |
-| **Notes** | A scratchpad beside the chat that saves itself as you type and syncs through Google Drive, so you can open and edit notes from any PC | Side pane + `/notes` | `notes` skill (same synced notes) | Read/append through MCP tools |
-| **Prompt Bank** | Save, categorise, edit, search and insert reusable prompts in one click | Side pane + `/pb <search>` | `prompt-bank` skill + MCP tools | Prompts appear in the "+" menu |
+| **Notes** | A scratchpad beside the chat that saves itself as you type and syncs through Google Drive, so you can open and edit notes from any PC | Side pane + `/n` | `notes` skill (same synced notes) | Read/append through MCP tools |
+| **Prompt Bank** | Save, categorise, edit, search and insert reusable prompts in one click | Side pane + `/p <search>` | `prompt-bank` skill + MCP tools | Prompts appear in the "+" menu |
 | **Translate** | Instant translation of selected text with the model you already use: select text and its translation appears; a Translate pane with a language picker, Swap, Copy and Insert | Instant bubble + Translate pane + `/t` | `translate` skill | `ccb-translate` prompt |
 | **Automatic Google Drive sync** | The Prompt Bank, custom buttons, variables and Notes are saved locally and synced through your Google Drive automatically. Offline edits sync when the connection returns | Yes | Yes | Yes |
 
@@ -75,7 +75,7 @@ Requirements: Node.js 22.12 or newer, and a Google account for sync.
 /plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is public, so no GitHub sign-in is needed. To get the plugin in cloud sessions too, see [Cloud sessions](docs/install.md#cloud-sessions). You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/c`, `/regen`, `/btn`, `/pb`, `/notes` and `/t`.
+The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is public, so no GitHub sign-in is needed. To get the plugin in cloud sessions too, see [Cloud sessions](docs/install.md#cloud-sessions). You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/c`, `/r`, `/b`, `/p`, `/n` and `/t`.
 
 ### 2. Codex
 
@@ -120,11 +120,11 @@ No Google Cloud setup? Point the library at your **Google Drive for desktop** fo
 | You want to | In Claude Code | In Codex |
 |---|---|---|
 | Finish a cut-off answer | Press **Continue** or type `/c` | `$continue` |
-| Improve a prompt | Select text (or type a draft) and press **Regenerate** or `/regen` | `$regenerate-prompt` |
+| Improve a prompt | Select text (or type a draft) and press **Regenerate** or `/r` | `$regenerate-prompt` |
 | Save the current draft as a prompt | Prompt Bank pane → **Save draft** | Ask: "save this to my prompt bank" |
-| Use a saved prompt | Prompt Bank pane → **Insert** or **Send**, or `/pb <search>` | `$prompt-bank` or `$ccb-<prompt>` |
+| Use a saved prompt | Prompt Bank pane → **Insert** or **Send**, or `/p <search>` | `$prompt-bank` or `$ccb-<prompt>` |
 | Make your own button | Prompt Bank pane → **Buttons** → **New button** | Appears as a `$ccb-<id>` skill |
-| Take a note | **Notes** button or `/notes` | `$notes` |
+| Take a note | **Notes** button or `/n` | `$notes` |
 | See sync status | Status line (`Sync ✓ 12:04`) | `ccb status` |
 
 ### Prompt variables

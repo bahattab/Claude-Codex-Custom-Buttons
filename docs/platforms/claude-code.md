@@ -23,18 +23,18 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 | **Regenerate** | Rewrites your selected text, else your draft, else your last message, using your session's model. The result goes in the prompt box for review, or is sent if `regenerate.autoSubmit` is on. **Undo regenerate** appears for 30 seconds. Warns if the rewrite dropped code, file paths, URLs or numbers |
 | **Custom buttons** | `submit`: send a saved prompt or text, with `{{variables}}` filled in. `fill`: put it in the prompt box (replace, append or insert). `refine`/`continue`: as above. Buttons whose prompt was deleted are dimmed and explain why when pressed. If a prompt has an unanswered `{{?ask}}` field, it's placed in the prompt box for you to complete instead of being sent |
 | `/c` | Continue. (`/continue` is a built-in Claude Code command, so the plugin can't use that name.) |
-| `/regen [instruction]` | Regenerate, with an optional extra instruction such as `/regen make it shorter` |
-| `/regen undo` | Put back the text from before the last Regenerate |
-| `/btn <id>` | Run a custom button by its ID; `/btn` alone lists them |
-| **Prompt Bank** pane (**Prompts** button, `/pb`) | Search while typing, category filter, favourites only. Each prompt: **Insert**, **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (asks first, with **Undo delete**). **New** and **Save draft** open an edit form whose text survives closing the pane. **Variables** tab: set, add and delete `{{variables}}`. **Buttons** tab: make a button of any action type, or delete one; the row updates at once |
-| **Notes** pane (**Notes** button, `/notes`) | Note picker (pinned first), multi-line editor that saves on its own after `notes.autosaveMs`, **New**, **Rename**, **Pin**, **Copy**, **Insert into prompt**, **Delete** (asks first). If the note changed elsewhere while you have unsaved text, choose **Keep mine** or **Load theirs** |
-| `/pb <search>`, `/pb save <title>` | Open the Prompt Bank searching; save the prompt box's text as a prompt |
-| `/notes <text>` | Add the text to the open note, or start a new note |
+| `/r [instruction]` | Regenerate, with an optional extra instruction such as `/r make it shorter` |
+| `/r undo` | Put back the text from before the last Regenerate |
+| `/b <id>` | Run a custom button by its ID; `/b` alone lists them |
+| **Prompt Bank** pane (**Prompts** button, `/p`) | Search while typing, category filter, favourites only. Each prompt: **Insert**, **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (asks first, with **Undo delete**). **New** and **Save draft** open an edit form whose text survives closing the pane. **Variables** tab: set, add and delete `{{variables}}`. **Buttons** tab: make a button of any action type, or delete one; the row updates at once |
+| **Notes** pane (**Notes** button, `/n`) | Note picker (pinned first), multi-line editor that saves on its own after `notes.autosaveMs`, **New**, **Rename**, **Pin**, **Copy**, **Insert into prompt**, **Delete** (asks first). If the note changed elsewhere while you have unsaved text, choose **Keep mine** or **Load theirs** |
+| `/p <search>`, `/p save <title>` | Open the Prompt Bank searching; save the prompt box's text as a prompt |
+| `/n <text>` | Add the text to the open note, or start a new note |
 
 | **Sync** button in the row | `Sync ✓ 12:04`, `Sync · 2 pending`, `Sync offline · 2 pending`, `Sync ⚠ sign in`, `Sync ⚠ 1 conflict`. Pressing it syncs now, or opens the Prompt Bank when something needs your attention there. Hidden when sync is off |
 | Prompt Bank sync section | The status and what's wrong. **Sync now**, and **Connect Google Drive** (or **Reconnect**) when signed out: it opens Google's sign-in in your browser and shows a link to it; sync starts once you finish. A conflict copy shows **Keep this**, **Keep other** and **Keep both** |
 | Notes sync | A dot marks notes changed here and not uploaded yet. A conflict copy shows the same three choices |
-| `/pb sync` | Sync now and say how it went |
+| `/p sync` | Sync now and say how it went |
 | **Instant translation** | Select text and its translation appears above the prompt box (from the language detected into English, or into Arabic when it's already English; see `translate.*` settings), with Copy, Insert, Open in Translate and Close |
 | **Translate** button, `/t [to <language>:] [text]` | The Translate pane: pick a language, Translate, Swap, Copy, Insert into prompt, Replace prompt, recent translations |
 
@@ -42,7 +42,7 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 
 ### How slash commands send their message
 
-Claude Code refuses `$.prompt.submit` from inside a slash command's hook, because the command holds the turn the submit would wait for. So `/c`, `/btn` and `/regen` with auto-submit:
+Claude Code refuses `$.prompt.submit` from inside a slash command's hook, because the command holds the turn the submit would wait for. So `/c`, `/b` and `/r` with auto-submit:
 
 1. queue the message;
 2. send it from a timer just after the command returns;
