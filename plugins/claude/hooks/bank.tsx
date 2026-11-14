@@ -107,10 +107,10 @@ export async function bankText($: $, opts: { search?: string; category?: string 
   });
   listed = results;
   if (results.length === 0) {
-    return opts.search ? `No prompts match "${opts.search}".` : "Your Prompt Bank is empty. Save the prompt box as a prompt with `/pb save <title>`.";
+    return opts.search ? `No prompts match "${opts.search}".` : "Your Prompt Bank is empty. Save the prompt box as a prompt with `/p save <title>`.";
   }
   const lines = results.map((p, i) => `${i + 1}. ${p.favorite ? "★ " : ""}${p.title}${p.category ? ` · ${p.category}` : ""}`);
-  return [...lines, "", "`/pb use <number>` puts one in the prompt box; `/pb send <number>` sends it."].join("\n");
+  return [...lines, "", "`/p use <number>` puts one in the prompt box; `/p send <number>` sends it."].join("\n");
 }
 
 /** A prompt id from a number in the last list, or the id itself. */

@@ -327,7 +327,7 @@ test("search filters while typing (after a short pause), and Enter searches at o
   const clock = mock.clock(on);
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.input({ key: "ccb-search", text: "co", kind: "change" });
   await ui.input({ key: "ccb-search", text: "code", kind: "change" });
@@ -346,7 +346,7 @@ test("search filters while typing (after a short pause), and Enter searches at o
 test("category filter and favourites-only toggle narrow the list", async ($, on) => {
   fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("terminal", "ccb-bank"));
   await ui.select({ key: "ccb-category", value: "c_work" });
   expect(await rows(ui as never)).toEqual(["p_plan", "p_review"]);
@@ -362,7 +362,7 @@ test("category filter and favourites-only toggle narrow the list", async ($, on)
 test("Insert fills the prompt box with variables filled in; Send submits; Copy copies the body", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-insert-p_plan" });
   expect(f.fills).toEqual([{ text: "Plan my day for Billing API", mode: "insert" }]);
@@ -376,7 +376,7 @@ test("Insert fills the prompt box with variables filled in; Send submits; Copy c
 test("Send with a {{?question}} puts the text in the box instead and says what to fill in", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-send-p_review" });
   expect(f.submits).toEqual([]);
@@ -387,7 +387,7 @@ test("Send with a {{?question}} puts the text in the box instead and says what t
 test("Edit saves changes through bank_save; New creates; Cancel discards", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-edit-p_poem" });
   expect((await ui.find({ key: "ccb-edit-title" }))).toBeDefined();
@@ -414,7 +414,7 @@ test("Edit saves changes through bank_save; New creates; Cancel discards", async
 test("a failed save keeps the form and its text", async ($, on) => {
   fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-new" });
   await ui.input({ key: "ccb-edit-body", text: "No title yet", kind: "change" });
@@ -426,12 +426,12 @@ test("a failed save keeps the form and its text", async ($, on) => {
 test("an edit in progress survives closing and reopening the pane", async ($, on) => {
   fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   let ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-edit-p_plan" });
   await ui.input({ key: "ccb-edit-title", text: "Plan my week", kind: "change" });
   await ui.unmount();
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   ui = await $.ui.mount(PANE("terminal", "ccb-bank"));
   expect((await ui.find({ key: "ccb-edit-title" }))?.props?.["value"]).toBe("Plan my week");
 });
@@ -439,7 +439,7 @@ test("an edit in progress survives closing and reopening the pane", async ($, on
 test("Duplicate copies a prompt; Delete asks first, then deletes; Undo delete restores it", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-dup-p_poem" });
   expect(f.prompts.filter((p) => !p.deleted).map((p) => p.title)).toContain("Write a poem (copy)");
@@ -459,24 +459,24 @@ test("Duplicate copies a prompt; Delete asks first, then deletes; Undo delete re
   expect(await ui.find({ key: "ccb-undo-delete" })).toBeUndefined();
 });
 
-test("Save draft opens the form with the prompt box text; /pb save <title> saves it directly", async ($, on) => {
+test("Save draft opens the form with the prompt box text; /p save <title> saves it directly", async ($, on) => {
   const f = fake(on, { draft: "Refactor the billing module\nkeep the API" });
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-save-draft" });
   expect((await ui.find({ key: "ccb-edit-title" }))?.props?.["value"]).toBe("Refactor the billing module");
   expect((await ui.find({ key: "ccb-edit-body" }))?.props?.["value"]).toBe("Refactor the billing module\nkeep the API");
 
-  const result = await $.command.run({ command: "pb", args: "save Billing refactor" } as never);
+  const result = await $.command.run({ command: "p", args: "save Billing refactor" } as never);
   expect((result as { text?: string }).text).toBe('Saved "Billing refactor" to the Prompt Bank.');
   expect(f.prompts.find((p) => p.title === "Billing refactor")?.body).toBe("Refactor the billing module\nkeep the API");
 });
 
-test("/pb save with an empty prompt box says so", async ($, on) => {
+test("/p save with an empty prompt box says so", async ($, on) => {
   fake(on);
   await start($);
-  const result = await $.command.run({ command: "pb", args: "save Title" } as never);
+  const result = await $.command.run({ command: "p", args: "save Title" } as never);
   expect((result as { text?: string }).text).toBe("The prompt box is empty: type the prompt first.");
 });
 
@@ -485,7 +485,7 @@ test("/pb save with an empty prompt box says so", async ($, on) => {
 test("Variables tab sets, adds and deletes variables, and the button row is refreshed", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-tab-variables" });
   const before = f.clientStateCalls();
@@ -508,7 +508,7 @@ test("Variables tab sets, adds and deletes variables, and the button row is refr
 test("Buttons tab creates buttons of each kind, and they show on the button row; Delete removes one", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-tab-buttons" });
   expect(await ui.find({ type: "Text", text: "No custom buttons yet." })).toBeDefined();
@@ -563,10 +563,10 @@ test("custom buttons that open panes and search prompts work from the row", asyn
   expect(await rows(ui as never)).toEqual(["p_poem"]);
 });
 
-test("/pb <words> opens the bank already searching", async ($, on) => {
+test("/p <words> opens the bank already searching", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "review" } as never);
+  await $.command.run({ command: "p", args: "review" } as never);
   expect(f.opened).toEqual(["ccb-bank"]);
   const ui = await $.ui.mount(PANE("terminal", "ccb-bank"));
   expect(await rows(ui as never)).toEqual(["p_review"]);
@@ -575,7 +575,7 @@ test("/pb <words> opens the bank already searching", async ($, on) => {
 test("a server failure while loading shows a notice instead of breaking the pane", async ($, on) => {
   fake(on, { failTool: "bank_list_categories" });
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   expect(await ui.find({ type: "Text", text: /Couldn't load the Prompt Bank: disk full/ })).toBeDefined();
 });
@@ -841,7 +841,7 @@ test("Rename and delete confirmation survive a completed turn (review #9)", asyn
 test("new buttons never overwrite an existing one, including labels without Latin letters (review #5)", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-tab-buttons" });
   for (const label of ["Review", "review!", "مراجعة", "🚀"]) {
@@ -860,7 +860,7 @@ test("new buttons never overwrite an existing one, including labels without Lati
 test("a search button can open on a category", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-tab-buttons" });
   await ui.press({ key: "ccb-new-button" });
@@ -871,18 +871,18 @@ test("a search button can open on a category", async ($, on) => {
   expect(f.buttons[0]?.action).toEqual({ type: "insert-prompt", category: "c_work", search: null });
 });
 
-test("Save draft doesn't replace a prompt being edited; /pb <search> says the form hides results (review #6, #7)", async ($, on) => {
+test("Save draft doesn't replace a prompt being edited; /p <search> says the form hides results (review #6, #7)", async ($, on) => {
   fake(on, { draft: "something else" });
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-edit-p_plan" });
   await ui.input({ key: "ccb-edit-title", text: "Plan my week", kind: "change" });
   await ui.press({ key: "ccb-save-draft" }).catch(() => undefined); // not on screen while editing
-  const r = await $.command.run({ command: "pb", args: "save" } as never);
+  const r = await $.command.run({ command: "p", args: "save" } as never);
   expect((r as { text?: string }).text).toBe("Save or cancel the prompt you're editing first.");
   expect((await ui.find({ key: "ccb-edit-title" }))?.props?.["value"]).toBe("Plan my week");
-  await $.command.run({ command: "pb", args: "poem" } as never);
+  await $.command.run({ command: "p", args: "poem" } as never);
   expect(await ui.find({ type: "Text", text: /Save or cancel the prompt you're editing to see the search results/ })).toBeDefined();
   expect((await ui.find({ key: "ccb-edit-title" }))?.props?.["value"]).toBe("Plan my week");
 });
@@ -890,7 +890,7 @@ test("Save draft doesn't replace a prompt being edited; /pb <search> says the fo
 test("the variable notice shows the name as saved (review #10)", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   await ui.press({ key: "ccb-tab-variables" });
   await ui.input({ key: "ccb-newvar-name", text: "My Var", kind: "change" });
@@ -952,23 +952,23 @@ test("signed out: the sync button opens the Prompt Bank, where Connect starts th
   expect(await ui.find({ key: "ccb-sync-now" })).toBeDefined();
 });
 
-test("Sync now in the Prompt Bank, and /pb sync, report the outcome", async ($, on) => {
+test("Sync now in the Prompt Bank, and /p sync, report the outcome", async ($, on) => {
   const f = fake(on);
   f.sync = { ...SYNCED, state: "offline", line: "Sync offline · 2 pending", pending: 2, message: "Google Drive is unreachable." };
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-bank"));
   expect(await ui.find({ type: "Text", text: "Google Drive is unreachable." })).toBeDefined();
   await ui.press({ key: "ccb-sync-now" });
   expect(await ui.find({ type: "Text", text: "Sync offline · 2 pending: Google Drive is unreachable." })).toBeDefined();
-  const r = await $.command.run({ command: "pb", args: "sync" } as never);
+  const r = await $.command.run({ command: "p", args: "sync" } as never);
   expect((r as { text?: string }).text).toBe("Sync offline · 2 pending: Google Drive is unreachable.");
 });
 
-test("/pb sync without sync running explains it", async ($, on) => {
+test("/p sync without sync running explains it", async ($, on) => {
   fake(on);
   await start($);
-  const r = await $.command.run({ command: "pb", args: "sync" } as never);
+  const r = await $.command.run({ command: "p", args: "sync" } as never);
   expect((r as { text?: string }).text).toMatch(/Couldn't sync: Sync isn't running/);
 });
 
@@ -980,7 +980,7 @@ test("opening a pane pulls other computers' changes right away", async ($, on) =
   await $.command.run({ command: "n", args: "" } as never);
   await clock.settle();
   expect(f.calls.filter((c) => c.tool === "sync_now")).toHaveLength(1);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   await clock.settle();
   expect(f.calls.filter((c) => c.tool === "sync_now")).toHaveLength(2);
 });
@@ -1055,7 +1055,7 @@ test("notes changed here and not uploaded yet are marked with a dot", async ($, 
 test("the Settings tab changes this device's settings and the shared ones", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "pb", args: "" } as never);
+  await $.command.run({ command: "p", args: "" } as never);
   for (const surface of ["terminal", "desktop"] as const) {
     const ui = await $.ui.mount(PANE(surface, "ccb-bank"));
     await ui.press({ key: "ccb-tab-settings" });
@@ -1087,23 +1087,23 @@ test("the Settings tab changes this device's settings and the shared ones", asyn
 
 // --- cloud sessions: the app shows no pane, so the commands answer in text ----------------
 
-test("in a session with no panes, /pb lists prompts as text, and /pb use and /pb send take a number", async ($, on) => {
+test("in a session with no panes, /p lists prompts as text, and /p use and /p send take a number", async ($, on) => {
   const clock = mock.clock(on);
   const f = fake(on, { placed: false });
   await start($);
-  const list = ((await $.command.run({ command: "pb", args: "" } as never)) as { text?: string }).text ?? "";
+  const list = ((await $.command.run({ command: "p", args: "" } as never)) as { text?: string }).text ?? "";
   expect(list).toMatch(/1\. ★ Plan my day · /);
   expect(list).toMatch(/Review code/);
-  expect(list).toMatch(/\/pb use <number>/);
+  expect(list).toMatch(/\/p use <number>/);
   const lines = list.split("\n");
   const plan = lines.findIndex((l) => l.includes("Plan my day")) + 1;
   const poem = lines.findIndex((l) => l.includes("Write a poem")) + 1;
-  await $.command.run({ command: "pb", args: `use ${plan}` } as never);
+  await $.command.run({ command: "p", args: `use ${plan}` } as never);
   expect(f.fills.at(-1)?.text).toBe("Plan my day for Billing API");
-  await $.command.run({ command: "pb", args: `send ${poem}` } as never);
+  await $.command.run({ command: "p", args: `send ${poem}` } as never);
   await clock.settle();
   expect(f.submits.at(-1)).toBe("Write a short poem");
-  const none = ((await $.command.run({ command: "pb", args: "zzz" } as never)) as { text?: string }).text;
+  const none = ((await $.command.run({ command: "p", args: "zzz" } as never)) as { text?: string }).text;
   expect(none).toBe('No prompts match "zzz".');
 });
 

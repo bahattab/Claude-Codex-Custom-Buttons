@@ -227,7 +227,7 @@ function buttonsText(state: ClientState | null): string {
 }
 
 /** What the status line says: the commands that stand in for the buttons where the app draws no row. */
-const STATUS_HINT = "Buttons: /c · /r · /t · /pb · /n · /btn";
+const STATUS_HINT = "Buttons: /c · /r · /t · /p · /n · /btn";
 
 /** The label shown on a user button. */
 export function buttonLabel(b: ButtonView): string {
@@ -241,7 +241,7 @@ export const COMMANDS = [
   { name: "c", description: "Continue a reply that was cut off." },
   { name: "r", description: "Rewrite your draft or selected text into a clearer prompt.", argumentHint: "[extra instruction | undo]" },
   { name: "btn", description: "Run one of your custom buttons, or list them.", argumentHint: "[button name]" },
-  { name: "pb", description: "Open the Prompt Bank, search it, use a prompt, save the prompt box as a prompt, or sync now.", argumentHint: "[search | use <n> | send <n> | save <title> | sync]" },
+  { name: "p", description: "Open the Prompt Bank, search it, use a prompt, save the prompt box as a prompt, or sync now.", argumentHint: "[search | use <n> | send <n> | save <title> | sync]" },
   { name: "n", description: "Open Notes, read one, or add text to the open note.", argumentHint: "[read <n> | text to add]" },
   { name: "t", description: "Translate the selection, your draft, or the text given.", argumentHint: "[to <language>:] [text]" },
 ] as const;
@@ -256,7 +256,7 @@ export const register: Register = (on) => {
     return message ? { text: message } : {};
   });
 
-  on("command.run", { command: "pb" }, async ($, e) => {
+  on("command.run", { command: "p" }, async ($, e) => {
     const args = e.args.trim();
     if (args === "sync") return { text: await syncNow($) };
     const save = /^save(?:\s+(.*))?$/s.exec(args);

@@ -43,7 +43,7 @@ Your data is kept in `~/.claude-codex-buttons/` on each computer (`C:\Users\<you
 **Check that it works:**
 
 - Above the prompt box you see **Continue**, **Regenerate**, **Prompts**, **Notes** and **Translate** (and **Sync** once sync is on).
-- `/pb` opens the Prompt Bank, `/n` opens Notes, `/t hello` translates.
+- `/p` opens the Prompt Bank, `/n` opens Notes, `/t hello` translates.
 - In the terminal, instant translation of selected text needs Claude Code's fullscreen mode.
 
 The Code tab of Claude Desktop uses the same plugin: installing it once in Claude Code is enough on that computer.
@@ -72,13 +72,13 @@ Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) st
 
 4. Save, then start a **new** cloud session (an open session doesn't run the script again). Send a first message; the plugin's commands appear once the session has started.
 
-The first two lines install the plugin: its skills (`/prompt-buttons:...`) and its MCP server. A cloud session doesn't load the commands of an installed plugin's mod (`/c`, `/t`, `/pb` and the others); it loads them from a plugin folder named in `CLAUDE_CODE_PLUGIN_DIRS`, which the `git clone` line downloads. Claude can add the script lines for you but not the variable: you add that yourself. `|| true` keeps a session starting even if a step fails.
+The first two lines install the plugin: its skills (`/prompt-buttons:...`) and its MCP server. A cloud session doesn't load the commands of an installed plugin's mod (`/c`, `/t`, `/p` and the others); it loads them from a plugin folder named in `CLAUDE_CODE_PLUGIN_DIRS`, which the `git clone` line downloads. Claude can add the script lines for you but not the variable: you add that yourself. `|| true` keeps a session starting even if a step fails.
 
 What works in a cloud session:
 
 - **Works:** the `/` commands below, and the Prompt Bank, Notes, Translate and settings by asking Claude ("show my prompt bank", "translate this to English").
 - **Doesn't show:** the button row above the prompt box, or any of the plugin's panes. In a cloud session the Claude desktop app draws only the plugin's text: command output and the status line (checked 2026-11-14: a row above the prompt box, a pane, buttons in a command's output and buttons under a reply all stayed hidden).
-- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /r · /t · /pb · /n · /btn`.
+- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /r · /t · /p · /n · /btn`.
 
 The short commands run straight away, without Claude reading instructions first, and answer in text where a pane would open on your computer:
 
@@ -87,7 +87,7 @@ The short commands run straight away, without Claude reading instructions first,
 | `/c` | **Continue** the last answer |
 | `/r [extra instruction]` | **Regenerate**: rewrite your draft into a clearer prompt; `/r undo` puts it back |
 | `/t [to <language>:] [text]` | **Translate** the text, your draft or your last message; the translation is the command's answer |
-| `/pb [search]` | **Prompts**: a numbered list of your prompts; `/pb use 2` puts number 2 in the prompt box, `/pb send 2` sends it, `/pb save <title>` saves the prompt box |
+| `/p [search]` | **Prompts**: a numbered list of your prompts; `/p use 2` puts number 2 in the prompt box, `/p send 2` sends it, `/p save <title>` saves the prompt box |
 | `/n [read <n> \| text]` | **Notes**: a numbered list; `/n read 1` shows one; `/n <text>` adds to a note |
 | `/btn [name]` | Press one of your own buttons by its name; with no name, lists them |
 
