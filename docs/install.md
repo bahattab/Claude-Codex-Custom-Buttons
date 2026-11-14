@@ -43,7 +43,7 @@ Your data is kept in `~/.claude-codex-buttons/` on each computer (`C:\Users\<you
 **Check that it works:**
 
 - Above the prompt box you see **Continue**, **Regenerate**, **Prompts**, **Notes** and **Translate** (and **Sync** once sync is on).
-- `/pb` opens the Prompt Bank, `/notes` opens Notes, `/t hello` translates.
+- `/pb` opens the Prompt Bank, `/n` opens Notes, `/t hello` translates.
 - In the terminal, instant translation of selected text needs Claude Code's fullscreen mode.
 
 The Code tab of Claude Desktop uses the same plugin: installing it once in Claude Code is enough on that computer.
@@ -78,17 +78,17 @@ What works in a cloud session:
 
 - **Works:** the `/` commands below, and the Prompt Bank, Notes, Translate and settings by asking Claude ("show my prompt bank", "translate this to English").
 - **Doesn't show:** the button row above the prompt box, or any of the plugin's panes. In a cloud session the Claude desktop app draws only the plugin's text: command output and the status line (checked 2026-11-14: a row above the prompt box, a pane, buttons in a command's output and buttons under a reply all stayed hidden).
-- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /regen · /t · /pb · /notes · /btn`.
+- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /r · /t · /pb · /n · /btn`.
 
 The short commands run straight away, without Claude reading instructions first, and answer in text where a pane would open on your computer:
 
 | Command | Does what the button does |
 |---|---|
 | `/c` | **Continue** the last answer |
-| `/regen [extra instruction]` | **Regenerate**: rewrite your draft into a clearer prompt; `/regen undo` puts it back |
+| `/r [extra instruction]` | **Regenerate**: rewrite your draft into a clearer prompt; `/r undo` puts it back |
 | `/t [to <language>:] [text]` | **Translate** the text, your draft or your last message; the translation is the command's answer |
 | `/pb [search]` | **Prompts**: a numbered list of your prompts; `/pb use 2` puts number 2 in the prompt box, `/pb send 2` sends it, `/pb save <title>` saves the prompt box |
-| `/notes [read <n> \| text]` | **Notes**: a numbered list; `/notes read 1` shows one; `/notes <text>` adds to a note |
+| `/n [read <n> \| text]` | **Notes**: a numbered list; `/n read 1` shows one; `/n <text>` adds to a note |
 | `/btn [name]` | Press one of your own buttons by its name; with no name, lists them |
 
 These longer commands do the same through Claude, and also work in local sessions:

@@ -604,7 +604,7 @@ test("typing saves on its own after notes.autosaveMs; more typing restarts the w
   const clock = mock.clock(on);
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nship M4\nand docs", kind: "change" });
   expect(await ui.find({ type: "Text", text: "Unsaved" })).toBeDefined();
@@ -626,7 +626,7 @@ test("typing saves on its own after notes.autosaveMs; more typing restarts the w
 test("New note, rename, pin, copy, insert into prompt and delete", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.press({ key: "ccb-note-new" });
   expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("");
@@ -660,7 +660,7 @@ test("New note, rename, pin, copy, insert into prompt and delete", async ($, on)
 test("switching notes saves the text of the note being left", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nunsaved line", kind: "change" });
   await ui.press({ key: "ccb-note-n_a" });
@@ -673,7 +673,7 @@ test("switching notes saves the text of the note being left", async ($, on) => {
 test("a change made elsewhere while you type is offered, not loaded over your text: Keep mine saves yours", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nmine", kind: "change" });
   const note = f.notes.find((n) => n.id === "n_b");
@@ -689,12 +689,12 @@ test("a change made elsewhere while you type is offered, not loaded over your te
 test("Load theirs replaces your unsaved text with the other version", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nmine", kind: "change" });
   const note = f.notes.find((n) => n.id === "n_b");
   if (note) note.body = "Todo\ntheirs";
-  await $.command.run({ command: "notes", args: "" } as never); // reopening reloads too
+  await $.command.run({ command: "n", args: "" } as never); // reopening reloads too
   await ui.press({ key: "ccb-note-load-theirs" });
   expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Todo\ntheirs");
   expect(await ui.find({ type: "Text", text: "Unsaved" })).toBeUndefined();
@@ -704,35 +704,35 @@ test("Load theirs replaces your unsaved text with the other version", async ($, 
 test("a reload with no change elsewhere keeps unsaved text quietly", async ($, on) => {
   fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nmine", kind: "change" });
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Todo\nmine");
   expect(await ui.find({ key: "ccb-note-keep-mine" })).toBeUndefined();
 });
 
-// --- G7: /notes <text> -----------------------------------------------------------------
+// --- G7: /n <text> -----------------------------------------------------------------
 
-test("/notes <text> adds to the open note, or starts a new note when none is open", async ($, on) => {
+test("/n <text> adds to the open note, or starts a new note when none is open", async ($, on) => {
   const f = fake(on);
   await start($);
-  let result = await $.command.run({ command: "notes", args: "call the bank" } as never);
+  let result = await $.command.run({ command: "n", args: "call the bank" } as never);
   expect((result as { text?: string }).text).toBe('Started a new note: "call the bank".');
   expect(f.notes.find((n) => n.body === "call the bank")).toBeDefined();
 
-  result = await $.command.run({ command: "notes", args: "and the insurer" } as never);
+  result = await $.command.run({ command: "n", args: "and the insurer" } as never);
   expect((result as { text?: string }).text).toBe('Added to "call the bank".');
   expect(f.notes.find((n) => n.title === "call the bank")?.body).toBe("call the bank\nand the insurer");
 });
 
-test("/notes <text> while the open note has unsaved text keeps that text and adds to it", async ($, on) => {
+test("/n <text> while the open note has unsaved text keeps that text and adds to it", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\ntyped", kind: "change" });
-  await $.command.run({ command: "notes", args: "from the command" } as never);
+  await $.command.run({ command: "n", args: "from the command" } as never);
   expect(f.notes.find((n) => n.id === "n_b")?.body).toBe("Todo\ntyped\nfrom the command");
 });
 
@@ -744,7 +744,7 @@ test("autosave never decides a change made elsewhere: both texts wait for Keep m
   const clock = mock.clock(on);
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nmine", kind: "change" });
   const note = f.notes.find((n) => n.id === "n_b");
@@ -759,7 +759,7 @@ test("autosave never decides a change made elsewhere: both texts wait for Keep m
   expect(note?.body).toBe("Todo\ntheirs");
   expect(note?.pinned).toBe(true); // unchanged: pin was refused
   expect(await ui.find({ type: "Text", text: "Choose Keep mine or Load theirs first." })).toBeDefined();
-  const r = await $.command.run({ command: "notes", args: "more" } as never);
+  const r = await $.command.run({ command: "n", args: "more" } as never);
   expect((r as { text?: string }).text).toBe("Not added: Choose Keep mine or Load theirs first.");
   expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Todo\nmine");
 });
@@ -767,7 +767,7 @@ test("autosave never decides a change made elsewhere: both texts wait for Keep m
 test("a failed save keeps you on the note, with its text, instead of switching (review #2)", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nprecious", kind: "change" });
   f.failNext.push("notes_write");
@@ -782,14 +782,14 @@ test("a failed save keeps you on the note, with its text, instead of switching (
   expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Ideas\nfirst idea");
 });
 
-test("/notes <text> while writing a new note adds to it instead of discarding it (review #3)", async ($, on) => {
+test("/n <text> while writing a new note adds to it instead of discarding it (review #3)", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.press({ key: "ccb-note-new" });
   await ui.input({ key: "ccb-note-body", text: "Draft idea", kind: "change" });
-  const r = await $.command.run({ command: "notes", args: "plus this" } as never);
+  const r = await $.command.run({ command: "n", args: "plus this" } as never);
   expect((r as { text?: string }).text).toBe('Added to "Draft idea".');
   expect(f.notes.filter((n) => !n.deleted).map((n) => n.body)).toContain("Draft idea\nplus this");
   expect(f.notes.filter((n) => n.body === "plus this")).toEqual([]);
@@ -799,11 +799,11 @@ test("reopening Notes while writing a new note keeps it, and it still autosaves 
   const clock = mock.clock(on);
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.press({ key: "ccb-note-new" });
   await ui.input({ key: "ccb-note-body", text: "Fresh thought", kind: "change" });
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   expect((await ui.find({ key: "ccb-note-body" }))?.props?.["value"]).toBe("Fresh thought");
   await clock.advance(600);
   await clock.settle();
@@ -813,7 +813,7 @@ test("reopening Notes while writing a new note keeps it, and it still autosaves 
 test("a note deleted elsewhere: unsaved text is kept and saves as a new note", async ($, on) => {
   const f = fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.input({ key: "ccb-note-body", text: "Todo\nkeep me", kind: "change" });
   const gone = f.notes.find((n) => n.id === "n_b");
@@ -828,7 +828,7 @@ test("a note deleted elsewhere: unsaved text is kept and saves as a new note", a
 test("Rename and delete confirmation survive a completed turn (review #9)", async ($, on) => {
   fake(on);
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.press({ key: "ccb-note-rename" });
   await ui.input({ key: "ccb-note-title", text: "Half typ", kind: "change" });
@@ -977,7 +977,7 @@ test("opening a pane pulls other computers' changes right away", async ($, on) =
   const f = fake(on);
   f.sync = { ...SYNCED };
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   await clock.settle();
   expect(f.calls.filter((c) => c.tool === "sync_now")).toHaveLength(1);
   await $.command.run({ command: "pb", args: "" } as never);
@@ -1007,7 +1007,7 @@ test("a conflict copy of a note offers the same choice; Keep both makes it an or
   f.sync = { ...SYNCED, conflicts: 1, line: "Sync ⚠ 1 conflict" };
   f.notes.push({ id: "n_b_c", title: "Todo (conflict)", body: "Todo\nother", pinned: false, updatedAt: stamp(), deleted: false, conflictOf: "n_b" });
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   expect(await ui.find({ key: "ccb-note-keep-both" })).toBeUndefined(); // the original (pinned, open first) has no choice
   await ui.press({ key: "ccb-note-n_b_c" });
@@ -1022,7 +1022,7 @@ test("Keep other on a note copy keeps the original's text and opens it", async (
   f.sync = { ...SYNCED, conflicts: 1 };
   f.notes.push({ id: "n_a_c", title: "Ideas (conflict)", body: "Ideas\nother", pinned: false, updatedAt: stamp(), deleted: false, conflictOf: "n_a" });
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   const ui = await $.ui.mount(PANE("desktop", "ccb-notes"));
   await ui.press({ key: "ccb-note-n_a_c" });
   await ui.press({ key: "ccb-note-keep-original" });
@@ -1035,7 +1035,7 @@ test("notes changed here and not uploaded yet are marked with a dot", async ($, 
   const f = fake(on);
   f.sync = { ...SYNCED, state: "offline", line: "Sync offline · 1 pending", pending: 1, pendingKeys: ["notes/n_a"] };
   await start($);
-  await $.command.run({ command: "notes", args: "" } as never);
+  await $.command.run({ command: "n", args: "" } as never);
   for (const surface of ["terminal", "desktop"] as const) {
     const ui = await $.ui.mount(PANE(surface, "ccb-notes"));
     expect((await ui.find({ key: "ccb-note-n_a" }))?.props?.["label"]).toBe("• Ideas");
@@ -1107,12 +1107,12 @@ test("in a session with no panes, /pb lists prompts as text, and /pb use and /pb
   expect(none).toBe('No prompts match "zzz".');
 });
 
-test("in a session with no panes, /notes lists notes and /notes read shows one", async ($, on) => {
+test("in a session with no panes, /n lists notes and /n read shows one", async ($, on) => {
   fake(on, { placed: false });
   await start($);
-  const list = ((await $.command.run({ command: "notes", args: "" } as never)) as { text?: string }).text ?? "";
+  const list = ((await $.command.run({ command: "n", args: "" } as never)) as { text?: string }).text ?? "";
   expect(list).toMatch(/1\. 📌 Todo/);
   expect(list).toMatch(/2\. Ideas/);
-  const one = ((await $.command.run({ command: "notes", args: "read 1" } as never)) as { text?: string }).text;
+  const one = ((await $.command.run({ command: "n", args: "read 1" } as never)) as { text?: string }).text;
   expect(one).toBe("**Todo**\n\nTodo\nship M4");
 });

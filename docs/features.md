@@ -63,11 +63,11 @@ Users can replace these instructions with their own in settings (`regenerate.ins
 
 - Default: the rewritten prompt **replaces** the prompt-box content so the user can review and edit it, then press Enter.
 - With `regenerate.autoSubmit = true`: it is sent immediately.
-- The original text is kept so **Undo regenerate** (button that appears for 30 s, or `/regen undo`) restores it.
+- The original text is kept so **Undo regenerate** (button that appears for 30 s, or `/r undo`) restores it.
 
 ### Per platform
 
-- **CC:** button + `/regen [extra instruction]`; `/regen undo`. The model call uses the engine's model API (`$.model.complete`).
+- **CC:** button + `/r [extra instruction]`; `/r undo`. The model call uses the engine's model API (`$.model.complete`).
 - **CX:** `regenerate-prompt` skill. Codex's own model performs the rewrite following the same instructions, then shows the result for the user to copy or approve.
 - **CD:** an MCP prompt "Regenerate my prompt" that inserts the instructions; the user pastes their text after it.
 
@@ -103,8 +103,8 @@ A scratchpad that stays beside the chat. Notes are saved locally and synced thro
 
 - **Storage:** each note is a record in the library (see [data-model.md](data-model.md#note)), synced through Drive like the Prompt Bank, and mirrored to a local Markdown file in `~/.claude-codex-buttons/notes/` so any editor or tool can read it. An edit made to that file in another editor is picked up and synced too.
 - **Sync:** a change is uploaded about 2 seconds after typing stops; other PCs pull it within 60 seconds, or immediately when their Notes pane opens. Offline edits stay pending and upload automatically when the connection returns. If the same note was edited on two PCs before either synced, both texts are kept: the newer stays as the note and the other appears as a conflict copy to merge (see [google-drive-sync.md](google-drive-sync.md#conflict-copies)).
-- **CC:** a side pane with a note picker (pinned first), a multi-line text box, **New**, **Rename**, **Pin**, **Delete** (asks first), **Copy**, **Insert into prompt**, a dot on notes not uploaded yet, and **Keep this / Keep other / Keep both** on a conflict copy. Saves automatically `notes.autosaveMs` (2 seconds) after typing stops, also if the pane was closed meanwhile; Enter or **Save** saves at once, and switching notes saves the one being left. `/notes` opens the pane; `/notes <text>` adds the text to the open note, or starts a new note.
-- **Unsaved text is never replaced.** If the open note changed elsewhere (another PC, or its Markdown file) while it has unsaved text, the pane keeps your text and offers **Keep mine** (save yours over it) or **Load theirs**. Autosave, Save, Rename, Pin and `/notes <text>` wait for that choice. If a save fails, the pane stays on the note instead of switching. If the note was deleted elsewhere, your unsaved text is kept and saves as a new note.
+- **CC:** a side pane with a note picker (pinned first), a multi-line text box, **New**, **Rename**, **Pin**, **Delete** (asks first), **Copy**, **Insert into prompt**, a dot on notes not uploaded yet, and **Keep this / Keep other / Keep both** on a conflict copy. Saves automatically `notes.autosaveMs` (2 seconds) after typing stops, also if the pane was closed meanwhile; Enter or **Save** saves at once, and switching notes saves the one being left. `/n` opens the pane; `/n <text>` adds the text to the open note, or starts a new note.
+- **Unsaved text is never replaced.** If the open note changed elsewhere (another PC, or its Markdown file) while it has unsaved text, the pane keeps your text and offers **Keep mine** (save yours over it) or **Load theirs**. Autosave, Save, Rename, Pin and `/n <text>` wait for that choice. If a save fails, the pane stays on the note instead of switching. If the note was deleted elsewhere, your unsaved text is kept and saves as a new note.
 - **CX:** `notes` skill that lists, reads, writes and appends to notes through `ccb-mcp`, so Codex sees the same synced notes.
 - **CD:** not available as a pane; Claude in the Chat tab can read and append notes through the MCP tools.
 

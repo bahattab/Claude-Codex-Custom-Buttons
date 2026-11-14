@@ -196,7 +196,7 @@ test("Regenerate prefers the selection, then the draft, then the last message", 
     onModel: (e) => (prompts.push(String(e.prompt)), { isAnswered: true, text: "Rewritten.", usage: {} }),
   });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(prompts[0]).toContain("selected words");
   expect(rec.fills).toHaveLength(1);
 });
@@ -208,14 +208,14 @@ test("Regenerate falls back to the last user message, and says when there is not
     onModel: (e) => (prompts.push(String(e.prompt)), { isAnswered: true, text: "Rewritten.", usage: {} }),
   });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(prompts[0]).toContain("the last thing I asked");
 });
 
 test("Regenerate with nothing to work on explains why", async ($, on) => {
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.fills).toEqual([]);
   expect(rec.toasts.join()).toMatch(/Nothing to regenerate/);
 });
@@ -223,7 +223,7 @@ test("Regenerate with nothing to work on explains why", async ($, on) => {
 test("Regenerate warns when the rewrite dropped code, paths or numbers", async ($, on) => {
   const rec = engine(on, { draft: "fix src/api/users.ts to return 200", rewrite: "Fix the users endpoint." });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.toasts.join()).toMatch(/dropped .*src\/api\/users\.ts/);
 });
 
@@ -235,7 +235,7 @@ test("Regenerate submits after the command returns when autoSubmit is on, with n
     state: { ...STATE, settings: { ...STATE.settings, regenerate: { autoSubmit: true, source: "auto" } } },
   });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.fills).toEqual([]);
   await clock.settle();
   expect(rec.submits).toEqual(["Clear."]);
@@ -261,15 +261,15 @@ test("Undo regenerate disappears after 30 seconds (review finding #3)", async ($
 test("Regenerate reports a failed model call and leaves the prompt alone", async ($, on) => {
   const rec = engine(on, { draft: "rough", onModel: () => ({ isAnswered: false, reason: "api-error" }) });
   await start($);
-  await $.command.run({ command: "regen", args: "" } as never);
+  await $.command.run({ command: "r", args: "" } as never);
   expect(rec.fills).toEqual([]);
   expect(rec.toasts.join()).toMatch(/Regenerate failed/);
 });
 
-test("/regen undo with nothing to undo says so", async ($, on) => {
+test("/r undo with nothing to undo says so", async ($, on) => {
   engine(on);
   await start($);
-  const result = (await $.command.run({ command: "regen", args: "undo" } as never)) as { text?: string };
+  const result = (await $.command.run({ command: "r", args: "undo" } as never)) as { text?: string };
   expect(result.text).toBe("Nothing to undo.");
 });
 
