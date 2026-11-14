@@ -78,7 +78,7 @@ What works in a cloud session:
 
 - **Works:** the `/` commands below, and the Prompt Bank, Notes, Translate and settings by asking Claude ("show my prompt bank", "translate this to English").
 - **Doesn't show:** the button row above the prompt box, or any of the plugin's panes. In a cloud session the Claude desktop app draws only the plugin's text: command output and the status line (checked 2026-11-14: a row above the prompt box, a pane, buttons in a command's output and buttons under a reply all stayed hidden).
-- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /r · /t · /p · /n · /b`.
+- **Shows:** a line in the status bar, under the prompt box, naming each short command and its button: `/c Continue · /r Regenerate · /t Translate · /p Prompts · /n Notes · /b Buttons`. In the `/` menu, each command's description starts with its button's name.
 
 The short commands run straight away, without Claude reading instructions first, and answer in text where a pane would open on your computer:
 
