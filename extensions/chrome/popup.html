@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prompt Buttons</title>
+<style>
+  :root { --bg: #faf9f5; --fg: #1f1f1f; --muted: #6b6a66; --line: #dddbd3; --accent: #c4633f; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #262624; --fg: #ececec; --muted: #a8a69f; --line: #3d3c38; --accent: #e08a68; color-scheme: dark; } }
+  body { margin: 0; width: 380px; background: var(--bg); color: var(--fg); font: 13px/1.5 system-ui, "Segoe UI", sans-serif; }
+  main { padding: 14px 16px 16px; display: grid; gap: 12px; }
+  h1 { font-size: 15px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 4px; }
+  p { margin: 0; color: var(--muted); }
+  section { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+  input, textarea, button { font: inherit; color: inherit; }
+  input, textarea { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; box-sizing: border-box; }
+  textarea { min-height: 56px; resize: vertical; }
+  button { border: 1px solid var(--line); background: transparent; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .between { justify-content: space-between; }
+  .list { display: grid; gap: 4px; max-height: 150px; overflow: auto; }
+  .item { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+  .item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .note { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div class="row between">
+    <h1>Prompt Buttons</h1>
+    <span class="note" id="where"></span>
+  </div>
+  <p>The buttons appear above the prompt box on claude.ai, in chats and in Claude Code sessions. Nothing leaves your browser.</p>
+
+  <section>
+    <h2>Your buttons</h2>
+    <div class="list" id="buttons"></div>
+    <input id="b-label" placeholder="Button name, e.g. Review code" maxlength="24" dir="auto">
+    <textarea id="b-text" placeholder="The text it puts in the prompt box" dir="auto"></textarea>
+    <div class="row">
+      <label class="row"><input type="checkbox" id="b-send" checked style="width:auto"> Send it straight away</label>
+      <button class="primary" id="b-add" type="button">Add button</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your prompts</h2>
+    <div class="list" id="prompts"></div>
+    <p class="note">Save a prompt with ☆ Save on claude.ai.</p>
+  </section>
+
+  <section>
+    <h2>Import and export</h2>
+    <p class="note">The same file format as <code>ccb export</code> and <code>ccb import</code>, and the Prompt Buttons page.</p>
+    <div class="row">
+      <button id="export" type="button">Export</button>
+      <label class="row"><button type="button" id="import-btn">Import a file…</button><input type="file" id="import" accept=".json,application/json" hidden></label>
+    </div>
+    <span class="note" id="msg" role="status"></span>
+  </section>
+</main>
+<script src="ccb-core.js"></script>
+<script src="library.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

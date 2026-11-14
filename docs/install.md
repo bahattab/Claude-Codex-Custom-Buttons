@@ -6,6 +6,7 @@ This guide installs Claude Codex Custom Buttons v0.1.0 step by step. Install onl
 |---|---|---|
 | Claude Code plugin `prompt-buttons` | Button row, Prompt Bank, Notes and Translate panes, slash commands, instant translation. Works in the terminal, the Code tab of Claude Desktop, VS Code and mobile | [1](#1-claude-code-and-the-claude-desktop-code-tab) |
 | Codex plugin `prompt-buttons-codex` | Skills: continue, regenerate-prompt, prompt-bank, notes, translate, drive-sync, button, plus `$ccb-*` skills for your buttons and favourite prompts | [2](#2-codex) |
+| Chrome extension | A button row above the prompt box on claude.ai in Chrome, Edge or Brave, including cloud sessions at claude.ai/code | [Chrome extension](#chrome-extension-claudeai-in-the-browser) |
 | Claude Desktop extension `.mcpb` | Your saved prompts in the Chat tab, plus tools to save prompts and notes | [3](#3-claude-desktop-chat-tab) |
 | The `ccb` command | Google sign-in, settings, background sync, import/export, diagnostics | [4](#4-the-ccb-command) |
 | Google Drive sync | The same prompts, buttons, variables and notes on every computer | [5](#5-turn-on-google-drive-sync) |
@@ -156,6 +157,32 @@ Don't install the Claude plugin (`prompt-buttons`) into Codex: it is built for C
 **Check that it works:** in a chat, open the **+** menu and look for your prompts and **Translate**, or ask Claude: "find my prompt about code review". If the prompts don't show in the menu, everything still works by asking Claude.
 
 **Build it yourself instead:** `npm ci && npm run build && npm run build:plugin && npm run build:desktop` writes `dist/claude-codex-buttons.mcpb`.
+
+## Chrome extension (claude.ai in the browser)
+
+The Claude app doesn't show the plugin's button row in cloud sessions. In a browser it can: the extension in [`extensions/chrome`](../extensions/chrome) adds a row above the prompt box on claude.ai, in chats and in Claude Code sessions at claude.ai/code. It works in Chrome, Edge, Brave and other Chromium browsers; the Claude Desktop app doesn't load browser extensions.
+
+| Button | What it does |
+|---|---|
+| **Continue** | Puts the Continue message in the box and sends it |
+| **Regenerate** | Turns the text in the box into a request to rewrite it (the plugin's rewrite instructions). Press Send, then use the rewritten prompt Claude gives back |
+| **Translate ▾** | Pick a language; the text in the box is sent with the plugin's translation instructions |
+| **Prompts ▾** | Search your prompts and put one in the box |
+| your buttons | A button that sends puts its text in the box and sends it; a button that fills only puts the text in the box |
+| **☆ Save** | Saves the text in the box as a prompt |
+
+**Install (once, about a minute):**
+
+1. Get the repository's files: on GitHub, **Code**, then **Download ZIP**, and unzip it (or `git clone` it).
+2. Open `chrome://extensions` (in Edge, `edge://extensions`), and turn on **Developer mode**.
+3. Press **Load unpacked** and choose the `extensions/chrome` folder.
+4. Open or reload claude.ai. The row appears above the prompt box.
+
+**Your library:** the extension icon in the toolbar opens a popup where you add and delete buttons, delete prompts, and import or export. The file format is the same as `ccb export`, so you can bring your library over from your computer with `ccb export` and take changes back with `ccb import`. The library is kept in Chrome's own sync storage, so Chrome keeps it the same on every computer where you're signed in to Chrome with your Google account. If it grows past what Chrome sync holds (about 90 KB), it stays on that computer only and the popup says so.
+
+**Privacy:** the extension runs only on claude.ai and asks only for the `storage` permission. It sends nothing to any server: the text goes into claude.ai's prompt box, and Claude's own Send button sends it.
+
+If claude.ai changes its page and the row disappears, the extension will need an update; your library is unaffected.
 
 ## 4. The `ccb` command
 

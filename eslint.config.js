@@ -13,6 +13,8 @@ export default tseslint.config(
       "plugins/codex/server/**",
       // a manual browser check (CommonJS, Playwright, browser globals); see docs/decisions.md D37
       "extras/test-page-sync.cjs",
+      "extras/test-chrome-extension.cjs",
+      "extensions/chrome/ccb-core.js",
     ],
   },
   js.configs.recommended,
@@ -21,12 +23,22 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_", ignoreRestSiblings: true },
       ],
     },
   },
   {
     files: ["**/*.mjs"],
-    languageOptions: { globals: { console: "readonly", process: "readonly", URL: "readonly" } },
+    languageOptions: { globals: { console: "readonly", process: "readonly", URL: "readonly", Buffer: "readonly" } },
+  },
+  {
+    // The Chrome extension: plain browser scripts.
+    files: ["extensions/chrome/**/*.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: Object.fromEntries(
+        ["window", "document", "setTimeout", "clearTimeout", "requestAnimationFrame", "MutationObserver", "Event", "InputEvent", "KeyboardEvent", "HTMLTextAreaElement", "URL", "Blob", "crypto", "chrome"].map((g) => [g, "readonly"]),
+      ),
+    },
   },
 );
