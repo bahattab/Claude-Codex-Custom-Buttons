@@ -82,11 +82,11 @@ async function start($: TestEngine): Promise<void> {
   await $.session.start({ cwd: "/", surface: "desktop", isInteractive: true } as never);
 }
 
-test("/cont sends the configured Continue message right after the command returns", async ($, on) => {
+test("/c sends the configured Continue message right after the command returns", async ($, on) => {
   const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "cont", args: "" } as never);
+  await $.command.run({ command: "c", args: "" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Keep going."]); // sent from a timer, no turn end needed (review finding #2)
 });
@@ -96,7 +96,7 @@ test("two commands in one go both send, in order (review finding #5)", async ($,
   const rec = engine(on);
   await start($);
   await $.command.run({ command: "btn", args: "btn_plan" } as never);
-  await $.command.run({ command: "cont", args: "" } as never);
+  await $.command.run({ command: "c", args: "" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API", "Keep going."]);
 });
@@ -105,7 +105,7 @@ test("a refused send waits for the main conversation's next completed turn, not 
   const clock = mock.clock(on);
   const rec = engine(on, { refuseSubmits: 1 });
   await start($);
-  await $.command.run({ command: "cont", args: "" } as never);
+  await $.command.run({ command: "c", args: "" } as never);
   await clock.settle();
   expect(rec.submits).toEqual([]);
   await $.turn.complete({ ...(TURN_DONE as object), agentId: "sub-1" } as never);
