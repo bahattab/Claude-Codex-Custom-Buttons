@@ -19,6 +19,7 @@ import { readClient, refreshClient } from "./client.js";
 import { openTranslate, registerTranslate, startInstant, translateBubble, translateCommand } from "./translate.js";
 import { builtIns as contextValues, callTool, lastUserMessage } from "./mcp.js";
 import { appendToNote, noteText, notesText, openNotes, refreshOpenNote, registerNotes } from "./notes.js";
+import { selfUpdate } from "./update.js";
 
 export const PLUGIN = "prompt-buttons";
 const UNDO_MS = 30_000;
@@ -296,6 +297,11 @@ export const register: Register = (on) => {
     await refreshClient($);
     $.ui.status(STATUS_HINT); // where the app draws no button row (cloud sessions), the commands are the buttons
     startInstant($); // instant translation watches the selection
+    // A cloud session's plugin folder may be older than the repository: bring it up to date
+    // without holding up the start; the session reloads the plugin when the files change.
+    $.clock.after(0, async () => {
+      if ((await selfUpdate($)) === "updated") $.ui.toast("Prompt Buttons updated. The new version loads after this reply.");
+    });
     return result;
   });
 
