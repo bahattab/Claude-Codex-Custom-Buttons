@@ -237,3 +237,4 @@ Delivered in two parts: **M5a** (sync engine, both modes, sign-in, commands and 
 - Codex prompt-submit hook to expand `{{variables}}` typed directly.
 - Sharing a category with another Google account.
 - Import from other prompt managers.
+- Sidebar page, Google Drive sync: confirmed on 2026-11-13 that the published page writes its device file through the real connector. Still to check on a computer: the plugin in Drive-folder mode picking up the page's changes through Google Drive for desktop.
