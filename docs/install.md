@@ -78,7 +78,7 @@ What works in a cloud session:
 
 - **Works:** the `/` commands below, and the Prompt Bank, Notes, Translate and settings by asking Claude ("show my prompt bank", "translate this to English").
 - **Doesn't show:** the button row above the prompt box, or any of the plugin's panes. In a cloud session the Claude desktop app draws only the plugin's text: command output and the status line (checked 2026-11-14: a row above the prompt box, a pane, buttons in a command's output and buttons under a reply all stayed hidden).
-- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /r · /t · /p · /n · /btn`.
+- **Shows:** a line in the status bar, under the prompt box, naming the short commands: `Buttons: /c · /r · /t · /p · /n · /b`.
 
 The short commands run straight away, without Claude reading instructions first, and answer in text where a pane would open on your computer:
 
@@ -89,7 +89,7 @@ The short commands run straight away, without Claude reading instructions first,
 | `/t [to <language>:] [text]` | **Translate** the text, your draft or your last message; the translation is the command's answer |
 | `/p [search]` | **Prompts**: a numbered list of your prompts; `/p use 2` puts number 2 in the prompt box, `/p send 2` sends it, `/p save <title>` saves the prompt box |
 | `/n [read <n> \| text]` | **Notes**: a numbered list; `/n read 1` shows one; `/n <text>` adds to a note |
-| `/btn [name]` | Press one of your own buttons by its name; with no name, lists them |
+| `/b [name]` | Press one of your own buttons by its name; with no name, lists them |
 
 These longer commands do the same through Claude, and also work in local sessions:
 

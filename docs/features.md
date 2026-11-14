@@ -23,7 +23,7 @@ There is deliberately **no** action type that runs shell commands, scripts or ar
 
 ### Behaviour
 
-- **CC:** buttons appear in a row above the prompt box, after the built-in Continue and Regenerate buttons (Notes and Prompts join them in M4). The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/btn <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
+- **CC:** buttons appear in a row above the prompt box, after the built-in Continue and Regenerate buttons (Notes and Prompts join them in M4). The row hides itself when empty space is short and keeps the first N buttons (`buttons.maxVisible`, default 6). `/b <id>` runs any button. Buttons are created and edited in the Prompt Bank pane's **Buttons** tab.
 - **CX:** buttons of type `submit` and `fill` become generated Codex skills, used as `$ccb-<name>` and rewritten automatically after every change and sync. Other types map to the matching built-in skill.
 - **CD:** not available. Buttons of type `submit` are exposed as MCP prompts.
 

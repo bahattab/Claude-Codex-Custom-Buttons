@@ -95,7 +95,7 @@ test("two commands in one go both send, in order (review finding #5)", async ($,
   const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "btn", args: "btn_plan" } as never);
+  await $.command.run({ command: "b", args: "btn_plan" } as never);
   await $.command.run({ command: "c", args: "" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API", "Keep going."]);
@@ -315,18 +315,18 @@ test("a button whose prompt was deleted explains instead of sending", async ($, 
   await ui.unmount();
 });
 
-test("/btn runs a button, and explains unknown or missing ids", async ($, on) => {
+test("/b runs a button, and explains unknown or missing ids", async ($, on) => {
   const clock = mock.clock(on);
   const rec = engine(on);
   await start($);
-  await $.command.run({ command: "btn", args: "btn_plan" } as never);
+  await $.command.run({ command: "b", args: "btn_plan" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API"]);
-  const unknown = (await $.command.run({ command: "btn", args: "btn_nope" } as never)) as { text?: string };
+  const unknown = (await $.command.run({ command: "b", args: "btn_nope" } as never)) as { text?: string };
   expect(unknown.text).toMatch(/No button "btn_nope"\. Your buttons: `Plan`/);
-  const usage = (await $.command.run({ command: "btn", args: "" } as never)) as { text?: string };
-  expect(usage.text).toMatch(/Run one with `\/btn <name>`/);
-  await $.command.run({ command: "btn", args: "plan" } as never);
+  const usage = (await $.command.run({ command: "b", args: "" } as never)) as { text?: string };
+  expect(usage.text).toMatch(/Run one with `\/b <name>`/);
+  await $.command.run({ command: "b", args: "plan" } as never);
   await clock.settle();
   expect(rec.submits).toEqual(["Plan my day for Billing API", "Plan my day for Billing API"]);
 });

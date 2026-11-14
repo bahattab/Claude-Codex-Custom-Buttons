@@ -10,7 +10,7 @@
 
 | Feature | What you get | Claude Code / Claude Desktop (Code tab) | Codex | Claude Desktop (Chat tab) |
 |---|---|---|---|---|
-| **Custom action buttons** | Define your own buttons once; each runs an action such as "send this prompt", "fill the prompt box" or "open a pane" | Clickable buttons in a row above the prompt box, plus `/btn <id>` | Generated skills, used as `$ccb-<id>` | Not available (no button API) |
+| **Custom action buttons** | Define your own buttons once; each runs an action such as "send this prompt", "fill the prompt box" or "open a pane" | Clickable buttons in a row above the prompt box, plus `/b <id>` | Generated skills, used as `$ccb-<id>` | Not available (no button API) |
 | **Regenerate Prompt** | Takes your selected text, your draft or your last message, rewrites it into a clearer prompt and puts it back in the prompt box for review (auto-submit optional) | Button + `/r` | `regenerate-prompt` skill | Saved prompt via the "+" menu |
 | **Continue** | Sends a standard continuation message to finish a cut-off reply or workflow | Button + `/c` (highlighted when the last reply was cut off) | `continue` skill | Saved prompt via the "+" menu |
 | **Notes** | A scratchpad beside the chat that saves itself as you type and syncs through Google Drive, so you can open and edit notes from any PC | Side pane + `/n` | `notes` skill (same synced notes) | Read/append through MCP tools |
@@ -75,7 +75,7 @@ Requirements: Node.js 22.12 or newer, and a Google account for sync.
 /plugin install prompt-buttons --marketplace bahattab/Claude-Codex-Custom-Buttons
 ```
 
-The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is public, so no GitHub sign-in is needed. To get the plugin in cloud sessions too, see [Cloud sessions](docs/install.md#cloud-sessions). You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/c`, `/r`, `/btn`, `/p`, `/n` and `/t`.
+The plugin is called `prompt-buttons`, because Claude Code reserves names starting with `claude-`. This one-step install needs Claude Code 2.1.275 or later; see [docs/platforms/claude-code.md](docs/platforms/claude-code.md#install) for older versions. The repository is public, so no GitHub sign-in is needed. To get the plugin in cloud sessions too, see [Cloud sessions](docs/install.md#cloud-sessions). You get the button row (Continue, Regenerate, Prompts, Notes, Translate, your buttons, Sync), the Prompt Bank, Notes and Translate panes, and `/c`, `/r`, `/b`, `/p`, `/n` and `/t`.
 
 ### 2. Codex
 

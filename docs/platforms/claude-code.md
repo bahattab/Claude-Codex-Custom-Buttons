@@ -25,7 +25,7 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 | `/c` | Continue. (`/continue` is a built-in Claude Code command, so the plugin can't use that name.) |
 | `/r [instruction]` | Regenerate, with an optional extra instruction such as `/r make it shorter` |
 | `/r undo` | Put back the text from before the last Regenerate |
-| `/btn <id>` | Run a custom button by its ID; `/btn` alone lists them |
+| `/b <id>` | Run a custom button by its ID; `/b` alone lists them |
 | **Prompt Bank** pane (**Prompts** button, `/p`) | Search while typing, category filter, favourites only. Each prompt: **Insert**, **Send**, **Copy**, **Edit**, **Duplicate**, **Delete** (asks first, with **Undo delete**). **New** and **Save draft** open an edit form whose text survives closing the pane. **Variables** tab: set, add and delete `{{variables}}`. **Buttons** tab: make a button of any action type, or delete one; the row updates at once |
 | **Notes** pane (**Notes** button, `/n`) | Note picker (pinned first), multi-line editor that saves on its own after `notes.autosaveMs`, **New**, **Rename**, **Pin**, **Copy**, **Insert into prompt**, **Delete** (asks first). If the note changed elsewhere while you have unsaved text, choose **Keep mine** or **Load theirs** |
 | `/p <search>`, `/p save <title>` | Open the Prompt Bank searching; save the prompt box's text as a prompt |
@@ -42,7 +42,7 @@ Requirements: Node.js 22 or newer on the computer, which runs the bundled `ccb-m
 
 ### How slash commands send their message
 
-Claude Code refuses `$.prompt.submit` from inside a slash command's hook, because the command holds the turn the submit would wait for. So `/c`, `/btn` and `/r` with auto-submit:
+Claude Code refuses `$.prompt.submit` from inside a slash command's hook, because the command holds the turn the submit would wait for. So `/c`, `/b` and `/r` with auto-submit:
 
 1. queue the message;
 2. send it from a timer just after the command returns;
