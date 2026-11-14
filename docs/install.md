@@ -115,6 +115,8 @@ With the plugin's Google Drive API mode instead of the folder mode, the page sti
 
 To publish your own copy, ask Claude in any session to publish `extras/prompt-buttons-page.html` as an Artifact with the `db`, `user`, `sample` and `downloads` capabilities and the Google Drive connector tools `search_files`, `download_file_content`, `create_file` and `trash_file`, and pin it.
 
+**Keep the page beside a session.** In a Claude Desktop Code session, click the globe icon in the session's top bar (next to the `⋯` menu) and open the page's link there: it opens in a panel beside the session, so you can copy a button's text and paste it without switching views. The `⋯` menu itself has no entry for pages. Elsewhere, open the link from **Pinned**, or in a browser window placed beside Claude.
+
 A newly pinned page shows under **Pinned** only after the sidebar reloads: press `Ctrl+R` (`Cmd+R` on a Mac) in Claude Desktop, or reopen the app. Until then it is under **Artifacts**.
 
 ## 2. Codex
@@ -279,6 +281,7 @@ Full list: [Configuration](configuration.md).
 | Problem | What to do |
 |---|---|
 | "Failed to add marketplace" | Check the computer can reach github.com; update Claude Desktop or Claude Code, then try again |
+| Prompt Buttons page not inside a session | Open its link with the globe icon in the session's top bar; the `⋯` menu has no entry for pages |
 | Prompt Buttons page not in the sidebar | Reload the sidebar (`Ctrl+R`, `Cmd+R` on a Mac) or reopen the app; it is also under **Artifacts** |
 | No buttons in a cloud session | Expected until the setup script installs the plugin; see [Cloud sessions](#cloud-sessions) |
 | No buttons in Claude Code | Restart Claude Code; run `/plugin` to check `prompt-buttons` is enabled; check `node --version` is 22.12 or newer |
