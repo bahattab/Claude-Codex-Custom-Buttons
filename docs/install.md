@@ -55,16 +55,24 @@ The Code tab of Claude Desktop uses the same plugin: installing it once in Claud
 Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) start on a fresh computer every time, so a plugin installed on your own computer isn't there. Install it from the cloud environment's **setup script**, which runs at the start of every new session:
 
 1. Open a cloud session, click the environment name in the session's title bar, then **Edit**.
-2. Add these two lines at the end of **Setup script**:
+2. Add these lines at the end of **Setup script**:
 
    ```bash
    claude plugin marketplace add bahattab/Claude-Codex-Custom-Buttons || true
    claude plugin install prompt-buttons@ccb || true
+   rm -rf /opt/ccb
+   git clone -q --depth 1 https://github.com/bahattab/Claude-Codex-Custom-Buttons /opt/ccb || true
    ```
 
-3. Save, then start a **new** cloud session (an open session doesn't run the script again).
+3. Under **Environment variables**, add:
 
-`|| true` keeps a session starting even if the install fails. Running the lines again is safe: they report "already installed".
+   ```
+   CLAUDE_CODE_PLUGIN_DIRS=/opt/ccb/plugins/claude
+   ```
+
+4. Save, then start a **new** cloud session (an open session doesn't run the script again). Send a first message; the plugin's commands appear once the session has started.
+
+The first two lines install the plugin: its skills (`/prompt-buttons:...`) and its MCP server. A cloud session doesn't load the commands of an installed plugin's mod (`/c`, `/t`, `/pb` and the others); it loads them from a plugin folder named in `CLAUDE_CODE_PLUGIN_DIRS`, which the `git clone` line downloads. Claude can add the script lines for you but not the variable: you add that yourself. `|| true` keeps a session starting even if a step fails.
 
 What works in a cloud session:
 
