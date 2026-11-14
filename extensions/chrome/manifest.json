@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Claude Codex Custom Buttons",
   "short_name": "Prompt Buttons",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Continue, Regenerate, Translate, your own buttons and your Prompt Bank above the prompt box on claude.ai, including cloud sessions. Nothing leaves your browser.",
   "icons": { "16": "icon.png", "48": "icon.png", "128": "icon.png" },
   "action": { "default_title": "Prompt Buttons", "default_popup": "popup.html" },

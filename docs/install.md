@@ -62,6 +62,7 @@ Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) st
    claude plugin install prompt-buttons@ccb || true
    rm -rf /opt/ccb
    git clone -q --depth 1 https://github.com/bahattab/Claude-Codex-Custom-Buttons /opt/ccb || true
+   touch /opt/ccb/.ccb-auto-update
    ```
 
 3. Under **Environment variables**, add:
@@ -72,7 +73,9 @@ Cloud sessions (claude.ai/code, and the **Cloud** sessions in Claude Desktop) st
 
 4. Save, then start a **new** cloud session (an open session doesn't run the script again). Send a first message; the plugin's commands appear once the session has started.
 
-The first two lines install the plugin: its skills (`/prompt-buttons:...`) and its MCP server. A cloud session doesn't load the commands of an installed plugin's mod (`/c`, `/t`, `/p` and the others); it loads them from a plugin folder named in `CLAUDE_CODE_PLUGIN_DIRS`, which the `git clone` line downloads. Claude can add the script lines for you but not the variable: you add that yourself. `|| true` keeps a session starting even if a step fails.
+The first two lines install the plugin: its skills (`/prompt-buttons:...`) and its MCP server. A cloud session doesn't load the commands of an installed plugin's mod (`/c`, `/t`, `/p` and the others); it loads them from a plugin folder named in `CLAUDE_CODE_PLUGIN_DIRS`, which the `git clone` line downloads. Claude can add the script lines for you but not the variable: you add that yourself.
+
+The cloud service can prepare a machine before you open a session, so its copy may be older than the repository. The `.ccb-auto-update` file turns on self-update: at each session start the plugin runs `git pull` in `/opt/ccb`, and when that brings a new version the session reloads the plugin after the first reply (a note says so). Without the file, nothing is pulled, so a working copy you develop in is never changed. `|| true` keeps a session starting even if a step fails.
 
 What works in a cloud session:
 
