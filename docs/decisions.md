@@ -238,3 +238,4 @@ Each decision records the options considered, the choice and why. All were appro
 - **Later the same day:** at the owner's request, Regenerate's command is `/r` and Notes' is `/n` (they were `/regen` and `/notes`).
 - **Later the same day:** Prompts' command is `/p` (it was `/pb`).
 - **Later the same day:** the custom buttons' command is `/b` (it was `/btn`).
+- **The `/` menu (checked the same day):** the desktop app shows a mod command's `description` in a box beside the highlighted entry, so each description starts with its button's name ("Continue: …"). The "Custom command" label some entries carry is the app's own and a plugin can't set it.
